@@ -17,7 +17,7 @@ function supported(position, solids) {
     overlaps(position, box, 'x') && overlaps(position, box, 'z') &&
     Math.abs(position.y - bounds(box, 'y')[1]) < EPSILON);
 }
-function sweep(position, axis, delta, solids) {
+function sweep(position, axis, delta, solids, limits) {
   if (!delta) return false;
   const otherAxes = ['x', 'y', 'z'].filter(a => a !== axis);
   const lowOffset = axis === 'y' ? 0 : PLAYER_RADIUS;
@@ -34,7 +34,7 @@ function sweep(position, axis, delta, solids) {
     }
   }
   if (axis === 'y') end = Math.max(0, end);
-  else end = Math.max(axis === 'x' ? -10 : -9, Math.min(axis === 'x' ? 10 : 9, end));
+  else end = Math.max(limits[axis][0], Math.min(limits[axis][1], end));
   position[axis] = end;
   return Math.abs(end - (start + delta)) > EPSILON;
 }
@@ -43,7 +43,7 @@ export function createPhysicsState() {
   return { velocity: 0, grounded: true };
 }
 
-export function movePlayer(position, state, { dt, vx = 0, vz = 0, jump = false }, solids) {
+export function movePlayer(position, state, { dt, vx = 0, vz = 0, jump = false, limits = { x: [-10,10], z: [-9,9] } }, solids) {
   if (!(dt > 0)) return;
   // Recheck support before jumping: removing a block or walking off it cannot grant an air jump.
   state.grounded = supported(position, solids) && state.velocity <= 0;
@@ -56,10 +56,10 @@ export function movePlayer(position, state, { dt, vx = 0, vz = 0, jump = false }
   const steps = Math.ceil(duration / (1 / 120));
   const step = duration / steps;
   for (let i = 0; i < steps; i++) {
-    sweep(position, 'x', vx * step, solids);
-    sweep(position, 'z', vz * step, solids);
+    sweep(position, 'x', vx * step, solids, limits);
+    sweep(position, 'z', vz * step, solids, limits);
     state.velocity -= 16 * step;
-    if (sweep(position, 'y', state.velocity * step, solids)) state.velocity = 0;
+    if (sweep(position, 'y', state.velocity * step, solids, limits)) state.velocity = 0;
     state.grounded = state.velocity <= 0 && supported(position, solids);
     if (state.grounded) state.velocity = 0;
   }
