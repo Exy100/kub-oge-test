@@ -3,7 +3,7 @@ import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=4';
 import { createLearningHub } from './learning-hub.js';
-import { createForge } from './forge.js?v=5';
+import { createForge } from './forge.js?v=12';
 import { loadAppearance } from './appearance.js';
 import { createCustomizer } from './customizer.js';
 import { followCamera } from './follow-camera.js';
@@ -75,7 +75,7 @@ function spawnPickups(state){
   if(state.index>1)return;
   const entries=state.index===0 ? [[-4,3,0],[3,4,0],[-5,-4,0],[5,-3,0],[-7,5,0],[7,4,0],[3,-6,0]] :
     [0,2,3].flatMap((material,group)=>Array.from({length:7},(_,i)=>[33+group*6+(i%2)*1.3, [-6,-4,1,4.5][Math.floor(i/2)], material]));
-  entries.forEach(([x,z,material])=>{const m=box(x,.55,z,.65,.65,.65,mats[material]);m.userData.material=material;state.pickups.push(m)});
+  entries.forEach(([x,z,material],phase)=>{const m=box(x,.55,z,.65,.65,.65,mats[material]);m.userData.material=material;m.userData.animationPhase=phase;state.pickups.push(m)});
 }
 stages.forEach(spawnPickups);
 function refreshMission(){
@@ -190,7 +190,7 @@ if(active){
 jumpRequested=false;
 player.rotation.y=yaw;
 character.animate(dt,{dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,grounded:physics.grounded,velocity:physics.velocity,time:now/1000});
-const eye=player.position.clone().add(new THREE.Vector3(0,1.5,0));const look=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));if(third){followCamera(camera,eye,look,[...solids,exitGlow,secondGlow,...returnGlows,...forge.cameraObstacles])}else{camera.position.copy(eye);camera.lookAt(eye.clone().add(look))}stage.pickups.forEach((m,i)=>{m.rotation.y=now*.0008+i;m.position.y=.65+Math.sin(now*.002+i)*.12});if(now>noticeUntil&&noticeUntil){$('#message').textContent='✦ Наведи прицел на куб и нажми ЛКМ';noticeUntil=0}hub.update(player.position,now/1000,active);
+const eye=player.position.clone().add(new THREE.Vector3(0,1.5,0));const look=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));if(third){followCamera(camera,eye,look,[...solids,exitGlow,secondGlow,...returnGlows,...forge.cameraObstacles])}else{camera.position.copy(eye);camera.lookAt(eye.clone().add(look))}stage.pickups.forEach(m=>{const phase=m.userData.animationPhase;m.rotation.y=now*.0008+phase;m.position.y=.65+Math.sin(now*.002+phase)*.12});if(now>noticeUntil&&noticeUntil){$('#message').textContent='✦ Наведи прицел на куб и нажми ЛКМ';noticeUntil=0}hub.update(player.position,now/1000,active);
 const route=nearbyRoute(),travelButton=$('#travel-prompt');travelButton.hidden=!active||!route;
 if(route)travelButton.textContent=route.ready?route.label:route.locked;
 for(const portal of [exitGlow,secondGlow,...returnGlows])portal.material.opacity=.4+Math.sin(now*.002)*.12;

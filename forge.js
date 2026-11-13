@@ -129,7 +129,7 @@ export function createForge({ scene, box, solids, onOpen, onChange, notify }) {
         document.querySelectorAll('.bit-slot').forEach((button,i)=>{if(state.slots[i])button.textContent=String(bitValue(second,i))});
         slotMeshes.forEach((m,i)=>{if(state.slots[i])m.material=digits[bitValue(second,i)]});
       }
-      pickups.forEach((m,i)=>{m.rotation.y=time*.35+i;m.position.y=.7+Math.sin(time*2+i)*.08});
+      pickups.forEach(m=>{const phase=m.userData.seed;m.rotation.y=time*.35+phase;m.position.y=.7+Math.sin(time*2+phase)*.08});
       bytePickups.forEach(m=>{m.rotation.y=Math.sin(time*.5)*.25;bytes.animate(m,time)});deposited.forEach(m=>bytes.animate(m,time));
       crown.rotation.y=time*.45;gateway.material.opacity=.38+Math.sin(time*2)*.1;
     },
