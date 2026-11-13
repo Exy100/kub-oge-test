@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import {createNavigator} from './navigator-model.js?v=10';
+import {createNavigator} from './navigator-model.js?v=11';
 
 export function createLiveNavigator(button,initialId){
   const fallback=button.querySelector('img');

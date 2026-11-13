@@ -16,14 +16,14 @@ export function createNavigator(id){
   const root=new THREE.Group();root.name=`navigator-${id}`;
   const geometries=[],materials=[];
   const material=(color,extra={})=>{const m=new THREE.MeshStandardMaterial({color,roughness:.48,...extra});materials.push(m);return m};
-  const cream=material(id===27?0xf0f4ee:0xeee0bf),accent=material(({8:0x7e8b5c,11:0xc97832,19:0x96b6de,27:0x759daa})[id]);
-  const metal=material(id===27?0x89979d:0xb29259,{metalness:.65,roughness:.33});
+  const cream=material(id===19?0xe0ebf4:id===27?0xf0f4ee:0xeee0bf),accent=material(({8:0x7e8b5c,11:0xc97832,19:0x96b6de,27:0x759daa})[id]);
+  const metal=material(id===19?0x9eafc5:id===27?0x89979d:0xb29259,{metalness:.65,roughness:.33});
   const dark=material(0x29383c),rubber=material(0x39464b,{roughness:.85});
   const light=material(id===19?0x94e8ff:id===11?0xffd390:0xd9f5d9,{emissive:id===19?0x61bdff:0xabc392,emissiveIntensity:.9});
   const glass=material(0xb7d1f5,{transparent:true,opacity:.43,metalness:.1,roughness:.18,depthWrite:false});
   const shape=new THREE.Shape();shape.moveTo(-.35,-.45);shape.lineTo(.35,-.45);shape.quadraticCurveTo(.45,-.45,.45,-.35);shape.lineTo(.45,.35);shape.quadraticCurveTo(.45,.45,.35,.45);shape.lineTo(-.35,.45);shape.quadraticCurveTo(-.45,.45,-.45,.35);shape.lineTo(-.45,-.35);shape.quadraticCurveTo(-.45,-.45,-.35,-.45);
   const box=new THREE.ExtrudeGeometry(shape,{depth:.8,bevelEnabled:true,bevelThickness:.1,bevelSize:.05,bevelSegments:4,curveSegments:5,steps:1});box.translate(0,0,-.4);
-  const sphere=new THREE.SphereGeometry(1,24,16),cylinder=new THREE.CylinderGeometry(1,1,1,24),torus=new THREE.TorusGeometry(1,.14,8,32);
+  const sphere=new THREE.SphereGeometry(1,24,16),cylinder=new THREE.CylinderGeometry(1,1,1,id===19?48:24),torus=new THREE.TorusGeometry(1,.14,8,32);
   geometries.push(box,sphere,cylinder,torus);
   function part(name,g,m,x,y,z,sx,sy,sz){const mesh=new THREE.Mesh(g,m);mesh.name=name;mesh.position.set(x,y,z);mesh.scale.set(sx,sy,sz);root.add(mesh);return mesh}
   const block=(name,m,x,y,z,sx,sy,sz)=>part(name,box,m,x,y,z,sx,sy,sz);
@@ -32,13 +32,28 @@ export function createNavigator(id){
   const wheeled=id===19;
   // Robots face +Z. The UI camera shows the front and their left side.
   if(wheeled){
-    orb('glass-body',glass,0,.6,0,.59,.43,.43);
-    block('inner-core',dark,0,.63,0,.54,.39,.35);
-    for(let i=0;i<4;i++)block('data-bit',light,(i%2-.5)*.17,.55+Math.floor(i/2)*.17,.21,.1,.1,.1);
+    // One compact pod; cool materials replace the separated box head and exposed core.
+    orb('pod-chassis',cream,0,.57,0,.52,.29,.39);
+    orb('glass-body',glass,0,.73,0,.51,.29,.39);
+    block('data-display-frame',metal,0,.69,.378,.51,.22,.045);
+    block('inner-core',dark,0,.69,.401,.46,.175,.018);
+    const indicator=material(0x8ae2ef,{emissive:0x4bafca,emissiveIntensity:.35});
+    for(let i=0;i<6;i++){
+      const x=(i-2.5)*.072;
+      if(i%2)block('binary-one',indicator,x,.69,.42,.014,.066,.012);
+      else part('binary-zero',torus,indicator,x,.69,.42,.019,.031,.012);
+    }
+    const ringGeometry=new THREE.TorusGeometry(.252,.013,10,48);geometries.push(ringGeometry);
+    const lamp=material(0x94e6fa,{emissive:0x4cacc9,emissiveIntensity:.45,roughness:.25});
     for(const side of [-1,1]){
-      const wheel=part('wheel',cylinder,rubber,side*.53,.3,0,.29,.2,.29);wheel.rotation.z=Math.PI/2;
-      const hub=part('wheel-hub',cylinder,metal,side*.64,.3,0,.23,.025,.23);hub.rotation.z=Math.PI/2;
-      const ring=part('wheel-light',torus,light,side*.66,.3,0,.19,.19,.19);ring.rotation.y=Math.PI/2;
+      const wheel=part('wheel',cylinder,rubber,side*.55,.35,0,.34,.24,.34);wheel.rotation.z=Math.PI/2;
+      const hub=part('wheel-hub',cylinder,metal,side*.676,.35,0,.291,.018,.291);hub.rotation.z=Math.PI/2;
+      const recess=part('wheel-recess',cylinder,dark,side*.688,.35,0,.267,.012,.267);recess.rotation.z=Math.PI/2;
+      const ring=part('wheel-light',ringGeometry,lamp,side*.699,.35,0,1,1,1);ring.rotation.y=side*Math.PI/2;
+      const cap=part('wheel-cap',cylinder,accent,side*.7,.35,0,.222,.014,.222);cap.rotation.z=Math.PI/2;
+      const axle=part('axle-cap',cylinder,metal,side*.713,.35,0,.065,.015,.065);axle.rotation.z=Math.PI/2;
+      orb('headlight-housing',dark,side*.32,.55,.326,.065,.036,.025);
+      orb('headlight',lamp,side*.32,.55,.35,.042,.017,.009);
     }
   }else{
     block('body',cream,0,.99,0,.65,.64,.42);
@@ -69,7 +84,7 @@ export function createNavigator(id){
   const arms=[];
   function adopt(group,parts){root.updateMatrixWorld(true);for(const part of parts)group.attach(part)}
   for(const side of [-1,1]){
-    const arm=new THREE.Group();arm.name=side<0?'wave-arm':'rest-arm';arm.position.set(side*(wheeled?.49:.4),wheeled?.85:1.22,0);root.add(arm);
+    const arm=new THREE.Group();arm.name=side<0?'wave-arm':'rest-arm';arm.position.set(side*(wheeled?.49:.4),wheeled?.97:1.22,0);root.add(arm);
     let start=root.children.length;
     orb('shoulder',metal,arm.position.x,arm.position.y,0,.1);
     block('upper-arm',cream,arm.position.x+side*.05,arm.position.y-.14,0,.18,.23,.21);
@@ -82,11 +97,10 @@ export function createNavigator(id){
     block('glove',cream,x,y-.2,.045,.19,.17,.19);
     for(let f=0;f<3;f++)block('finger',cream,x+(f-1)*.052,y-.26,.065,.042,.08,.13);
     orb('thumb',cream,x-side*.11,y-.19,.09,.045,.065,.05);
-    adopt(elbow,root.children.slice(start));arms.push({arm,elbow,side});
+    adopt(elbow,root.children.slice(start));if(wheeled){arm.scale.setScalar(.68);arm.position.z=.15}arms.push({arm,elbow,side});
   }
   if(wheeled){
-    block('lower-bumper',metal,0,.37,.23,.62,.08,.19);
-    for(const side of [-1,1])block('canopy-support',cream,side*.39,.85,0,.08,.32,.32);
+    const bumper=part('lower-bumper',torus,metal,0,.45,0,.47,.32,.18);bumper.rotation.x=Math.PI/2;
   }else{
     block('collar',metal,0,1.34,0,.32,.09,.25);
     for(const side of [-1,1]){
@@ -96,17 +110,23 @@ export function createNavigator(id){
     }
   }
   const headStart=root.children.length;
-  const hy=wheeled?1.14:1.68;
+  const hy=wheeled?1.04:1.68;
   if(id===11)orb('head-shell',cream,0,hy,-.045,.47,.41,.34);
-  else if(wheeled)orb('head-shell',glass,0,hy,-.02,.46,.35,.35);
+  else if(wheeled)orb('head-shell',glass,0,hy,-.025,.49,.35,.36);
   else block('head-shell',cream,0,hy,0,.93,.7,.62);
-  block('screen-rim',id===19?metal:accent,0,hy,.315,.76,.51,.075);
-  block('face-screen',dark,0,hy,.363,.66,.42,.045);
-  for(const side of [-1,1]){
-    orb('eye',light,side*.16,hy+.025,.395,.035,.075,.014);
-    orb('ear-cap',metal,side*.45,hy,0,.055,.11,.12);
+  if(wheeled){
+    orb('screen-rim',metal,0,hy,.275,.454,.254,.11);
+    orb('face-screen',dark,0,hy,.31,.43,.229,.105);
+  }else{
+    block('screen-rim',accent,0,hy,.315,.76,.51,.075);
+    block('face-screen',dark,0,hy,.363,.66,.42,.045);
   }
-  tube('smile',light,[[-.07,hy-.09,.397],[0,hy-.12,.4],[.07,hy-.09,.397]],.012);
+  for(const side of [-1,1]){
+    orb('eye',light,side*.16,hy+.025,wheeled?.42:.395,.035,.075,.014);
+    if(!wheeled)orb('ear-cap',metal,side*.45,hy,0,.055,.11,.12);
+  }
+  const smileZ=wheeled?.414:.397;
+  tube('smile',light,[[-.07,hy-.09,smileZ],[0,hy-.12,smileZ],[.07,hy-.09,smileZ]],.012);
   if(id===8){
     block('forehead-plate',accent,0,hy+.32,0,.56,.08,.45);
     for(const side of [-1,1]){part('goggle-rim',torus,metal,side*.18,hy+.32,.15,.125,.125,.09);orb('goggle-lens',dark,side*.18,hy+.32,.15,.095,.095,.035)}

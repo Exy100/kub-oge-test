@@ -1,7 +1,7 @@
-import { createLiveNavigator } from './navigator-live.js?v=10';
-import { createNavigatorSpeech } from './navigator-speech.js?v=10';
-import { createNavigatorChoice } from './navigator-choice.js?v=10';
-import { NAVIGATORS } from './navigator-model.js?v=10';
+import { createLiveNavigator } from './navigator-live.js?v=11';
+import { createNavigatorSpeech } from './navigator-speech.js?v=11';
+import { createNavigatorChoice } from './navigator-choice.js?v=11';
+import { NAVIGATORS } from './navigator-model.js?v=11';
 // Physical codes keep chords identical on Russian and English layouts.
 export function createPanelKeys({ switchMode, navigator, camera }) {
   const held = new Set(); let chord = false;
