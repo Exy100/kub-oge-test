@@ -1,4 +1,4 @@
-import { equipGatheringWand } from './gathering-wand.js?v=13';
+import { equipGatheringWand } from './gathering-wand.js?v=14';
 import { createPlayerPanel } from './player-panel.js?v=13';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
@@ -65,6 +65,7 @@ for(const center of [46,86,126]){
   returnGlows.push(glow(center,1.45,6,1.7,2.9,0x74e8d4));
 }
 const character=createCharacter(loadAppearance()), player=character.root;scene.add(player);
+const reducedHandMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const gathering=equipGatheringWand({character,camera,scene,renderer});
 player.position.set(0,0,6);let yaw=0,pitch=.23,third=true,selected=0;const physics=createPhysicsState();let jumpRequested=false;const keys={},ray=new THREE.Raycaster();let last=performance.now(),noticeUntil=0;
 const hub=createLearningHub({scene,box,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChoose(path,saved){notify(saved?`Выбрано: ${path.title}. Можно сменить в «Направлениях».`:`Выбрано: ${path.title}. Выбор действует до закрытия страницы.`);}});
@@ -199,5 +200,5 @@ if(route)travelButton.textContent=route.ready?route.label:route.locked;
 for(const portal of [exitGlow,secondGlow,...returnGlows])portal.material.opacity=.4+Math.sin(now*.002)*.12;
 forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!hub.isOpen()&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);
-gathering.update(dt,now/1000,{active,third,visible:!panel.isBattle()});
+gathering.update(dt,now/1000,{active,third,visible:!panel.isBattle(),dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
 if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
