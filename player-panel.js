@@ -1,3 +1,4 @@
+import { createNavigatorSpeech } from './navigator-speech.js?v=9';
 import { createNavigatorChoice } from './navigator-choice.js?v=8';
 import { NAVIGATORS } from './navigator-model.js?v=8';
 // Physical codes keep chords identical on Russian and English layouts.
@@ -54,9 +55,10 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked }) 
   document.body.append(dialog,arsenal);
   if(choice.selected())$('#navigator-title').textContent='Навигатор · '+NAVIGATORS.find(n=>n.id===choice.selected()).name;
   $('#navigator-change').onclick=()=>{dialog.close();choice.open()};
+  const speech=createNavigatorSpeech({dialog,getText:()=>$('#navigator-task').textContent+' '+$('#navigator-progress').textContent});
   let mode='build';
   const open=d=>{if(blocked())return;onOpen();d.showModal()};
-  function showNavigator(){if(dialog.open){dialog.close();return}$('#navigator-task').textContent=mission().text;$('#navigator-progress').textContent=mission().progress;open(dialog)}
+  function showNavigator(){if(dialog.open){dialog.close();return}$('#navigator-task').textContent=mission().text;$('#navigator-progress').textContent=mission().progress;open(dialog);if(dialog.open)speech.open()}
   function switchMode(){mode=mode==='build'?'battle':'build';dock.dataset.mode=mode;document.body.classList.toggle('battle-mode',mode==='battle');hotbar.hidden=mode!=='build';battle.hidden=mode!=='battle';$('#weapons-button').hidden=mode!=='battle';dock.querySelector('.dock-ornament').hidden=mode!=='build';$('#dock-mode').textContent=mode==='build'?'СБОРКА':'СРАЖЕНИЕ';$('#material').hidden=mode!=='build';notify(mode==='build'?'Сборка · материалы и постройки':'Сражение · навыки пока недоступны');}
   $('#navigator-button').onclick=showNavigator;$('#mode-switch').onclick=()=>{if(!blocked())switchMode()};$('#weapons-button').onclick=()=>open(arsenal);
   for(const d of [dialog,arsenal]){d.querySelector('.paths-heading button').onclick=()=>d.close();d.addEventListener('close',()=>input.clear());}
