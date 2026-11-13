@@ -22,7 +22,7 @@ window.storyTest={
  viewArch(){player.position.set(86,0,1);yaw=0;pitch=.15}
 };`}));
 const assert=(ok,msg)=>{if(!ok)throw Error(msg)};
-await page.goto('http://127.0.0.1:8050');await page.locator('#play').click();
+await page.goto('http://127.0.0.1:8050');if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();
 await page.evaluate(()=>{document.exitPointerLock();window.storyTest.nearHub()});await page.waitForFunction(()=>!document.querySelector('#portal-prompt').hidden);await page.keyboard.press('e');
 assert(await page.locator('#paths-dialog').evaluate(e=>e.open),'hub opens with E');
 await page.locator('[data-choose="code"]').click();assert((await page.locator('#chosen-path').textContent()).includes('программирования'),'path selection');
