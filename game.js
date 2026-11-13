@@ -1,8 +1,11 @@
 import * as THREE from './vendor/three.module.js';
-import { createCharacter } from './character.js';
+import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=4';
 import { createLearningHub } from './learning-hub.js';
-import { createForge } from './forge.js';
+import { createForge } from './forge.js?v=5';
+import { loadAppearance } from './appearance.js';
+import { createCustomizer } from './customizer.js';
+import { followCamera } from './follow-camera.js';
 import { createStage, placeTarget, removeTarget, isLimited, MATERIAL_NAMES } from './progression.js';
 const $=s=>document.querySelector(s), scene=new THREE.Scene();scene.background=new THREE.Color('#c9dfda');scene.fog=new THREE.Fog('#c9dfda',35,85);
 const renderer=new THREE.WebGLRenderer({canvas:$('#world'),antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;
@@ -59,11 +62,12 @@ for(const center of [46,86,126]){
   box(center,3.1,6,2.9,.5,.6,0x8bada5,true);
   returnGlows.push(glow(center,1.45,6,1.7,2.9,0x74e8d4));
 }
-const character=createCharacter(), player=character.root;scene.add(player);
+const character=createCharacter(loadAppearance()), player=character.root;scene.add(player);
 player.position.set(0,0,6);let yaw=0,pitch=.23,third=true,selected=0;const physics=createPhysicsState();let jumpRequested=false;const keys={},ray=new THREE.Raycaster();let last=performance.now(),noticeUntil=0;
 const hub=createLearningHub({scene,box,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChoose(path,saved){notify(saved?`Выбрано: ${path.title}. Можно сменить в «Направлениях».`:`Выбрано: ${path.title}. Выбор действует до закрытия страницы.`);}});
 const forge=createForge({scene,box,solids,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChange(){if(stage.index===2)update()},notify});
-function modalOpen(){return hub.isOpen()||forge.isOpen()}
+const customizer=createCustomizer({character,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},notify});
+function modalOpen(){return hub.isOpen()||forge.isOpen()||customizer.isOpen()}
 function notify(t){$('#message').textContent=t;noticeUntil=performance.now()+4500}
 function spawnPickups(state){
   if(state.index>1)return;
@@ -76,8 +80,8 @@ function refreshMission(){
   const descriptions=[
     ['ПЕРВЫЙ ПОРТАЛ','Построй путь дальше.','Собери 7 кубов песчаника и дострой арку. Она откроет портал на новый остров.','Солнечная арка','7 кубов · песчаник','Остров мечтателей','Дострой арку, подойди к ней и нажми E.'],
     ['ТРИ МАТЕРИАЛА','Три арки. Три материала.','Собери три арки: песчаник, дерево, камень. После сборки всех трёх средняя арка откроет путь к кузнице.','Остров трёх арок','21 куб · 7 на каждую арку','Остров трёх арок','Выбирай песчаник, дерево и камень клавишами 1, 3 и 4.'],
-    ['КУЗНИЦА ДАННЫХ','Восемь битов. Один байт.','Собери сине-серые биты. У верстака нажми E, заполни 8 слотов и создай байт. Вставь 4 байта в ячейки двери.','Кузница байтов','8 бит = 1 байт · 4 байта = 32 бита','Кузница данных','После каждого байта появляется новая партия из 8 битов. Каждый бит хранит 0 или 1.'],
-    ['НОВЫЕ ГОРИЗОНТЫ','Дверь в новый мир.','Ты собрал 32 бита, создал 4 байта и открыл дверь. Исследуй новую локацию — её следующее задание ещё впереди.','Сад открытий','Путь пройден · продолжение следует','Сад открытий','Зелёный портал возвращает в кузницу.'],
+    ['КУЗНИЦА ДАННЫХ','Восемь битов. Один байт.','Собери сине-серые биты. У верстака нажми E, заполни 8 слотов и создай байт. Забери готовые байты в сумку и выложи 4 штуки на площадку справа от арки — ЛКМ.','Кузница байтов','8 бит = 1 байт · 4 байта = 32 бита','Кузница данных','Арка стоит справа от кузницы. Площадка рядом с ней: наведи прицел на свободное место и нажми ЛКМ.'],
+    ['НОВЫЕ ГОРИЗОНТЫ','Дверь в новый мир.','Ты собрал 32 бита, создал 4 байта и открыл врата в арке. Исследуй новую локацию — её следующее задание ещё впереди.','Сад открытий','Путь пройден · продолжение следует','Сад открытий','Зелёный портал возвращает в кузницу.'],
   ][stage.index];
   $('.mission .eyebrow').textContent=`ОСТРОВ 0${stage.index+1} · ${descriptions[0]}`;
   $('.mission h1').textContent=descriptions[1];$('.mission > p').textContent=descriptions[2];
@@ -89,20 +93,20 @@ function refreshMission(){
 function update(){
   const n=stage.index<2?stage.built.size:stage.index===2?forge.state.cells.filter(Boolean).length:4;
   const total=stage.index<2?stage.targets.length:4;
-  $('.progress-label > span').textContent=stage.index<2?'Кубы на своих местах':'Байты в ячейках двери';
+  $('.progress-label > span').textContent=stage.index<2?'Кубы на своих местах':'Байты на площадке';
   $('#count').textContent=`${n} / ${total}`;$('#progress').style.width=n/total*100+'%';
   document.querySelectorAll('.slot b').forEach((el,i)=>el.textContent=isLimited(stage,i)?stage.inventory[i]:'∞');
   exitGlow.visible=stages[0].unlocked;secondGlow.visible=stages[1].unlocked;
   $('#arch-status').textContent=stage.index===2?`Биты: ${forge.state.bits} · Байты: ${forge.state.bytes} · Создано: ${forge.state.crafted}/4`:stage.index===1?stage.arches.map((arch,i)=>`${MATERIAL_NAMES[arch.material]}: ${Array.from(stage.built).filter(t=>Math.floor(t/7)===i).length}/7`).join(' · '):stage.index===0&&stage.unlocked?'Портал открыт · подойди к арке и нажми E':'';
 }
-function select(i){selected=i;document.querySelectorAll('.slot').forEach((s,j)=>s.classList.toggle('selected',i===j));$('#material').textContent=stage.index===2?'ЛКМ — собрать бит · E у верстака — кузница':stage.index===3?'Исследуй сад · E у зелёного портала — вернуться':MATERIAL_NAMES[i]+(isLimited(stage,i)?' · Собирай кубы на острове':' · Свободное строительство')}
+function select(i){selected=i;document.querySelectorAll('.slot').forEach((s,j)=>s.classList.toggle('selected',i===j));$('#material').textContent=stage.index===2?'ЛКМ — собрать бит / байт или выложить байт · E — кузница / врата':stage.index===3?'Исследуй сад · E у зелёного портала — вернуться':MATERIAL_NAMES[i]+(isLimited(stage,i)?' · Собирай кубы на острове':' · Свободное строительство')}
 function nearbyRoute(){
   if(player.position.y>=1)return null;
   const routes=[];
   if(stage.index>0)routes.push({x:stage.center+6,z:6,to:stage.index-1,ready:true,label:'E · Вернуться на предыдущий остров'});
   if(stage.index===0)routes.push({x:0,z:-1,to:1,ready:stage.unlocked,label:'E · Перейти на остров трёх арок',locked:'Портал спит · дострой арку'});
   if(stage.index===1)routes.push({x:40,z:-2,to:2,ready:stage.unlocked,label:'E · Отправиться в кузницу',locked:'Собери все три арки, чтобы открыть кузницу'});
-  if(stage.index===2)routes.push({x:80,z:-6,to:3,ready:forge.state.unlocked,label:'E · Пройти в новую локацию',locked:'Для двери нужны 4 байта'});
+  if(stage.index===2)routes.push({x:86,z:-4,to:3,ready:forge.state.unlocked,label:'E · Пройти сквозь врата',locked:'Выложи 4 байта на площадку у арки'});
   return routes.find(route=>Math.hypot(player.position.x-route.x,player.position.z-route.z)<1.8);
 }
 function travel(){
@@ -120,20 +124,20 @@ let dragging=false;renderer.domElement.addEventListener('mousedown',e=>{dragging
 addEventListener('keydown',e=>{if(modalOpen()||!$('#welcome').classList.contains('hidden'))return;if(e.code==='KeyE'&&!e.repeat){if(!travel()&&!(stage.index===2&&forge.open(player.position)))hub.openNearby();return}if(['Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='Space'&&!keys.Space)jumpRequested=true;keys[e.code]=true;if(e.code==='KeyV'&&!e.repeat)toggle();if(/^Digit[1-6]$/.test(e.code))select(+e.code.slice(-1)-1)});addEventListener('keyup',e=>keys[e.code]=false);addEventListener('blur',()=>{Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
 function act(button){
   ray.setFromCamera(new THREE.Vector2(),camera);
-  if(stage.index>=2){if(stage.index===2&&button===0)forge.collect(ray,player.position);return}
+  if(stage.index>=2){if(stage.index===2&&button===0&&forge.collect(ray,player.position))character.react();return}
   const {pickups,ghosts,placed,targets}=stage;
   const objects=[...pickups,...ghosts.filter(m=>m.visible),...placed];
   const hits=ray.intersectObjects(objects,false).filter(h=>h.object.position.distanceTo(player.position)<6);
   if(hits.length){
     const m=hits[0].object,pi=pickups.indexOf(m),gi=ghosts.indexOf(m);
-    if(pi>=0&&button===0){scene.remove(m);pickups.splice(pi,1);stage.inventory[m.userData.material]++;notify(`${MATERIAL_NAMES[m.userData.material]}: +1`);update();return}
+    if(pi>=0&&button===0){scene.remove(m);pickups.splice(pi,1);stage.inventory[m.userData.material]++;character.react();notify(`${MATERIAL_NAMES[m.userData.material]}: +1`);update();return}
     if(gi>=0&&button===0){
       const t=targets[gi];
       if(selected!==t.material){notify(`Для этой арки нужен материал «${MATERIAL_NAMES[t.material]}» — клавиша ${t.material+1}.`);return}
       if(!stage.inventory[selected]){notify(`Сначала собери материал «${MATERIAL_NAMES[selected]}».`);return}
       if(Math.abs(player.position.x-t.x)<.79&&Math.abs(player.position.z-t.z)<.79&&player.position.y<t.y+.49&&player.position.y+1.7>t.y-.49){notify('Отойди немного, чтобы поставить куб.');return}
       const wasUnlocked=stage.unlocked;
-      if(!placeTarget(stage,gi,selected))return;
+      if(!placeTarget(stage,gi,selected))return;character.react();
       m.visible=false;const block=box(t.x,t.y,t.z,.98,.98,.98,mats[selected],true);block.userData.target=gi;placed.push(block);update();
       if(stage.unlocked&&!wasUnlocked)notify(stage.index===0?'✦ Портал открыт! Подойди к арке и нажми E.':'✦ Три арки готовы! Средняя арка открыла портал в кузницу — нажми E рядом с ней.');
       return;
@@ -183,9 +187,9 @@ if(active){
 jumpRequested=false;
 player.rotation.y=yaw;
 character.animate(dt,{dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,grounded:physics.grounded,velocity:physics.velocity,time:now/1000});
-const eye=player.position.clone().add(new THREE.Vector3(0,1.5,0));const look=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));if(third){camera.position.copy(eye).addScaledVector(look,-6);camera.lookAt(eye)}else{camera.position.copy(eye);camera.lookAt(eye.clone().add(look))}stage.pickups.forEach((m,i)=>{m.rotation.y=now*.0008+i;m.position.y=.65+Math.sin(now*.002+i)*.12});if(now>noticeUntil&&noticeUntil){$('#message').textContent='✦ Наведи прицел на куб и нажми ЛКМ';noticeUntil=0}hub.update(player.position,now/1000,active);
+const eye=player.position.clone().add(new THREE.Vector3(0,1.5,0));const look=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));if(third){followCamera(camera,eye,look,[...solids,exitGlow,secondGlow,...returnGlows,...forge.cameraObstacles])}else{camera.position.copy(eye);camera.lookAt(eye.clone().add(look))}stage.pickups.forEach((m,i)=>{m.rotation.y=now*.0008+i;m.position.y=.65+Math.sin(now*.002+i)*.12});if(now>noticeUntil&&noticeUntil){$('#message').textContent='✦ Наведи прицел на куб и нажми ЛКМ';noticeUntil=0}hub.update(player.position,now/1000,active);
 const route=nearbyRoute(),travelButton=$('#travel-prompt');travelButton.hidden=!active||!route;
 if(route)travelButton.textContent=route.ready?route.label:route.locked;
 for(const portal of [exitGlow,secondGlow,...returnGlows])portal.material.opacity=.4+Math.sin(now*.002)*.12;
-forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!hub.isOpen());
-renderer.render(scene,camera)}requestAnimationFrame(frame);
+forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!hub.isOpen()&&!customizer.isOpen());
+if(!customizer.isOpen())renderer.render(scene,camera);customizer.render(dt,now/1000)}requestAnimationFrame(frame);

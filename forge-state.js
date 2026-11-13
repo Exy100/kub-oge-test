@@ -1,5 +1,5 @@
 export function createForgeState() {
-  return { bits: 0, slots: Array(8).fill(false), bytes: 0, crafted: 0, cells: Array(4).fill(false), unlocked: false };
+  return { bits: 0, slots: Array(8).fill(false), bytes: 0, pendingBytes: 0, crafted: 0, cells: Array(4).fill(false), unlocked: false };
 }
 export function toggleBit(state, index) {
   if (!Number.isInteger(index) || index < 0 || index >= 8 || state.crafted >= 4) return false;
@@ -9,7 +9,11 @@ export function toggleBit(state, index) {
 }
 export function craftByte(state) {
   if (state.crafted >= 4 || !state.slots.every(Boolean)) return false;
-  state.slots.fill(false); state.bytes++; state.crafted++; return true;
+  state.slots.fill(false); state.pendingBytes++; state.crafted++; return true;
+}
+export function collectByte(state) {
+  if(state.pendingBytes<=0)return false;
+  state.pendingBytes--;state.bytes++;return true;
 }
 export function insertByte(state, index) {
   if (!Number.isInteger(index) || index < 0 || index >= 4 || state.cells[index] || state.bytes <= 0) return false;

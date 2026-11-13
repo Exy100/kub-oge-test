@@ -11,11 +11,15 @@ window.storyTest={
  build(i,material){const t=stage.targets[i];select(material??t.material);player.position.set(t.x,0,t.z+2);camera.position.set(t.x,t.y,t.z+2);camera.lookAt(t.x,t.y,t.z);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)},
  remove(i){const t=stage.targets[i];player.position.set(t.x,0,t.z+2);camera.position.set(t.x,t.y,t.z+2);camera.lookAt(t.x,t.y,t.z);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(2)},
  getPosition(){return player.position.toArray()},
- forgeSnapshot(){return {bits:forge.state.bits,slots:forge.state.slots.filter(Boolean).length,bytes:forge.state.bytes,crafted:forge.state.crafted,inserted:forge.state.cells.filter(Boolean).length,unlocked:forge.state.unlocked,pickups:forge.pickups.length}},
- nextGate(){player.position.set(stage.center,0,stage.index===1?-1:-5)},
+ forgeSnapshot(){return {bits:forge.state.bits,slots:forge.state.slots.filter(Boolean).length,bytes:forge.state.bytes,pending:forge.state.pendingBytes,crafted:forge.state.crafted,inserted:forge.state.cells.filter(Boolean).length,unlocked:forge.state.unlocked,pickups:forge.pickups.length}},
+ nextGate(){player.position.set(stage.index===1?40:86,0,stage.index===1?-1:-3)},
  nearBench(){player.position.set(80,0,-1.3)},
  collectBits(){for(const m of [...forge.pickups]){player.position.set(m.position.x,0,m.position.z+1);camera.position.set(m.position.x,2.5,m.position.z);camera.lookAt(m.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)}},
- bitMaterial(){return forge.pickups[0].material.map(m=>m.uuid)}
+ bitMaterial(){return forge.pickups[0].material.map(m=>m.uuid)},
+ collectBytes(){for(const model of [...forge.bytePickups]){player.position.set(model.position.x,0,model.position.z+2);camera.position.set(model.position.x,3,model.position.z);camera.lookAt(model.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)}},
+ offerByte(i){const pad=forge.cells[i];player.position.set(pad.position.x,0,pad.position.z+1.5);camera.position.set(pad.position.x,3,pad.position.z);camera.lookAt(pad.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)},
+ byteDetails(){const model=forge.bytePickups[0];const shell=model.getObjectByName('byte-glass');return {bits:model.userData.innerBits.length,transparent:shell.material.transparent,opacity:shell.material.opacity,parts:model.children.length}},
+ viewArch(){player.position.set(86,0,1);yaw=0;pitch=.15}
 };`}));
 const assert=(ok,msg)=>{if(!ok)throw Error(msg)};
 await page.goto('http://127.0.0.1:8050');await page.locator('#play').click();
@@ -49,15 +53,18 @@ for(let batch=0;batch<4;batch++){
  assert(await page.locator('#craft-byte').isDisabled(),'cannot craft empty block');
  await page.locator('#fill-bits').click();assert(!(await page.locator('#craft-byte').isDisabled()),'all slots enable crafting');
  if(batch===0){await page.locator('[data-slot="0"]').click();assert(await page.locator('#craft-byte').isDisabled(),'removing bit disables crafting');await page.locator('[data-slot="0"]').click();await page.screenshot({path:'/tmp/kub-forge-ui.png'})}
- await page.locator('#craft-byte').click();f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.bytes===1&&f.crafted===batch+1,'byte crafted');
- await page.locator('[data-cell="'+batch+'"]').click();f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.inserted===batch+1&&f.unlocked===(batch===3),'door requires four bytes');
+ await page.locator('#craft-byte').click();f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.bytes===0&&f.pending===1&&f.crafted===batch+1,'crafted byte waits on tray');
+ const details=await page.evaluate(()=>window.storyTest.byteDetails());assert(details.bits===4&&details.transparent&&details.opacity<.5&&details.parts>25,'detailed transparent byte with four inner bits');
  await page.locator('#forge-close').click();
+ await page.evaluate(()=>window.storyTest.collectBytes());f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.bytes===1&&f.pending===0,'byte collected into bag');
+ await page.evaluate(i=>window.storyTest.offerByte(i),batch);f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.inserted===batch+1&&f.bytes===0&&f.unlocked===(batch===3),'four physical offerings unlock arch');
 }
 assert((await page.evaluate(()=>window.storyTest.forgeSnapshot())).pickups===0,'no extra bits after fourth byte');
+await page.evaluate(()=>window.storyTest.viewArch());await page.waitForTimeout(200);await page.screenshot({path:'/tmp/kub-byte-arch.png'});
 await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===3,'door enters next location');
 await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===2,'return to forge');
 assert((await page.evaluate(()=>window.storyTest.forgeSnapshot())).unlocked,'forge progress retained');
 await page.locator('#reset').click();let reset=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(reset.bits===0&&reset.pickups===8&&!reset.unlocked&&reset.inserted===0,'forge reset');
 await page.reload();assert((await page.locator('#chosen-path').textContent()).includes('программирования'),'selected path restored');
-console.log(JSON.stringify({result:'hub, 28 placements, four islands, 32 bits, animated faces, four bytes, locked/open door, return and reset passed',errors}));if(errors.length)throw Error(errors.join(';'));
+console.log(JSON.stringify({result:'hub, 28 placements, four islands, 32 bits, animated faces, four transparent bytes collected into bag and offered to arch, locked/open gate, return and reset passed',errors}));if(errors.length)throw Error(errors.join(';'));
 }finally{if(browser)await browser.close();server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
