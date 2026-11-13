@@ -1,3 +1,4 @@
+import { createPlayerPanel } from './player-panel.js?v=7';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=4';
@@ -67,7 +68,8 @@ player.position.set(0,0,6);let yaw=0,pitch=.23,third=true,selected=0;const physi
 const hub=createLearningHub({scene,box,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChoose(path,saved){notify(saved?`Выбрано: ${path.title}. Можно сменить в «Направлениях».`:`Выбрано: ${path.title}. Выбор действует до закрытия страницы.`);}});
 const forge=createForge({scene,box,solids,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChange(){if(stage.index===2)update()},notify});
 const customizer=createCustomizer({character,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},notify});
-function modalOpen(){return hub.isOpen()||forge.isOpen()||customizer.isOpen()}
+const panel=createPlayerPanel({onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:$('.mission > p').textContent,progress:$('.blueprint b').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
+function modalOpen(){return hub.isOpen()||forge.isOpen()||customizer.isOpen()||panel.isOpen()}
 function notify(t){$('#message').textContent=t;noticeUntil=performance.now()+4500}
 function spawnPickups(state){
   if(state.index>1)return;
@@ -99,7 +101,7 @@ function update(){
   exitGlow.visible=stages[0].unlocked;secondGlow.visible=stages[1].unlocked;
   $('#arch-status').textContent=stage.index===2?`Биты: ${forge.state.bits} · Байты: ${forge.state.bytes} · Создано: ${forge.state.crafted}/4`:stage.index===1?stage.arches.map((arch,i)=>`${MATERIAL_NAMES[arch.material]}: ${Array.from(stage.built).filter(t=>Math.floor(t/7)===i).length}/7`).join(' · '):stage.index===0&&stage.unlocked?'Портал открыт · подойди к арке и нажми E':'';
 }
-function select(i){selected=i;document.querySelectorAll('.slot').forEach((s,j)=>s.classList.toggle('selected',i===j));$('#material').textContent=stage.index===2?'ЛКМ — собрать бит / байт или выложить байт · E — кузница / врата':stage.index===3?'Исследуй сад · E у зелёного портала — вернуться':MATERIAL_NAMES[i]+(isLimited(stage,i)?' · Собирай кубы на острове':' · Свободное строительство')}
+function select(i){selected=i;document.querySelectorAll('.slot').forEach((s,j)=>(s.classList.toggle('selected',i===j),s.setAttribute('aria-pressed',String(i===j))));$('#material').textContent=stage.index===2?'ЛКМ — собрать бит / байт или выложить байт · E — кузница / врата':stage.index===3?'Исследуй сад · E у зелёного портала — вернуться':MATERIAL_NAMES[i]+(isLimited(stage,i)?' · Собирай кубы на острове':' · Свободное строительство')}
 function nearbyRoute(){
   if(player.position.y>=1)return null;
   const routes=[];
@@ -118,11 +120,12 @@ function travel(){
   refreshMission();notify(['Ты вернулся на первый остров.','Собери три арки из трёх материалов.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][stage.index]);return true;
 }
 $('#travel-prompt').onclick=travel;
-document.querySelectorAll('.slot').forEach((s,i)=>s.onclick=()=>select(i));function toggle(){third=!third;player.visible=third;$('#viewLabel').textContent=third?'Вид от третьего лица':'Вид от первого лица'}$('#camera').onclick=toggle;
+document.querySelectorAll('.slot').forEach((s,i)=>{s.setAttribute('role','button');s.tabIndex=0;s.setAttribute('aria-label',MATERIAL_NAMES[i]);s.onclick=()=>select(i);s.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();select(i)}}});function toggle(){third=!third;player.visible=third;$('#viewLabel').textContent=third?'Вид от третьего лица':'Вид от первого лица'}$('#camera').onclick=toggle;
 $('#play').onclick=()=>{ $('#welcome').classList.add('hidden');renderer.domElement.requestPointerLock?.()};$('#sound').onclick=()=>{document.exitPointerLock?.();$('#welcome').classList.remove('hidden')};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
 let dragging=false;renderer.domElement.addEventListener('mousedown',e=>{dragging=true;if(!modalOpen()&&document.pointerLockElement)act(e.button)});document.addEventListener('mouseup',()=>dragging=false);renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('mousemove',e=>{if(!modalOpen()&&(document.pointerLockElement||dragging)){yaw-=e.movementX*.003;pitch=THREE.MathUtils.clamp(pitch+e.movementY*.003,-.7,1.1)}});
-addEventListener('keydown',e=>{if(modalOpen()||!$('#welcome').classList.contains('hidden'))return;if(e.code==='KeyE'&&!e.repeat){if(!travel()&&!(stage.index===2&&forge.open(player.position)))hub.openNearby();return}if(['Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='Space'&&!keys.Space)jumpRequested=true;keys[e.code]=true;if(e.code==='KeyV'&&!e.repeat)toggle();if(/^Digit[1-6]$/.test(e.code))select(+e.code.slice(-1)-1)});addEventListener('keyup',e=>keys[e.code]=false);addEventListener('blur',()=>{Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
+addEventListener('keydown',e=>{if(modalOpen()||!$('#welcome').classList.contains('hidden'))return;if(panel.input.down(e))return;if(e.code==='KeyE'&&!e.repeat){if(!travel()&&!(stage.index===2&&forge.open(player.position)))hub.openNearby();return}if(['Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='Space'&&!keys.Space)jumpRequested=true;keys[e.code]=true;if(/^Digit[1-6]$/.test(e.code)){if(panel.isBattle())notify('Боевые навыки пока недоступны.');else select(+e.code.slice(-1)-1)}});addEventListener('keyup',e=>{keys[e.code]=false;if(!modalOpen()&&$('#welcome').classList.contains('hidden'))panel.input.up(e);else panel.input.clear()});addEventListener('blur',()=>{panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
 function act(button){
+  if(panel.isBattle()){notify('Для строительства переключись в режим сборки: C + V.');return}
   ray.setFromCamera(new THREE.Vector2(),camera);
   if(stage.index>=2){if(stage.index===2&&button===0&&forge.collect(ray,player.position))character.react();return}
   const {pickups,ghosts,placed,targets}=stage;
@@ -191,5 +194,5 @@ const eye=player.position.clone().add(new THREE.Vector3(0,1.5,0));const look=new
 const route=nearbyRoute(),travelButton=$('#travel-prompt');travelButton.hidden=!active||!route;
 if(route)travelButton.textContent=route.ready?route.label:route.locked;
 for(const portal of [exitGlow,secondGlow,...returnGlows])portal.material.opacity=.4+Math.sin(now*.002)*.12;
-forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!hub.isOpen()&&!customizer.isOpen());
+forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!hub.isOpen()&&!customizer.isOpen()&&!panel.isOpen());
 if(!customizer.isOpen())renderer.render(scene,camera);customizer.render(dt,now/1000)}requestAnimationFrame(frame);
