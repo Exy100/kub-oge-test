@@ -2,7 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import { createForgeState, toggleBit, craftByte, collectByte, insertByte, bitValue } from './forge-state.js?v=5';
 import { createByteFactory } from './byte-model.js';
 
-export function createForge({ scene, box, solids, onOpen, onChange, notify }) {
+export function createForge({ scene, box, solids, onOpen, onChange, notify, onCollect=()=>{} }) {
   const state=createForgeState(),pickups=[],bytePickups=[],cells=[],deposited=[],slotMeshes=[];
   const dialog=document.querySelector('#forge-dialog'),prompt=document.querySelector('#forge-prompt');
   const bag=document.querySelector('#forge-bag');
@@ -106,11 +106,11 @@ export function createForge({ scene, box, solids, onOpen, onChange, notify }) {
       const obstruction=ray.intersectObjects(solids,false)[0];if(obstruction&&obstruction.distance<hit.distance-.02)return false;
       let root=hit.object;while(root.parent&&!root.userData.bytePickup&&root.userData.cell===undefined&&!pickups.includes(root))root=root.parent;
       if(pickups.includes(root)){
-        scene.remove(root);pickups.splice(pickups.indexOf(root),1);state.bits++;refresh();notify(`Бит в сумке · всего ${state.bits}`);return true;
+        scene.remove(root);pickups.splice(pickups.indexOf(root),1);onCollect(root);state.bits++;refresh();notify(`Бит в сумке · всего ${state.bits}`);return true;
       }
       if(root.userData.bytePickup){
         if(!collectByte(state))return false;
-        scene.remove(root);bytePickups.splice(bytePickups.indexOf(root),1);layoutBytes();refresh();notify(`Байт в сумке · всего ${state.bytes}. Площадка ждёт у арки справа.`);return true;
+        scene.remove(root);bytePickups.splice(bytePickups.indexOf(root),1);onCollect(root);layoutBytes();refresh();notify(`Байт в сумке · всего ${state.bytes}. Площадка ждёт у арки справа.`);return true;
       }
       if(root.userData.cell!==undefined){
         const i=root.userData.cell;if(state.cells[i])return false;

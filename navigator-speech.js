@@ -1,10 +1,8 @@
 const STORAGE_KEY='kub.navigator.speech.v1';
 const DEFAULTS={enabled:false,voiceURI:'',rate:1};
 export function normalizeSpeechSettings(value){
-  return {enabled:value?.enabled===true,voiceURI:typeof value?.voiceURI==='string'?value.voiceURI:'',rate:typeof value?.rate==='number'&&Number.isFinite(value.rate)?Math.max(.75,Math.min(1.25,value.rate)):1};
+  return {enabled:value?.enabled===true,voiceURI:typeof value?.voiceURI==='string'&&value.voiceURI!=='@male'?value.voiceURI:'',rate:typeof value?.rate==='number'&&Number.isFinite(value.rate)?Math.max(.75,Math.min(1.25,value.rate)):1};
 }
-// Web Speech exposes no gender field. Only explicit, known voice names qualify.
-export function findMaleRussianVoice(voices){return voices.find(v=>/^ru(?:[-_]|$)/i.test(v.lang)&&/(?:^|[^a-zа-яё])(?:pavel|павел|dmitry|dmitriy|дмитрий|maxim|максим|yuri|юрий|aleksandr|alexander|александр|nikolay|николай|mikhail|михаил)(?=$|[^a-zа-яё])/i.test(v.name||''))}
 export function splitSpeech(text){
   // Short phrases avoid the long-utterance limit of some browser engines.
   const words=String(text).replaceAll('ЛКМ','левой кнопкой мыши').replaceAll('ПКМ','правой кнопкой мыши').replace(/\bE\b/g,'клавишу Е').trim().split(/\s+/u);const chunks=[];let chunk='';
@@ -15,13 +13,13 @@ export function createSpeechController({synth,Utterance,storage,onState=()=>{},o
   let settings={...DEFAULTS};try{settings=normalizeSpeechSettings(JSON.parse(storage.getItem(STORAGE_KEY)))}catch{}
   const supported=!!synth&&typeof synth.speak==='function'&&typeof synth.cancel==='function'&&typeof synth.getVoices==='function'&&typeof Utterance==='function';
   let voices=[],generation=0,current=null,disposed=false;
-  function refresh(){if(disposed)return;try{voices=supported?synth.getVoices().filter(v=>/^ru(?:[-_]|$)/i.test(v.lang)):[]}catch{voices=[]}onVoices(voices.slice());}
+  function refresh(){if(disposed)return;try{voices=supported?synth.getVoices().filter(v=>/^ru(?:[-_]|$)/i.test(v.lang)&&/^Google\b/i.test(v.name||'')).slice(0,1):[]}catch{voices=[]}onVoices(voices.slice());}
   function stop(){generation++;current=null;if(supported)synth.cancel();onState('idle');}
   function configure(patch){stop();settings=normalizeSpeechSettings({...settings,...patch});try{storage.setItem(STORAGE_KEY,JSON.stringify(settings));return true}catch{return false}}
   function speak(text){
     stop();if(!supported){onState('unsupported');return false}
-    refresh();const voice=settings.voiceURI==='@male'?findMaleRussianVoice(voices):voices.find(v=>v.voiceURI===settings.voiceURI)||findMaleRussianVoice(voices)||voices.find(v=>v.default)||voices[0];
-    if(!voice){onState(settings.voiceURI==='@male'&&voices.length?'male-unavailable':'no-voice');return false}
+    refresh();const voice=voices.find(v=>v.voiceURI===settings.voiceURI)||voices[0];
+    if(!voice){onState('no-voice');return false}
     const chunks=splitSpeech(text);if(!chunks.length)return false;
     const token=generation;
     function next(){
@@ -44,18 +42,18 @@ export function createSpeechController({synth,Utterance,storage,onState=()=>{},o
 
 export function createNavigatorSpeech({dialog,getText}){
   const section=document.createElement('section');section.className='navigator-speech';section.setAttribute('aria-label','Голос Навигатора');
-  section.innerHTML=`<div class="speech-heading"><span>ГОЛОС НАВИГАТОРА</span><label class="speech-enable"><input id="speech-enabled" type="checkbox"> Читать ответы вслух</label></div><div class="speech-settings"><label for="speech-voice">Русский голос<select id="speech-voice"></select></label><label for="speech-rate">Скорость <output id="speech-rate-value" for="speech-rate">1×</output><input id="speech-rate" type="range" min="0.75" max="1.25" step="0.05" value="1"></label></div><div class="speech-actions"><button id="speech-male" type="button">Мужской голос</button><button id="speech-preview" type="button">Прослушать голос</button><button id="speech-repeat" type="button">▶ Повторить ответ</button><button id="speech-stop" type="button" disabled>■ Остановить</button></div><p id="speech-status" role="status"></p><p id="speech-storage" hidden>Настройки действуют до перезагрузки: браузер не разрешил их сохранить.</p>`;
+  section.innerHTML=`<div class="speech-heading"><span>ГОЛОС НАВИГАТОРА</span><label class="speech-enable"><input id="speech-enabled" type="checkbox"> Читать ответы вслух</label></div><div class="speech-settings"><label for="speech-voice">Русский голос<select id="speech-voice"></select></label><label for="speech-rate">Скорость <output id="speech-rate-value" for="speech-rate">1×</output><input id="speech-rate" type="range" min="0.75" max="1.25" step="0.05" value="1"></label></div><div class="speech-actions"><button id="speech-preview" type="button">Прослушать голос</button><button id="speech-repeat" type="button">▶ Повторить ответ</button><button id="speech-stop" type="button" disabled>■ Остановить</button></div><p id="speech-status" role="status"></p><p id="speech-storage" hidden>Настройки действуют до перезагрузки: браузер не разрешил их сохранить.</p>`;
   dialog.querySelector('.navigator-actions').before(section);
   const $=s=>section.querySelector(s);let controller,storage;try{storage=localStorage}catch{}
-  const messages={idle:'Озвучивание — по вашему выбору. Текст ответа всегда остаётся на экране.',speaking:'Навигатор говорит…',unsupported:'Этот браузер не поддерживает озвучивание. Ответ можно прочитать выше.','no-voice':'Русские голоса пока недоступны. Проверьте установленные голоса в настройках устройства.','not-allowed':'Браузер не разрешил воспроизведение. Нажмите «Повторить ответ».','male-unavailable':'Мужской русский голос не найден. Установите его в настройках речи устройства или прослушайте доступные голоса в списке.',error:'Не удалось озвучить ответ. Попробуйте повторить или выберите другой голос.'};
+  const messages={idle:'Озвучивание — по вашему выбору. Текст ответа всегда остаётся на экране.',speaking:'Навигатор говорит…',unsupported:'Этот браузер не поддерживает озвучивание. Ответ можно прочитать выше.','no-voice':'Google русский пока недоступен в этом браузере. Текст ответа остаётся доступным.','not-allowed':'Браузер не разрешил воспроизведение. Нажмите «Повторить ответ».',error:'Не удалось озвучить ответ. Попробуйте повторить или выберите другой голос.'};
   function state(value){$('#speech-status').textContent=messages[value];$('#speech-stop').disabled=value!=='speaking';section.classList.toggle('is-speaking',value==='speaking')}
   function renderVoices(voices){
     const select=$('#speech-voice'),preferred=controller?.settings.voiceURI;
-    select.replaceChildren();const automatic=document.createElement('option');automatic.value='';automatic.textContent=voices.length?'Автоматически · русский голос':'Нет доступных русских голосов';select.append(automatic);
-    const male=document.createElement('option');male.value='@male';male.textContent='Мужской · автоматический подбор';select.append(male);
+    select.replaceChildren();const automatic=document.createElement('option');automatic.value='';automatic.textContent='Автоматически · русский голос';select.append(automatic);
+    if(!voices.length){const missing=document.createElement('option');missing.value='';missing.textContent='Google русский · недоступен';missing.disabled=true;select.append(missing)}
     for(const voice of voices){const option=document.createElement('option');option.value=voice.voiceURI;option.textContent=voice.name+(voice.localService?' · на устройстве':' · онлайн');select.append(option)}
-    select.value=preferred==='@male'||voices.some(v=>v.voiceURI===preferred)?preferred:'';
-    select.disabled=!voices.length;$('#speech-preview').disabled=!voices.length;$('#speech-male').disabled=!voices.length;$('#speech-repeat').disabled=!voices.length;
+    select.value=voices.some(v=>v.voiceURI===preferred)?preferred:'';
+    select.disabled=!voices.length;$('#speech-preview').disabled=!voices.length;$('#speech-repeat').disabled=!voices.length;
   }
   controller=createSpeechController({synth:window.speechSynthesis,Utterance:window.SpeechSynthesisUtterance,storage,onState:state,onVoices:renderVoices});
   $('#speech-enabled').checked=controller.settings.enabled;$('#speech-enabled').disabled=!controller.supported;$('#speech-rate').value=controller.settings.rate;$('#speech-rate').disabled=!controller.supported;
@@ -64,7 +62,7 @@ export function createNavigatorSpeech({dialog,getText}){
   $('#speech-enabled').onchange=()=>{save({enabled:$('#speech-enabled').checked});if(controller.settings.enabled)controller.speak(getText())};
   $('#speech-voice').onchange=()=>save({voiceURI:$('#speech-voice').value});
   $('#speech-rate').oninput=()=>{rateLabel();save({rate:Number($('#speech-rate').value)})};
-  $('#speech-male').onclick=()=>{save({voiceURI:'@male'});renderVoices(controller.voices);controller.speak('Привет! Я твой Навигатор. Давай исследовать остров вместе.')};
+
   $('#speech-preview').onclick=()=>controller.speak('Привет! Я твой Навигатор. Давай собирать кубы, исследовать острова и учиться вместе.');
   $('#speech-repeat').onclick=()=>controller.speak(getText());$('#speech-stop').onclick=()=>controller.stop();
   dialog.addEventListener('close',()=>controller.stop());dialog.addEventListener('cancel',()=>controller.stop());

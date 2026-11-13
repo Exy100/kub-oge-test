@@ -1,9 +1,10 @@
-import { createPlayerPanel } from './player-panel.js?v=11';
+import { equipGatheringWand } from './gathering-wand.js?v=13';
+import { createPlayerPanel } from './player-panel.js?v=13';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=4';
 import { createLearningHub } from './learning-hub.js';
-import { createForge } from './forge.js?v=12';
+import { createForge } from './forge.js?v=13';
 import { loadAppearance } from './appearance.js';
 import { createCustomizer } from './customizer.js';
 import { followCamera } from './follow-camera.js';
@@ -64,9 +65,10 @@ for(const center of [46,86,126]){
   returnGlows.push(glow(center,1.45,6,1.7,2.9,0x74e8d4));
 }
 const character=createCharacter(loadAppearance()), player=character.root;scene.add(player);
+const gathering=equipGatheringWand({character,camera,scene,renderer});
 player.position.set(0,0,6);let yaw=0,pitch=.23,third=true,selected=0;const physics=createPhysicsState();let jumpRequested=false;const keys={},ray=new THREE.Raycaster();let last=performance.now(),noticeUntil=0;
 const hub=createLearningHub({scene,box,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChoose(path,saved){notify(saved?`Выбрано: ${path.title}. Можно сменить в «Направлениях».`:`Выбрано: ${path.title}. Выбор действует до закрытия страницы.`);}});
-const forge=createForge({scene,box,solids,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChange(){if(stage.index===2)update()},notify});
+const forge=createForge({scene,box,solids,onCollect:mesh=>gathering.collect(mesh),onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChange(){if(stage.index===2)update()},notify});
 const customizer=createCustomizer({character,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},notify});
 const panel=createPlayerPanel({onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:$('.mission > p').textContent,progress:$('.blueprint b').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
 function modalOpen(){return hub.isOpen()||forge.isOpen()||customizer.isOpen()||panel.isOpen()}
@@ -114,7 +116,7 @@ function nearbyRoute(){
 function travel(){
   const route=nearbyRoute();if(!route)return false;
   if(!route.ready){notify(route.locked);return true}
-  stage=stages[route.to];player.position.set(stage.center,0,stage.index===0?2:stage.index===2?4:3);
+  gathering.clear();stage=stages[route.to];player.position.set(stage.center,0,stage.index===0?2:stage.index===2?4:3);
   Object.assign(physics,createPhysicsState());Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;selected=0;yaw=0;
   sun.position.set(stage.center-10,25,10);sun.target.position.set(stage.center,0,0);sun.target.updateMatrixWorld();
   refreshMission();notify(['Ты вернулся на первый остров.','Собери три арки из трёх материалов.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][stage.index]);return true;
@@ -133,7 +135,7 @@ function act(button){
   const hits=ray.intersectObjects(objects,false).filter(h=>h.object.position.distanceTo(player.position)<6);
   if(hits.length){
     const m=hits[0].object,pi=pickups.indexOf(m),gi=ghosts.indexOf(m);
-    if(pi>=0&&button===0){scene.remove(m);pickups.splice(pi,1);stage.inventory[m.userData.material]++;character.react();notify(`${MATERIAL_NAMES[m.userData.material]}: +1`);update();return}
+    if(pi>=0&&button===0){scene.remove(m);gathering.collect(m);pickups.splice(pi,1);stage.inventory[m.userData.material]++;character.react();notify(`${MATERIAL_NAMES[m.userData.material]}: +1`);update();return}
     if(gi>=0&&button===0){
       const t=targets[gi];
       if(selected!==t.material){notify(`Для этой арки нужен материал «${MATERIAL_NAMES[t.material]}» — клавиша ${t.material+1}.`);return}
@@ -165,6 +167,7 @@ function act(button){
   const block=box(x,y,z,.98,.98,.98,mats[selected],true);block.userData.material=selected;placed.push(block);update();
 }
 $('#reset').onclick=()=>{
+  gathering.clear();
   if(stage.index===2)forge.reset();
   stage.placed.forEach(m=>{scene.remove(m);solids.splice(solids.indexOf(m),1)});stage.placed.length=0;
   stage.pickups.forEach(m=>scene.remove(m));stage.pickups.length=0;stage.ghosts.forEach(m=>m.visible=true);
@@ -196,4 +199,5 @@ if(route)travelButton.textContent=route.ready?route.label:route.locked;
 for(const portal of [exitGlow,secondGlow,...returnGlows])portal.material.opacity=.4+Math.sin(now*.002)*.12;
 forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!hub.isOpen()&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);
-if(!customizer.isOpen())renderer.render(scene,camera);customizer.render(dt,now/1000)}requestAnimationFrame(frame);
+gathering.update(dt,now/1000,{active,third,visible:!panel.isBattle()});
+if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
