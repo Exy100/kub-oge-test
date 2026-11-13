@@ -1,6 +1,7 @@
-import { createNavigatorSpeech } from './navigator-speech.js?v=9';
-import { createNavigatorChoice } from './navigator-choice.js?v=8';
-import { NAVIGATORS } from './navigator-model.js?v=8';
+import { createLiveNavigator } from './navigator-live.js?v=10';
+import { createNavigatorSpeech } from './navigator-speech.js?v=10';
+import { createNavigatorChoice } from './navigator-choice.js?v=10';
+import { NAVIGATORS } from './navigator-model.js?v=10';
 // Physical codes keep chords identical on Russian and English layouts.
 export function createPanelKeys({ switchMode, navigator, camera }) {
   const held = new Set(); let chord = false;
@@ -33,16 +34,21 @@ const icon = name => `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="${pat
 
 export function createPlayerPanel({ onOpen, mission, notify, camera, blocked }) {
   const $ = s => document.querySelector(s);
+  let live;
   const choice=createNavigatorChoice({onOpen,onChange(id,portrait){
     for(const target of ['#navigator-button .navigator-portrait','#navigator-dialog .navigator-portrait'])$(target).outerHTML=portrait;
+    $('#navigator-button img').hidden=true;live?.select(id);
     $('#navigator-title').textContent='Навигатор · '+NAVIGATORS.find(n=>n.id===id).name;
   }});
   const portrait=choice.portrait();
+  const greetingToggle=document.createElement('label');greetingToggle.className='greeting-toggle';greetingToggle.innerHTML='<input id="greeting-enabled" type="checkbox" checked> Озвучить приветствие Навигатора';$('#play').before(greetingToggle);
   const hotbar = $('.hotbar');
   const dock = document.createElement('section'); dock.className='player-dock'; dock.dataset.mode='build'; dock.setAttribute('aria-label','Панель игрока');
   hotbar.before(dock);
   dock.innerHTML=`<div class="dock-caption"><span class="dock-dot"></span><span id="dock-mode" aria-live="polite">СБОРКА</span><button id="mode-switch" title="Сменить панель · C + V / С + М">Сборка / Сражение <kbd>C + V</kbd></button></div><div class="dock-frame"><button id="navigator-button" class="dock-end navigator" aria-label="Позвать Навигатора · Z + X / Я + Ч" title="Навигатор · Z + X / Я + Ч">${portrait}<span>Навигатор</span><kbd>Z + X</kbd></button><div class="dock-content"></div><button id="weapons-button" class="dock-end" hidden aria-label="Оружейный инвентарь">${icon('bag')}<span>Арсенал</span></button><div class="dock-ornament" aria-hidden="true">✧</div></div>`;
   dock.querySelector('.dock-content').append(hotbar);
+  live=createLiveNavigator($('#navigator-button'),choice.selected()??27);
+  const bubble=document.createElement('div');bubble.id='navigator-greeting';bubble.setAttribute('role','status');bubble.hidden=true;bubble.textContent='Привет!';$('#navigator-button').append(bubble);
   const battle=document.createElement('div');battle.className='battle-bar';battle.hidden=true;
   const skills=[['sword','Удар'],['shield','Защита'],['spark','Импульс'],['bow','Выстрел'],['heal','Восстановление'],['wave','Волна']];
   battle.innerHTML=skills.map(([glyph,name],i)=>`<button class="combat-slot" aria-disabled="true" title="${name} · откроется с боевой системой" aria-label="${name}: пока недоступно"><kbd>${i+1}</kbd>${icon(glyph)}<span>${name}</span><small>◇</small></button>`).join('');
@@ -64,5 +70,6 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked }) 
   for(const d of [dialog,arsenal]){d.querySelector('.paths-heading button').onclick=()=>d.close();d.addEventListener('close',()=>input.clear());}
   $('#navigator-resume').onclick=()=>dialog.close();$('#navigator-paths').onclick=()=>{dialog.close();$('#paths-button').click()};
   const input=createPanelKeys({switchMode,navigator:showNavigator,camera});
-  return {isOpen:()=>dialog.open||arsenal.open||choice.isOpen(),isBattle:()=>mode==='battle',input};
+  let greeted=false;
+  return {start(){if(greeted)return;greeted=true;live.greet();bubble.hidden=false;setTimeout(()=>bubble.hidden=true,6500);if($('#greeting-enabled').checked)speech.greet()},update(dt,time,active){live.update(dt,time,active)},isOpen:()=>dialog.open||arsenal.open||choice.isOpen(),isBattle:()=>mode==='battle',input};
 }

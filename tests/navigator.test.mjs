@@ -11,3 +11,6 @@ test('navigator persistence rejects stale ids and survives blocked storage',()=>
  for(const v of ['null','99','"8"','{','{}']){value=v;assert.equal(loadNavigator(storage),null)}
  assert.equal(saveNavigator(storage,12),false);assert.equal(loadNavigator(undefined),null);assert.equal(saveNavigator(undefined,8),false);
 });
+test('every robot has a connected waving arm, blinking eyes and a settled idle pose',()=>{
+ for(const {id} of NAVIGATORS){const model=createNavigator(id);const arm=model.root.getObjectByName('wave-arm');assert(arm);assert(arm.children.length>=3);model.greet();model.animate(.4,.4);assert(arm.rotation.z<-.5);model.animate(4,4.4);assert(Math.abs(arm.rotation.z)<1e-9);assert(model.root.getObjectByName('eye').scale.y<.075);model.animate(.1,5,{reducedMotion:true});assert.equal(model.root.position.y,0);assert.equal(model.root.getObjectByName('eye').scale.y,.075);model.dispose()}
+});

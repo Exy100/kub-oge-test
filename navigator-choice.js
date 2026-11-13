@@ -1,4 +1,4 @@
-import { NAVIGATORS, loadNavigator, saveNavigator, renderNavigatorPortraits } from './navigator-model.js?v=8';
+import { NAVIGATORS, loadNavigator, saveNavigator, renderNavigatorPortraits } from './navigator-model.js?v=10';
 
 export function createNavigatorChoice({onChange,onOpen}){
   let storage;try{storage=localStorage}catch{}

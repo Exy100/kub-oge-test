@@ -1,4 +1,4 @@
-import { createPlayerPanel } from './player-panel.js?v=9';
+import { createPlayerPanel } from './player-panel.js?v=10';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=4';
@@ -121,7 +121,7 @@ function travel(){
 }
 $('#travel-prompt').onclick=travel;
 document.querySelectorAll('.slot').forEach((s,i)=>{s.setAttribute('role','button');s.tabIndex=0;s.setAttribute('aria-label',MATERIAL_NAMES[i]);s.onclick=()=>select(i);s.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();select(i)}}});function toggle(){third=!third;player.visible=third;$('#viewLabel').textContent=third?'Вид от третьего лица':'Вид от первого лица'}$('#camera').onclick=toggle;
-$('#play').onclick=()=>{ $('#welcome').classList.add('hidden');renderer.domElement.requestPointerLock?.()};$('#sound').onclick=()=>{document.exitPointerLock?.();$('#welcome').classList.remove('hidden')};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
+$('#play').onclick=()=>{ $('#welcome').classList.add('hidden');panel.start();renderer.domElement.requestPointerLock?.()};$('#sound').onclick=()=>{document.exitPointerLock?.();$('#welcome').classList.remove('hidden')};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
 let dragging=false;renderer.domElement.addEventListener('mousedown',e=>{dragging=true;if(!modalOpen()&&document.pointerLockElement)act(e.button)});document.addEventListener('mouseup',()=>dragging=false);renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('mousemove',e=>{if(!modalOpen()&&(document.pointerLockElement||dragging)){yaw-=e.movementX*.003;pitch=THREE.MathUtils.clamp(pitch+e.movementY*.003,-.7,1.1)}});
 addEventListener('keydown',e=>{if(modalOpen()||!$('#welcome').classList.contains('hidden'))return;if(panel.input.down(e))return;if(e.code==='KeyE'&&!e.repeat){if(!travel()&&!(stage.index===2&&forge.open(player.position)))hub.openNearby();return}if(['Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();if(e.code==='Space'&&!keys.Space)jumpRequested=true;keys[e.code]=true;if(/^Digit[1-6]$/.test(e.code)){if(panel.isBattle())notify('Боевые навыки пока недоступны.');else select(+e.code.slice(-1)-1)}});addEventListener('keyup',e=>{keys[e.code]=false;if(!modalOpen()&&$('#welcome').classList.contains('hidden'))panel.input.up(e);else panel.input.clear()});addEventListener('blur',()=>{panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
 function act(button){
@@ -195,4 +195,5 @@ const route=nearbyRoute(),travelButton=$('#travel-prompt');travelButton.hidden=!
 if(route)travelButton.textContent=route.ready?route.label:route.locked;
 for(const portal of [exitGlow,secondGlow,...returnGlows])portal.material.opacity=.4+Math.sin(now*.002)*.12;
 forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!hub.isOpen()&&!customizer.isOpen()&&!panel.isOpen());
+panel.update(dt,now/1000,active);
 if(!customizer.isOpen())renderer.render(scene,camera);customizer.render(dt,now/1000)}requestAnimationFrame(frame);
