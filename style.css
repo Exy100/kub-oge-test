@@ -25,3 +25,81 @@
 /* A live companion occupies the left end; the greeting is anchored above it. */
 .player-dock{width:min(740px,100%)}.dock-end.navigator{flex-basis:112px;width:112px;height:112px;overflow:visible;justify-content:flex-end;padding-bottom:7px;background:linear-gradient(140deg,#f1efda,#c1d5bd)}.navigator-live{display:block;width:128px;height:138px;margin-top:-30px;pointer-events:none}.navigator-live canvas{position:static;display:block;width:100%;height:100%;pointer-events:none}.navigator .navigator-portrait[hidden]{display:none}.navigator>span:not(.navigator-live){font-size:9px}.dock-caption{margin-left:142px}.dock-caption button{white-space:nowrap}#navigator-greeting{position:absolute;bottom:calc(100% + 17px);left:50%;transform:translateX(-50%);padding:13px 22px;border-radius:16px 16px 16px 4px;border:1px solid #baa47f;background:#fffdf0;color:#385c48;box-shadow:0 6px 20px #28423422;font-size:17px;font-weight:800;white-space:nowrap;pointer-events:none;z-index:3}#navigator-greeting:after{content:'';position:absolute;bottom:-7px;left:50%;width:12px;height:12px;transform:rotate(45deg);border-right:1px solid #baa47f;border-bottom:1px solid #baa47f;background:#fffdf0}.greeting-toggle{display:flex;justify-content:center;align-items:center;gap:8px;font-size:11px;color:#5a755c;margin:12px 0}.greeting-toggle input{accent-color:#668654}.navigator-choice .robot-preview{height:220px}.bottom .controls{gap:14px}#message{bottom:218px}
 @media(max-width:650px){.dock-end.navigator{flex-basis:78px;width:78px;height:91px}.navigator-live{width:94px;height:108px;margin-top:-23px}.dock-caption{margin-left:100px;font-size:7px;gap:4px}.dock-caption button{font-size:8px;padding:5px}.dock-caption kbd{margin-left:3px}.navigator>span:not(.navigator-live){font-size:7px}#navigator-greeting{padding:10px 16px;font-size:14px;bottom:calc(100% + 14px)}.navigator-choice .robot-preview{height:155px}#message{bottom:212px}.greeting-toggle{font-size:10px}.dock-frame{gap:4px}.player-dock .slot{min-width:0}.player-dock .cube{width:17px;height:20px}}
+
+.dock-tools {
+  flex: 0 0 126px;
+  display: grid;
+  gap: 5px;
+}
+.dock-tools button {
+  display: grid;
+  grid-template-columns: 19px 1fr auto;
+  align-items: center;
+  gap: 4px;
+  height: 36px;
+  padding: 4px 7px;
+  border: 1px solid #ab9d7d;
+  border-radius: 9px 5px;
+  background: linear-gradient(130deg,#fffdf0,#d4decc);
+  color: #365548;
+  font-size: 10px;
+  font-weight: 700;
+}
+.dock-tools svg { width: 19px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linejoin: round; }
+.dock-tools kbd { font-size: 9px; padding: 2px; }
+.bag-summary, .kit-modes { display: flex; align-items: center; gap: 8px; margin: 18px 0 12px; }
+.bag-summary { justify-content: space-between; font-size: 13px; }
+.coin-balance { background: #ede2bb; color: #695224; border-radius: 14px; padding: 5px 12px; }
+.bag-grid { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 6px; }
+.bag-cell, .kit-slot {
+  border: 1px solid #b7c4ad;
+  border-radius: 10px;
+  background: #e5ebdd;
+}
+.bag-cell { position: relative; min-height: 74px; display: grid; align-content: center; justify-items: center; padding: 12px 3px 3px; }
+.bag-cell.occupied, .kit-slot { background: linear-gradient(140deg,#fffdf3,#e1ead8); }
+.item-glyph { font-size: 22px; font-weight: bold; color: #577452; }
+.item-name { font-size: 11px; overflow-wrap: anywhere; text-align: center; }
+.item-count { position: absolute; top: 3px; right: 5px; font-size: 10px; }
+.kit-modes button, .kit-choices button { background: #e0e8da; color: #365548; padding: 8px 12px; border-radius: 7px; }
+.kit-modes button[aria-pressed=true] { background: #416653; color: white; }
+.kit-slots { display: grid; grid-template-columns: repeat(2,minmax(0,1fr)); gap: 7px; }
+.kit-slot { padding: 10px 12px; text-align: left; display: grid; gap: 4px; color: #324e42; }
+.kit-slot[aria-pressed=true] { outline: 2px solid #638460; }
+.kit-slot small { font-size: 12px; }
+.kit-choices:not([hidden]) { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; margin-top: 12px; }
+@media(max-width:650px){
+  .dock-tools { flex-basis: 74px; gap: 4px; }
+  .dock-tools button { grid-template-columns: 1fr auto; font-size: 9px; padding: 3px; gap: 1px; }
+  .dock-tools svg { display: none; }
+  .kit-window { padding: 15px; }
+  .bag-cell { min-height: 62px; }
+  .bag-grid { gap: 4px; }
+}
+
+@property --battle-rim-angle {
+  syntax: "<angle>";
+  initial-value: 0deg;
+  inherits: false;
+}
+.player-dock[data-mode="battle"] .dock-frame::before {
+  content: "";
+  inset: -2px;
+  height: auto;
+  padding: 3px;
+  border: 0;
+  border-radius: inherit;
+  background: conic-gradient(from var(--battle-rim-angle),
+    #584e53, #a58b79 12%, #fff2be 22%, #c3a280 29%, #554952 42%,
+    #76666c 57%, #ffecc5 72%, #a89080 82%, #584e53);
+  mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  mask-composite: exclude;
+  pointer-events: none;
+  animation: battle-rim-turn 5s linear infinite;
+}
+@keyframes battle-rim-turn {
+  to { --battle-rim-angle: 360deg; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .player-dock[data-mode="battle"] .dock-frame::before { animation: none; }
+}

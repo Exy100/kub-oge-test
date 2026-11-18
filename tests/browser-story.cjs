@@ -29,8 +29,15 @@ await page.locator('[data-choose="code"]').click();assert((await page.locator('#
 assert(await page.evaluate(()=>localStorage.getItem('kub.learning-path.v1'))==='code','path persistence');
 await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===0,'portal must be locked');
 await page.evaluate(()=>window.storyTest.collect());let s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.inventory[0]===7&&s.pickups===0,'collect first island cubes');
+await page.keyboard.press('KeyB');
+const sandstone=page.locator('.bag-cell').filter({hasText:'Песчаник'});
+assert((await sandstone.innerText()).includes('×7'),'gathered sandstone occupies a stack');
+await page.keyboard.press('KeyB');
 for(let i=0;i<7;i++)await page.evaluate(i=>window.storyTest.build(i),i);
 s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.built===7&&s.unlocked,'first arch opens portal');
+await page.keyboard.press('KeyB');
+assert(await sandstone.count()===0,'building spends the inventory stack');
+await page.keyboard.press('KeyB');
 await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.index===1&&s.pickups===21,'second island');
 await page.screenshot({path:'/tmp/kub-second-island.png'});
 await page.evaluate(()=>window.storyTest.collect());s=await page.evaluate(()=>window.storyTest.snapshot());assert([0,2,3].every(m=>s.inventory[m]===7),'collect three distinct materials');
@@ -44,8 +51,7 @@ await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('
 await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===2,'three arches open forge');
 await page.screenshot({path:'/tmp/kub-forge-world.png'});
 let faces=await page.evaluate(()=>window.storyTest.bitMaterial());
-await page.waitForFunction(first=>window.storyTest.bitMaterial()[0]!==first,faces[0],{timeout:10000});
-const nextFaces=await page.evaluate(()=>window.storyTest.bitMaterial());assert(faces.every((m,i)=>m!==nextFaces[i]),'all six bit faces switch');
+await page.waitForFunction(before=>window.storyTest.bitMaterial().every((face,i)=>face!==before[i]),faces,{timeout:10000});
 await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===2,'forge door locked');
 for(let batch=0;batch<4;batch++){
  await page.evaluate(()=>window.storyTest.collectBits());let f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.bits===8&&f.pickups===0,'eight collectible bits per batch');

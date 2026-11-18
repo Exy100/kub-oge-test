@@ -2,17 +2,66 @@ const {chromium}=require('playwright');const {spawn}=require('child_process');co
 const assert=(x,msg)=>{if(!x)throw Error(msg)};
 (async()=>{const repo=path.resolve(__dirname,'..');const server=spawn('python3',['-m','http.server','8064','--bind','127.0.0.1'],{cwd:repo,stdio:'ignore'});let browser;
 try{await new Promise(r=>setTimeout(r,500));browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1440,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
-await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(repo,'game.js'),'utf8')+'\nwindow.panelTest={position:()=>player.position.toArray(),stage:(i)=>{stage=stages[i];refreshMission()},act:()=>act(0)};'}));
+await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(repo,'game.js'),'utf8')+'\nwindow.panelTest={playerAccount,position:()=>player.position.toArray(),stage:(i)=>{stage=stages[i];refreshMission()},act:()=>act(0)};'}));
 await page.goto('http://127.0.0.1:8064');if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();await page.evaluate(()=>document.exitPointerLock());await page.waitForFunction(()=>!document.pointerLockElement);
+const bagWindow=page.locator('#inventory-dialog'), gearWindow=page.locator('#weapons-dialog');
+await page.evaluate(()=>panelTest.playerAccount.coins=17);
+await page.locator('#inventory-button').click();
+assert(await bagWindow.isVisible(),'bag opens by mouse');
+assert(await bagWindow.locator('.bag-cell').count()===20,'twenty cells');
+assert(await bagWindow.locator('.occupied').count()===1,'coins do not consume a cell');
+assert((await bagWindow.locator('.coin-balance').innerText()).includes('17'),'player balance');
+async function physical(code,key){
+  await page.evaluate(([code,key])=>{
+    for(const type of ['keydown','keyup'])dispatchEvent(new KeyboardEvent(type,{code,key}));
+  },[code,key]);
+}
+await physical('KeyC','с');
+assert(await gearWindow.isVisible()&&!await bagWindow.isVisible(),'Russian C selects gear from bag');
+const tool=gearWindow.locator('[data-slot=tool]');
+await tool.click();
+await gearWindow.getByRole('button',{name:'Снять · Жезл сбора'}).click();
+assert((await tool.innerText()).includes('Пусто'),'unequip wand');
+await gearWindow.getByRole('button',{name:'Бой',exact:true}).click();
+assert(await gearWindow.locator('[data-slot=weapon]').isVisible(),'weapon in battle mode');
+await gearWindow.getByRole('button',{name:'Исследование',exact:true}).click();
+await tool.click();
+await gearWindow.getByRole('button',{name:'Надеть · Жезл сбора'}).click();
+await physical('KeyC','с');
+assert(!await gearWindow.isVisible(),'gear toggles closed');
+await physical('KeyB','и');assert(await bagWindow.isVisible(),'Russian B opens bag');
+await physical('KeyB','и');assert(!await bagWindow.isVisible(),'Russian B closes bag');
 await page.screenshot({path:'/tmp/kub-panel-build.png'});
 await page.locator('#navigator-button').click();assert(await page.locator('#navigator-dialog').evaluate(e=>e.open),'navigator click');assert((await page.locator('#navigator-task').innerText()).includes('7 кубов'),'contextual mission');
 const pos=await page.evaluate(()=>panelTest.position());await page.keyboard.down('KeyW');await page.waitForTimeout(100);await page.keyboard.up('KeyW');assert(JSON.stringify(pos)===JSON.stringify(await page.evaluate(()=>panelTest.position())),'dialog pauses movement');await page.keyboard.press('Escape');
 for(const order of [['KeyC','KeyV'],['KeyV','KeyC']]){const camera=await page.locator('#viewLabel').innerText();await page.keyboard.down(order[0]);await page.keyboard.down(order[1]);await page.keyboard.up(order[1]);await page.keyboard.up(order[0]);assert(await page.locator('#viewLabel').innerText()===camera,'mode chord keeps camera');}
 const camera=await page.locator('#viewLabel').innerText();await page.keyboard.press('KeyV');assert(await page.locator('#viewLabel').innerText()!==camera,'single V changes camera');
 await page.evaluate(()=>{for(const [code,key] of [['KeyX','ч'],['KeyZ','я']])dispatchEvent(new KeyboardEvent('keydown',{code,key}));for(const code of ['KeyX','KeyZ'])dispatchEvent(new KeyboardEvent('keyup',{code}));});assert(await page.locator('#navigator-dialog').evaluate(e=>e.open),'Russian physical chord');await page.keyboard.press('Escape');
-await page.locator('#mode-switch').click();assert(await page.locator('.battle-bar').isVisible(),'battle visible');assert(!await page.locator('.hotbar').isVisible(),'build hidden');await page.screenshot({path:'/tmp/kub-panel-battle.png'});await page.locator('#weapons-button').click();assert(await page.locator('#weapons-dialog').evaluate(e=>e.open),'arsenal opens');await page.keyboard.press('Escape');await page.locator('#mode-switch').click();
+await page.locator('#mode-switch').click();assert(await page.locator('.battle-bar').isVisible(),'battle visible');assert(!await page.locator('.hotbar').isVisible(),'build hidden');
+const rim=()=>page.locator('.dock-frame').evaluate(e=>{
+  const style=getComputedStyle(e,'::before');
+  return {name:style.animationName,angle:style.getPropertyValue('--battle-rim-angle')};
+});
+const initialRim=await rim();
+assert(initialRim.name==='battle-rim-turn','battle rim animates');
+await page.waitForFunction(angle=>getComputedStyle(document.querySelector('.dock-frame'),'::before').getPropertyValue('--battle-rim-angle')!==angle,initialRim.angle);
+await page.emulateMedia({reducedMotion:'reduce'});
+assert((await rim()).name==='none','reduced motion keeps rim still');
+await page.emulateMedia({reducedMotion:'no-preference'});
+await page.screenshot({path:'/tmp/kub-panel-battle.png'});await page.locator('#weapons-button').click();assert(await page.locator('#weapons-dialog').evaluate(e=>e.open),'gear opens in battle mode');await page.keyboard.press('Escape');await page.locator('#mode-switch').click();
+assert((await rim()).name==='none','exploration rim stays still');
 await page.locator('.slot').nth(2).click();assert(await page.locator('.slot').nth(2).evaluate(e=>e.classList.contains('selected')),'build selection works');
 await page.evaluate(()=>panelTest.stage(2));await page.locator('#navigator-button').click();assert((await page.locator('#navigator-task').innerText()).includes('биты'),'forge context');await page.keyboard.press('Escape');await page.evaluate(()=>panelTest.stage(0));
 for(const width of [390,640]){await page.setViewportSize({width,height:844});for(let i=0;i<2;i++){assert(await page.locator('.dock-frame').evaluate(e=>e.getBoundingClientRect().right<=innerWidth && e.scrollWidth<=e.clientWidth+1),'dock fits '+width);await page.locator('#mode-switch').click();}}
-await page.screenshot({path:'/tmp/kub-panel-mobile.png'});assert(!errors.length,errors.join(';'));console.log('PASS: navigator, modal pause, both chord orders, Russian layout, standalone camera, modes, arsenal, selection, forge and responsive widths');
+await page.screenshot({path:'/tmp/kub-panel-mobile.png'});
+await page.setViewportSize({width:390,height:844});
+await page.locator('#inventory-button').click();
+assert(await bagWindow.evaluate(d=>d.scrollWidth===d.clientWidth),'bag fits mobile');
+const rows=await bagWindow.locator('.bag-cell').evaluateAll(cells=>new Set(cells.map(c=>c.offsetTop)).size);
+assert(rows===4,'four inventory rows on mobile');
+await page.screenshot({path:'/tmp/kub-inventory-mobile.png'});
+await page.keyboard.press('KeyC');
+assert(await gearWindow.evaluate(d=>d.scrollWidth===d.clientWidth),'equipment fits mobile');
+await page.screenshot({path:'/tmp/kub-equipment-mobile.png'});
+assert(!errors.length,errors.join(';'));console.log('PASS: navigator, modal pause, both chord orders, Russian layout, standalone camera, modes, inventory, equipment, selection, forge and responsive widths');
 }finally{await browser?.close();server.kill();}})().catch(e=>{console.error(e);process.exitCode=1});
