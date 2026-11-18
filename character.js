@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { createFace, makeSoftBox } from './character-face.js';
+import { createFace, makeSoftBox } from './character-face.js?v=6';
 
 // Local forward is -Z. All animation is driven by actual, post-collision motion.
 export function createCharacter(appearance) {
@@ -33,10 +33,11 @@ export function createCharacter(appearance) {
   block(body, 'buckle', 0, .79, -.18, .085, .065, .025, 0xd6bc77);
   for (const side of [-1, 1]) {
     block(body, 'collar', side * .115, 1.265, -.16, .15, .065, .07, 0xf3e5bc);
-    block(body, 'pocket', side * .17, 1.03, -.177, .13, .14, .035, 0x668d86);
-    block(body, 'pocket-flap', side * .17, 1.09, -.2, .14, .035, .025, 0xdbdfcb);
-    block(body, 'pocket-button', side * .17, 1.075, -.218, .025, .025, .012, 0x7e7154);
-    block(body, 'pack-strap', side * .2, 1.08, -.19, .045, .39, .045, 0x886d48);
+    block(body, 'pocket', side * .13, 1.03, -.177, .12, .14, .035, 0x668d86);
+    block(body, 'pocket-flap', side * .13, 1.09, -.2, .13, .035, .025, 0xdbdfcb);
+    block(body, 'pocket-button', side * .13, 1.075, -.218, .025, .025, .012, 0x7e7154);
+    // Keep the strap in front of pocket flaps: the old front faces shared z=-.2125.
+    block(body, 'pack-strap', side * .215, 1.08, -.232, .044, .39, .026, 0x886d48);
   }
   const backpack = joint(body, 'backpack', 0, 1.03, .25);
   block(backpack, 'pack', 0, 0, 0, .43, .43, .23, 0xa47b4b);
