@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { PALETTES, normalizeAppearance } from './appearance.js';
+import { PALETTES, normalizeAppearance } from './appearance.js?v=6';
 
 // Chamfered silhouettes instead of sharp voxel corners; the rest of the world stays cubic.
 export function makeSoftBox() {
@@ -19,16 +19,57 @@ function makeHairScalp() {
   for(let i=0;i<8;i++)indices.push(center,24+(i+1)%8,24+i);
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setIndex(indices);geometry.computeVertexNormals();return geometry;
 }
+function makeCapBrim() {
+  const shape=new THREE.Shape();shape.moveTo(-.21,-.18);
+  shape.bezierCurveTo(-.27,-.30,-.23,-.45,0,-.47);
+  shape.bezierCurveTo(.23,-.45,.27,-.30,.21,-.18);shape.closePath();
+  const geometry=new THREE.ExtrudeGeometry(shape,{depth:.014,bevelEnabled:true,bevelThickness:.003,bevelSize:.003,bevelSegments:2,curveSegments:16,steps:1});
+  geometry.rotateX(Math.PI/2);geometry.translate(0,.17,0);
+  const p=geometry.attributes.position;
+  for(let i=0;i<p.count;i++)p.setY(i,p.getY(i)-.035*Math.pow(Math.max(0,(-p.getZ(i)-.18)/.29),2));
+  geometry.computeVertexNormals();return geometry;
+}
+function capFrontZ(y) {
+  const rings=[[.167,-.23544],[.2605,-.22356],[.332,-.1728]];
+  const pair=y<rings[1][0]?0:1;const [a,b]=[rings[pair],rings[pair+1]];
+  return a[1]+(b[1]-a[1])*(y-a[0])/(b[0]-a[0]);
+}
+function makeCapLabel() {
+  const geometry=new THREE.PlaneGeometry(.32,.115,12,8),p=geometry.attributes.position;
+  for(let i=0;i<p.count;i++){const y=p.getY(i)+.242;p.setY(i,y);p.setZ(i,capFrontZ(y)-.004)}
+  // Front of the character is -Z. Flip UVs so text reads normally from that side.
+  const uv=geometry.attributes.uv;for(let i=0;i<uv.count;i++)uv.setX(i,1-uv.getX(i));
+  geometry.computeVertexNormals();return geometry;
+}
 export function createFace(parent, initial) {
   const geometry = {
     soft: makeSoftBox(), scalp: makeHairScalp(), head: makeSoftBox(), sphere: new THREE.SphereGeometry(1,12,8),
     facet: new THREE.IcosahedronGeometry(1,0), cone: new THREE.ConeGeometry(1,2,6),
-    ring: new THREE.TorusGeometry(1,.22,5,14),
+    softEar: new THREE.SphereGeometry(1,16,12), capBrim: makeCapBrim(), capLabel: makeCapLabel(),
   };
   const vertices=geometry.head.attributes.position;
   for(let i=0;i<vertices.count;i++)vertices.setX(i,vertices.getX(i)*(1-.14*Math.max(0,(-vertices.getY(i)-.05)/.45)));
   geometry.head.computeVertexNormals();
+  const earVertices=geometry.softEar.attributes.position;
+  for(let i=0;i<earVertices.count;i++){
+    const y=earVertices.getY(i);earVertices.setX(i,earVertices.getX(i)*(1-.18*Math.max(0,y)));
+  }
+  geometry.softEar.computeVertexNormals();
   const materials = new Map();
+  let capLabelMaterial;
+  function getCapLabelMaterial() {
+    if(capLabelMaterial)return capLabelMaterial;
+    let map=null;
+    if(typeof document!=='undefined'){
+      const canvas=document.createElement('canvas');canvas.width=512;canvas.height=192;
+      const ctx=canvas.getContext('2d');ctx.clearRect(0,0,512,192);
+      ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.font='600 60px Arial, sans-serif';
+      ctx.fillText('экзамены,',256,76);ctx.fillText('сдавайтесь.',256,147);
+      map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=8;
+    }
+    capLabelMaterial=new THREE.MeshBasicMaterial({map,color:0xffffff,transparent:true,alphaTest:.08,side:THREE.DoubleSide,depthWrite:false});
+    return capLabelMaterial;
+  }
   let group, eyes = [], owned = [], appearance;
   const skin=0xe1b18a, skinShadow=0xc58c70, lip=0x9b615b;
   function mesh(parent,name,kind,x,y,z,w,h,d,color,rotation=0) {
@@ -94,20 +135,28 @@ export function createFace(parent, initial) {
     if(mouthShapes[appearance.mouth])curve(mouth,'mouth-line',mouthShapes[appearance.mouth],appearance.mouth===6?.008:.005,lip);
     if(appearance.mouth===2){mesh(mouth,'smile-shadow','sphere',0,-.001,.002,.06,.018,.008,0x754c4b);mesh(mouth,'teeth','soft',0,.006,-.008,.096,.016,.01,0xfff4de)}
     if(appearance.mouth===4)curve(mouth,'lower-lip',[[-.035,-.012,0],[0,-.016,-.003],[.035,-.012,0]],.004,0xb67a70);
-    if(appearance.mouth===5)mesh(mouth,'round-mouth','ring',0,0,0,.022,.026,.025,lip);
+    if(appearance.mouth===5){
+      mesh(mouth,'calm-upper-lip','sphere',0,.005,0,.037,.006,.0035,0xb67e73);
+      mesh(mouth,'calm-lower-lip','sphere',0,-.009,0,.035,.006,.0035,0xc18b7e);
+      curve(mouth,'calm-lip-seam',[[-.044,0,-.004],[-.021,.002,-.004],[0,0,-.005],[.021,.002,-.004],[.044,0,-.004]],.0027,lip);
+    }
     if(appearance.mouth===7)mesh(mouth,'dimple','sphere',-.065,.022,0,.007,.008,.006,skinShadow);
     if(appearance.mouth===9){mesh(mouth,'open-smile','sphere',0,-.002,0,.052,.029,.012,0x754c4b);mesh(mouth,'teeth','soft',0,.014,-.011,.079,.017,.012,0xfff4de);mesh(mouth,'lower-lip','sphere',0,-.023,-.006,.033,.008,.006,lip)}
 
     const earShapes=[
       [.032,.055,.036,.225,0],[.047,.05,.036,.23,0],[.035,.078,.038,.228,0],
       [.023,.075,.031,.224,0],[.055,.062,.037,.233,0],[.024,.06,.02,.222,.25],
-      [.055,.064,.043,.247,-.2],[.037,.065,.035,.23,0],[.035,.087,.033,.23,-.35],
+      [.055,.064,.043,.247,-.2],[.037,.065,.035,.23,0],[.038,.064,.031,.232,-.12],
       [.048,.066,.042,.233,0],
     ];
     const [ex,ey,ez,offset,angle]=earShapes[appearance.ears];
     for(const side of [-1,1]) {
-      const ear=mesh(group,'ear',appearance.ears===9?'facet':appearance.ears===8?'cone':'sphere',side*offset,-.016,0,ex,ey,ez,skin,side*angle);
-      mesh(group,'ear-inner','sphere',side*(offset+.006),-.016,-ez*.7,ex*.48,ey*.55,.012,0xc88e79,side*angle);
+      const ear=mesh(group,'ear',appearance.ears===9?'facet':appearance.ears===8?'softEar':'sphere',side*offset,-.016,0,ex,ey,ez,skin,side*angle);
+      mesh(group,'ear-inner',appearance.ears===8?'softEar':'sphere',side*(offset+.006),-.016,-ez*.7,ex*.48,ey*.55,appearance.ears===8?.007:.012,0xc88e79,side*angle);
+      if(appearance.ears===8){
+        mesh(group,'soft-ear-lobe','sphere',side*.231,-.058,0,.025,.019,.024,skin);
+        curve(group,'ear-fold',[[side*.233,-.041,-.032],[side*.245,-.015,-.033],[side*.239,.017,-.029]],.003,skinShadow);
+      }
       if(appearance.ears===7)mesh(group,'ear-lobe','sphere',side*offset,-.082,-.005,.028,.029,.025,skin);
       ear.userData.variant=appearance.ears;
     }
@@ -118,10 +167,9 @@ export function createFace(parent, initial) {
       if(lock&&tone===1)mesh(hair,'hair-highlight','sphere',x-w*.12,y+h*.28,z-d*.14,w*.12,h*.12,d*.32,highlight,angle);
       return m;
     };
-    // A shallow scalp foundation is broken up by locks, never a cap or headwear.
-    mesh(hair,'hair-scalp','scalp',0,0,0,1,1,1,base);
-    tuft(0,.092,.187,.413,.22,.055,2,0,'soft');
     const style=appearance.hair;
+    if(style!==9)mesh(hair,'hair-scalp','scalp',0,0,0,1,1,1,base);
+    tuft(0,.092,.187,.413,.22,.055,2,0,'soft');
     if(style===0){for(let i=0;i<5;i++)tuft(-.17+i*.085,.244+(i%2)*.014,-.035,.115,.09,.32,i%3,-.12);tuft(.19,.12,.035,.06,.16,.26,2)}
     if(style===1){for(let i=0;i<5;i++)tuft(-.16+i*.078,.22-i*.014,-.15,.11,.13,.16,i%3,-.28);tuft(.19,.15,.06,.055,.16,.26,2);tuft(-.18,.16,.07,.06,.12,.25)}
     if(style===2){for(let i=0;i<4;i++){const m=tuft(-.15+i*.1,.25,.035,.095,.12,.38,i%3);m.rotation.x=.25}tuft(0,.205,.22,.37,.1,.1,2)}
@@ -130,8 +178,26 @@ export function createFace(parent, initial) {
     if(style===5){tuft(0,-.025,.21,.44,.4,.085,2,0,'soft');for(const side of [-1,1])for(let i=0;i<3;i++)tuft(side*(.205+i*.008),.02,-.08+i*.11,.065,.38,.12,i%3,side*.06);for(let i=0;i<4;i++)tuft(-.15+i*.1,.15,-.204,.095,.12,.06,i%2)}
     if(style===6){for(let i=0;i<5;i++)tuft(-.16+i*.075,.24-i*.03,-.16,.105,.14,.13,i%3,-.42);tuft(.214,.05,-.025,.055,.2,.26,2);tuft(-.2,.15,.03,.05,.1,.26)}
     if(style===7){for(let i=0;i<4;i++)tuft(-.145+i*.095,.245,.03,.095,.12,.36,i%3);for(let i=0;i<4;i++){const m=tuft(0,.13-i*.075,.255+i*.027,.13-i*.015,.12,.12,i%3);m.rotation.x=-.35}tuft(0,.19,.242,.15,.045,.1,2)}
-    if(style===8){tuft(0,.04,.211,.4,.25,.065,2,0,'soft');for(let i=0;i<7;i++)tuft((i%2?1:-1)*.025,.115-i*.055,.265,.084,.078,.085,i%3,(i%2?1:-1)*.4);tuft(0,-.275,.265,.055,.07,.06,1);for(let i=0;i<4;i++)tuft(-.15+i*.1,.22,-.13,.1,.11,.21,i%3)}
-    if(style===9){for(const side of [-1,1]){tuft(side*.2,.27,.06,.095,.095,.095,0,0,'sphere');tuft(side*.2,.29,.065,.08,.06,.088,1,side*.35,'facet');tuft(side*.16,.135,-.14,.055,.16,.08,2,side*.15)}tuft(0,.23,-.09,.3,.09,.24)}
+    if(style===8){
+      // A cropped, upright brush with rounded, uneven tips instead of triangular cartoon spikes.
+      for(let row=0;row<3;row++)for(let i=0;i<5;i++){
+        const height=[.145,.175,.185,.165,.15][i]-(row===2?.025:0);
+        const strand=tuft(-.16+i*.08,.27,-.13+row*.115,.073,height,.078,(i+row)%3,(i-2)*.035);
+        strand.name='upright-hair-strand';strand.rotation.x=(row-1)*.055;
+      }
+      for(const side of [-1,1])tuft(side*.21,.14,.02,.045,.13,.27,2);
+    }
+    if(style===9){
+      // Neutral fabric stays the same colour; the selected palette colours the visible hair.
+      for(const side of [-1,1])for(let i=0;i<2;i++)tuft(side*.208,.10-i*.035,.01,.046,.09,.26,i?1:0);
+      const cap=new THREE.Group();cap.name='baseball-cap';hair.add(cap);
+      mesh(cap,'cap-crown','scalp',0,.035,0,1.1,1.1,1.08,0x59636b);
+      mesh(cap,'cap-brim','capBrim',0,0,0,1,1,1,0x4c565f);
+      mesh(cap,'cap-button','sphere',0,.377,0,.018,.009,.018,0x657079);
+      for(const side of [-1,1])curve(cap,'cap-panel-seam',[[side*.16,.205,-.21],[side*.14,.285,-.177],[side*.07,.35,-.09],[0,.37,0]],.0018,0x78838b);
+      curve(cap,'cap-brim-seam',[[-.20,.157,-.245],[-.16,.141,-.395],[0,.134,-.454],[.16,.141,-.395],[.20,.157,-.245]],.0015,0x75808a);
+      const label=new THREE.Mesh(geometry.capLabel,getCapLabelMaterial());label.name='cap-lettering';label.userData.text='экзамены, сдавайтесь.';cap.add(label);
+    }
   }
   rebuild(initial);
   return {
@@ -143,6 +209,6 @@ export function createFace(parent, initial) {
       const closed=phase>4.48?Math.sin((phase-4.48)/.22*Math.PI):0;
       eyes.forEach(eye=>eye.scale.y=1-Math.max(0,closed)*.92);
     },
-    dispose(){parent.remove(group);owned.forEach(g=>g.dispose());Object.values(geometry).forEach(g=>g.dispose());materials.forEach(m=>m.dispose())},
+    dispose(){parent.remove(group);owned.forEach(g=>g.dispose());Object.values(geometry).forEach(g=>g.dispose());materials.forEach(m=>m.dispose());capLabelMaterial?.map?.dispose();capLabelMaterial?.dispose()},
   };
 }
