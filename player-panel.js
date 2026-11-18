@@ -1,12 +1,15 @@
+import { createInventoryWindows } from './inventory-window.js';
 import { createLiveNavigator } from './navigator-live.js?v=11';
 import { createNavigatorSpeech } from './navigator-speech.js?v=13';
 import { createNavigatorChoice } from './navigator-choice.js?v=11';
 import { NAVIGATORS } from './navigator-model.js?v=11';
 // Physical codes keep chords identical on Russian and English layouts.
-export function createPanelKeys({ switchMode, navigator, camera }) {
+export function createPanelKeys({ switchMode, navigator, camera, inventory, equipment }) {
   const held = new Set(); let chord = false;
   return {
     down(e) {
+      if (e.altKey || e.ctrlKey || e.metaKey) return false;
+      if (e.code === 'KeyB') { e.preventDefault?.(); if (!e.repeat) inventory?.(); return true; }
       if (!['KeyZ','KeyX','KeyC','KeyV'].includes(e.code)) return false;
       e.preventDefault?.(); if (e.repeat || held.has(e.code)) return true;
       held.add(e.code);
@@ -15,6 +18,7 @@ export function createPanelKeys({ switchMode, navigator, camera }) {
       return true;
     },
     up(e) {
+      if (e.code === 'KeyC' && held.has('KeyC') && !chord) equipment?.();
       if (e.code === 'KeyV' && held.has('KeyV') && !chord) camera();
       held.delete(e.code); if (!held.size) chord = false;
     },
@@ -32,7 +36,7 @@ const paths = {
 };
 const icon = name => `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="${paths[name]}"/></svg>`;
 
-export function createPlayerPanel({ onOpen, mission, notify, camera, blocked }) {
+export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, bag, playerAccount }) {
   const $ = s => document.querySelector(s);
   let live;
   const choice=createNavigatorChoice({onOpen,onChange(id,portrait){
@@ -45,7 +49,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked }) 
   const hotbar = $('.hotbar');
   const dock = document.createElement('section'); dock.className='player-dock'; dock.dataset.mode='build'; dock.setAttribute('aria-label','Панель игрока');
   hotbar.before(dock);
-  dock.innerHTML=`<div class="dock-caption"><span class="dock-dot"></span><span id="dock-mode" aria-live="polite">СБОРКА</span><button id="mode-switch" title="Сменить панель · C + V / С + М">Сборка / Сражение <kbd>C + V</kbd></button></div><div class="dock-frame"><button id="navigator-button" class="dock-end navigator" aria-label="Позвать Навигатора · Z + X / Я + Ч" title="Навигатор · Z + X / Я + Ч">${portrait}<span>Навигатор</span><kbd>Z + X</kbd></button><div class="dock-content"></div><button id="weapons-button" class="dock-end" hidden aria-label="Оружейный инвентарь">${icon('bag')}<span>Арсенал</span></button><div class="dock-ornament" aria-hidden="true">✧</div></div>`;
+  dock.innerHTML=`<div class="dock-caption"><span class="dock-dot"></span><span id="dock-mode" aria-live="polite">СБОРКА</span><button id="mode-switch" title="Сменить панель · C + V / С + М">Сборка / Сражение <kbd>C + V</kbd></button></div><div class="dock-frame"><button id="navigator-button" class="dock-end navigator" aria-label="Позвать Навигатора · Z + X / Я + Ч" title="Навигатор · Z + X / Я + Ч">${portrait}<span>Навигатор</span><kbd>Z + X</kbd></button><div class="dock-content"></div><div class="dock-tools"><button id="inventory-button" title="Инвентарь · B / И">${icon('bag')}<span>Инвентарь</span><kbd>B</kbd></button><button id="weapons-button" title="Снаряжение · C / С">${icon('shield')}<span>Снаряжение</span><kbd>C</kbd></button></div></div>`;
   dock.querySelector('.dock-content').append(hotbar);
   live=createLiveNavigator($('#navigator-button'),choice.selected()??27);
   const bubble=document.createElement('div');bubble.id='navigator-greeting';bubble.setAttribute('role','status');bubble.hidden=true;bubble.textContent='Привет!';$('#navigator-button').append(bubble);
@@ -56,20 +60,22 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked }) 
   battle.querySelectorAll('button').forEach(b=>b.onclick=()=>notify('Боевые навыки откроются вместе с боевой системой.'));
   const dialog=document.createElement('dialog');dialog.id='navigator-dialog';dialog.className='panel-dialog';dialog.setAttribute('aria-labelledby','navigator-title');
   dialog.innerHTML=`<div class="paths-heading"><div><div class="eyebrow">ТВОЙ СПУТНИК</div><h2 id="navigator-title">Навигатор</h2></div><button aria-label="Закрыть Навигатора">×</button></div><div class="navigator-talk">${portrait}<div><h3>Каждый большой путь начинается с куба.</h3><p id="navigator-task"></p></div></div><div id="navigator-progress"></div><p>Я помогу с текущей целью. Собирай материалы, следуй подсказкам площадки и открывай новые острова.</p><div class="navigator-actions"><button id="navigator-paths">Выбрать направление →</button><button id="navigator-resume">Вернуться на остров</button><button id="navigator-change">Сменить помощника</button></div>`;
-  const arsenal=document.createElement('dialog');arsenal.id='weapons-dialog';arsenal.className='panel-dialog';arsenal.setAttribute('aria-labelledby','weapons-title');
-  arsenal.innerHTML=`<div class="paths-heading"><div><div class="eyebrow">СНАРЯЖЕНИЕ</div><h2 id="weapons-title">Оружейный инвентарь</h2></div><button aria-label="Закрыть инвентарь">×</button></div><div class="weapon-empty">${icon('sword')}<h3>Арсенал пока пуст</h3><p>Оружие и боевые навыки появятся вместе со сражениями. Сейчас доступно строительство и исследование островов.</p></div>`;
-  document.body.append(dialog,arsenal);
+  document.body.append(dialog);
   if(choice.selected())$('#navigator-title').textContent='Навигатор · '+NAVIGATORS.find(n=>n.id===choice.selected()).name;
   $('#navigator-change').onclick=()=>{dialog.close();choice.open()};
   const speech=createNavigatorSpeech({dialog,getText:()=>$('#navigator-task').textContent+' '+$('#navigator-progress').textContent});
   let mode='build';
   const open=d=>{if(blocked())return;onOpen();d.showModal()};
   function showNavigator(){if(dialog.open){dialog.close();return}$('#navigator-task').textContent=mission().text;$('#navigator-progress').textContent=mission().progress;open(dialog);if(dialog.open)speech.open()}
-  function switchMode(){mode=mode==='build'?'battle':'build';dock.dataset.mode=mode;document.body.classList.toggle('battle-mode',mode==='battle');hotbar.hidden=mode!=='build';battle.hidden=mode!=='battle';$('#weapons-button').hidden=mode!=='battle';dock.querySelector('.dock-ornament').hidden=mode!=='build';$('#dock-mode').textContent=mode==='build'?'СБОРКА':'СРАЖЕНИЕ';$('#material').hidden=mode!=='build';notify(mode==='build'?'Сборка · материалы и постройки':'Сражение · навыки пока недоступны');}
-  $('#navigator-button').onclick=showNavigator;$('#mode-switch').onclick=()=>{if(!blocked())switchMode()};$('#weapons-button').onclick=()=>open(arsenal);
-  for(const d of [dialog,arsenal]){d.querySelector('.paths-heading button').onclick=()=>d.close();d.addEventListener('close',()=>input.clear());}
+  function switchMode(){mode=mode==='build'?'battle':'build';dock.dataset.mode=mode;document.body.classList.toggle('battle-mode',mode==='battle');hotbar.hidden=mode!=='build';battle.hidden=mode!=='battle';$('#dock-mode').textContent=mode==='build'?'СБОРКА':'СРАЖЕНИЕ';$('#material').hidden=mode!=='build';notify(mode==='build'?'Сборка · материалы и постройки':'Сражение · навыки пока недоступны');}
+  const storage=createInventoryWindows({bag,playerAccount,open,mode:()=>mode,setMode:next=>{if(next!==mode)switchMode()}});
+  const inventory=()=>storage.toggle('bag'), equipment=()=>storage.toggle('gear');
+  $('#inventory-button').onclick=inventory;
+  $('#navigator-button').onclick=showNavigator;$('#mode-switch').onclick=()=>{if(!blocked())switchMode()};$('#weapons-button').onclick=equipment;
+  dialog.querySelector('.paths-heading button').onclick=()=>dialog.close();
+  dialog.addEventListener('close',()=>input.clear());
   $('#navigator-resume').onclick=()=>dialog.close();$('#navigator-paths').onclick=()=>{dialog.close();$('#paths-button').click()};
-  const input=createPanelKeys({switchMode,navigator:showNavigator,camera});
+  const input=createPanelKeys({switchMode,navigator:showNavigator,camera,inventory,equipment});
   let greeted=false;
-  return {start(){if(greeted)return;greeted=true;live.greet();bubble.hidden=false;setTimeout(()=>bubble.hidden=true,6500);if($('#greeting-enabled').checked)speech.greet()},update(dt,time,active){live.update(dt,time,active)},isOpen:()=>dialog.open||arsenal.open||choice.isOpen(),isBattle:()=>mode==='battle',input};
+  return {start(){if(greeted)return;greeted=true;live.greet();bubble.hidden=false;setTimeout(()=>bubble.hidden=true,6500);if($('#greeting-enabled').checked)speech.greet()},update(dt,time,active){live.update(dt,time,active)},storageOpen:storage.isOpen,isOpen:()=>dialog.open||storage.isOpen()||choice.isOpen(),isBattle:()=>mode==='battle',input};
 }
