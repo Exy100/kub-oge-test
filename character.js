@@ -51,8 +51,6 @@ export function createCharacter(appearance) {
   block(backpack, 'bedroll', 0, .3, 0, .46, .16, .18, 0x8fa18a);
   block(body, 'neck', 0, 1.32, 0, .17, .13, .18, 0xe2b58a);
   block(body, 'scarf', 0, 1.28, -.04, .32, .09, .31, 0xcf9278);
-  const scarfTail = block(body, 'scarf-tail', .12, 1.16, -.19, .09, .18, .035, 0xcf9278);
-  scarfTail.rotation.z = -.15;
   const head = joint(body, 'head', 0, 1.43, 0);
   const face = createFace(head, appearance);
 
