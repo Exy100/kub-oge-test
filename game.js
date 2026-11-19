@@ -72,7 +72,7 @@ for(const center of [46,86,126]){
 const character=createCharacter(loadAppearance()), player=character.root;scene.add(player);
 const reducedHandMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const gathering=equipGatheringWand({character,camera,scene,renderer});
-player.position.set(0,0,6);let yaw=0,pitch=.23,third=true,selected=0;const physics=createPhysicsState();let jumpRequested=false;const keys={},ray=new THREE.Raycaster();let last=performance.now(),noticeUntil=0;
+player.position.set(0,0,6);let yaw=0,pitch=.23,third=true,selected=0;const physics=createPhysicsState();let jumpRequested=false;const keys={},ray=new THREE.Raycaster();let last=performance.now();
 const forge=createForge({scene,box,solids,canStore:hasBagRoom,onCollect:animateCollection,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChange(){if(stage.index===2)update()},notify});
 const customizer=createCustomizer({character,canEdit:()=>stage.index===0,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},notify});
 const playerAccount={coins:0};
@@ -94,7 +94,14 @@ const restartDialog=$('#restart-dialog');
 let restartStage=null;
 function modalOpen(){return restartDialog.open||forge.isOpen()||customizer.isOpen()||panel.isOpen()}
 
-function notify(t){$('#message').textContent=t;noticeUntil=performance.now()+4500}
+const messageBox=$('#message');
+let messageTimer;
+function notify(text,duration=4500){
+  clearTimeout(messageTimer);
+  messageBox.textContent=text;
+  messageBox.hidden=false;
+  messageTimer=setTimeout(()=>{messageBox.hidden=true},duration);
+}
 function spawnPickups(state){
   if(state.index>1)return;
   const entries=state.index===0 ? [[-4,3,0],[3,4,0],[-5,-4,0],[5,-3,0],[-7,5,0],[7,4,0],[3,-6,0]] :
@@ -110,7 +117,8 @@ function questNarration(){
 }
 const locationBanner=$('#location-banner');
 let locationTimer;
-function announceLocation(){
+function announceLocation(message){
+  notify(message,10000);
   clearTimeout(locationTimer);
   locationBanner.hidden=true;
   const name=LOCATIONS[stage.index].name;
@@ -155,11 +163,11 @@ function travel(){
   gathering.clear();stage=stages[route.to];player.position.set(stage.center,0,stage.index===0?2:stage.index===2?4:3);
   Object.assign(physics,createPhysicsState());Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;selected=0;yaw=0;
   sun.position.set(stage.center-10,25,10);sun.target.position.set(stage.center,0,0);sun.target.updateMatrixWorld();
-  refreshMission();announceLocation();notify(['Ты вернулся на первый остров.','Собери три арки из трёх материалов.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][stage.index]);return true;
+  refreshMission();announceLocation(['Ты вернулся на первый остров.','Собери три арки из трёх материалов.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][stage.index]);return true;
 }
 $('#travel-prompt').onclick=travel;
 document.querySelectorAll('.slot').forEach((s,i)=>{s.setAttribute('role','button');s.tabIndex=0;s.setAttribute('aria-label',MATERIAL_NAMES[i]);s.title=MATERIAL_NAMES[i]+' · '+BUILD_MATERIALS[i].description;s.onclick=()=>select(i);s.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();select(i)}}});function toggle(){third=!third;player.visible=third}
-$('#play').onclick=()=>{ $('#welcome').classList.add('hidden');panel.start();announceLocation();renderer.domElement.requestPointerLock?.()};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
+$('#play').onclick=()=>{ $('#welcome').classList.add('hidden');panel.start();announceLocation('Маленький остров. Безграничные возможности.');renderer.domElement.requestPointerLock?.()};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
 
 let dragging=false;
 function mouseControlsCamera(){
@@ -318,7 +326,7 @@ $('#restart-confirm').onclick=e=>{
   stage.pickups.forEach(m=>scene.remove(m));stage.pickups.length=0;stage.ghosts.forEach(m=>m.visible=true);
   stage.inventory.fill(0);stage.built.clear();stage.unlocked=false;spawnPickups(stage);
   player.position.set(stage.center,0,stage.index===0?6:3);Object.assign(physics,createPhysicsState());jumpRequested=false;
-  yaw=0;pitch=.23;select(0);update();announceLocation();notify('Текущий остров начат заново.');
+  yaw=0;pitch=.23;select(0);update();announceLocation('Текущий остров начат заново.');
 };
 refreshMission();
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();
@@ -338,7 +346,7 @@ if(active){
 jumpRequested=false;
 player.rotation.y=yaw;
 character.animate(dt,{dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,grounded:physics.grounded,velocity:physics.velocity,time:now/1000});
-const eye=player.position.clone().add(new THREE.Vector3(0,1.5,0));const look=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));if(third){followCamera(camera,eye,look,[...solids,exitGlow,secondGlow,...returnGlows,...forge.cameraObstacles])}else{camera.position.copy(eye);camera.lookAt(eye.clone().add(look))}stage.pickups.forEach(m=>{const phase=m.userData.animationPhase;m.rotation.y=now*.0008+phase;m.position.y=.65+Math.sin(now*.002+phase)*.12});if(now>noticeUntil&&noticeUntil){$('#message').textContent='✦ Наведи прицел на куб и нажми ЛКМ';noticeUntil=0}
+const eye=player.position.clone().add(new THREE.Vector3(0,1.5,0));const look=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));if(third){followCamera(camera,eye,look,[...solids,exitGlow,secondGlow,...returnGlows,...forge.cameraObstacles])}else{camera.position.copy(eye);camera.lookAt(eye.clone().add(look))}stage.pickups.forEach(m=>{const phase=m.userData.animationPhase;m.rotation.y=now*.0008+phase;m.position.y=.65+Math.sin(now*.002+phase)*.12});
 const route=nearbyRoute(),travelButton=$('#travel-prompt');travelButton.hidden=!active||!route;
 if(route)travelButton.textContent=route.ready?route.label:route.locked;
 for(const portal of [exitGlow,secondGlow,...returnGlows])portal.material.opacity=.4+Math.sin(now*.002)*.12;

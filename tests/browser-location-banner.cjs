@@ -29,10 +29,16 @@ const {chromium} = require('playwright');
     }));
     await page.goto('http://127.0.0.1:8079/');
     const banner = page.locator('#location-banner');
+    const message = page.locator('#message');
+    assert(await message.isHidden());
     assert(await banner.isHidden());
     await page.evaluate(() => {
       const el=document.querySelector('#location-banner');
       window.arrivals=[];
+      const message=document.querySelector('#message');
+      new MutationObserver(()=>{
+        if(message.hidden) window.messageHiddenAt=performance.now();
+      }).observe(message,{attributes:true,attributeFilter:['hidden']});
       new MutationObserver(()=>{
         window.arrivals.push({name:el.textContent, hidden:el.hidden, time:performance.now()});
       }).observe(el,{attributes:true,attributeFilter:['hidden']});
@@ -42,10 +48,19 @@ const {chromium} = require('playwright');
     await page.locator('#play').click();
     await banner.waitFor({state:'visible'});
     assert.equal(await banner.innerText(),'Остров мечтателей');
+    assert.equal(await message.innerText(),'Маленький остров. Безграничные возможности.');
+    assert(await message.isVisible());
     const delay = await page.evaluate(()=>arrivals.find(a=>!a.hidden).time-window.entered);
     assert(delay>=2900 && delay<5500,'first title delay '+delay);
     assert.equal(await banner.evaluate(el=>el.getAnimations()[0].effect.getTiming().duration),8300);
     await banner.waitFor({state:'hidden',timeout:15000});
+
+    assert(await message.isHidden());
+    const greetingDuration=await page.evaluate(()=>window.messageHiddenAt-window.entered);
+    assert(greetingDuration>=9950 && greetingDuration<12000,'arrival message duration '+greetingDuration);
+    await page.keyboard.press('l');
+    await message.waitFor({state:'visible'});
+    await message.waitFor({state:'hidden',timeout:7000});
 
     // Change destination twice before the pending title becomes visible.
     for(const forward of [true,false,true]){
@@ -54,6 +69,8 @@ const {chromium} = require('playwright');
     }
     await banner.waitFor({state:'visible'});
     assert.equal(await banner.innerText(),'Остров трёх арок');
+    assert(await message.isVisible());
+    assert((await message.innerText()).includes('три арки'));
     assert.deepEqual(await page.evaluate(()=>arrivals.filter(a=>!a.hidden).map(a=>a.name)),['Остров мечтателей','Остров трёх арок']);
 
     // Freeze only the banner animation while checking its geometry at different widths.
@@ -84,6 +101,8 @@ const {chromium} = require('playwright');
     await banner.waitFor({state:'hidden'});
     await banner.waitFor({state:'visible'});
     assert.equal(await banner.innerText(),'Сад открытий');
+    assert.equal(await message.innerText(),'Текущий остров начат заново.');
+    await message.waitFor({state:'hidden',timeout:10000});
     assert.deepEqual(errors,[]);
     console.log('PASS location title timing, all four islands, rapid travel, restart, reduced motion and seven viewport widths');
   } finally {
