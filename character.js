@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { createFace, makeSoftBox } from './character-face.js?v=7';
+import { createFace, makeSoftBox } from './character-face.js?v=9';
 
 // Local forward is -Z. All animation is driven by actual, post-collision motion.
 export function createCharacter(appearance) {
