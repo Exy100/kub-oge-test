@@ -1,7 +1,7 @@
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js';
 import { equipGatheringWand } from './gathering-wand.js?v=14';
-import { createPlayerPanel } from './player-panel.js?v=19';
+import { createPlayerPanel } from './player-panel.js?v=21';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=4';
@@ -150,17 +150,18 @@ $('#travel-prompt').onclick=travel;
 document.querySelectorAll('.slot').forEach((s,i)=>{s.setAttribute('role','button');s.tabIndex=0;s.setAttribute('aria-label',MATERIAL_NAMES[i]);s.onclick=()=>select(i);s.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();select(i)}}});function toggle(){third=!third;player.visible=third;$('#viewLabel').textContent=third?'Вид от третьего лица':'Вид от первого лица'}$('#camera').onclick=toggle;
 $('#play').onclick=()=>{ $('#welcome').classList.add('hidden');panel.start();renderer.domElement.requestPointerLock?.()};$('#sound').onclick=()=>{document.exitPointerLock?.();$('#welcome').classList.remove('hidden')};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
 let dragging=false;
-function gameplayMiddleClick(e){
-  return e.button===1 && $('#welcome').classList.contains('hidden') && !modalOpen()
-    && !(e.target instanceof Element && e.target.closest('a[href]'));
+function mouseControlsCamera(){
+  return (document.pointerLockElement===renderer.domElement || dragging)
+    && $('#welcome').classList.contains('hidden') && !modalOpen();
 }
+document.addEventListener('pointerlockchange',()=>{dragging=false});
 document.addEventListener('mousedown',e=>{
-  if(!gameplayMiddleClick(e))return;
+  if(e.button!==1 || !mouseControlsCamera())return;
   e.preventDefault();
   panel.toggleMode();
 },true);
 document.addEventListener('auxclick',e=>{
-  if(gameplayMiddleClick(e))e.preventDefault();
+  if(e.button===1 && mouseControlsCamera())e.preventDefault();
 },true);
 renderer.domElement.addEventListener('mousedown',e=>{
   if(e.button===1)return;
@@ -168,7 +169,7 @@ renderer.domElement.addEventListener('mousedown',e=>{
   if(!modalOpen()&&document.pointerLockElement)act(e.button);
 });
 document.addEventListener('mouseup',e=>{if(e.button!==1)dragging=false});
-renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('mousemove',e=>{if(!modalOpen()&&(document.pointerLockElement||dragging)){yaw-=e.movementX*.003;pitch=THREE.MathUtils.clamp(pitch+e.movementY*.003,-.7,1.1)}});
+renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('mousemove',e=>{if(mouseControlsCamera()){yaw-=e.movementX*.003;pitch=THREE.MathUtils.clamp(pitch+e.movementY*.003,-.7,1.1)}});
 addEventListener('keydown',e=>{
   if(!$('#welcome').classList.contains('hidden'))return;
   if(modalOpen()){
@@ -194,7 +195,7 @@ addEventListener('keyup',e=>{
   if((!modalOpen()||panel.storageOpen())&&$('#welcome').classList.contains('hidden'))panel.input.up(e);
   else panel.input.clear();
 });
-addEventListener('blur',()=>{panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
+addEventListener('blur',()=>{dragging=false;panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
 function act(button){
   if(panel.isBattle()){notify('Для строительства нажми на колёсико или используй C + V.');return}
   ray.setFromCamera(new THREE.Vector2(),camera);

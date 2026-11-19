@@ -12,12 +12,21 @@ await page.mouse.wheel(0,120);
 assert(await mode()==='battle','scroll keeps mode');
 await page.evaluate(()=>document.exitPointerLock());await page.waitForFunction(()=>!document.pointerLockElement);
 await page.mouse.click(740,370,{button:'middle'});
-assert(await mode()==='build','middle button returns to build with free cursor');
+assert(await mode()==='battle','free cursor over world keeps mode');
 const quest=page.locator('#quest-panel'), questTab=page.locator('#quest-tab');
 await page.locator('#quest-title').click({button:'middle'});
-assert(await mode()==='battle','middle button over quest changes mode');
-await page.locator('#mode-switch').click({button:'middle'});
-assert(await mode()==='build','middle button over dock changes mode once');
+assert(await mode()==='battle','free cursor over quest keeps mode');
+await page.locator('#inventory-button').click({button:'middle'});
+assert(await mode()==='battle','free cursor over dock keeps mode');
+assert(await page.locator('#mode-switch').count()===0,'mode switch pill removed');
+await page.mouse.move(740,370);
+await page.mouse.down({button:'right'});
+await page.mouse.move(750,375);
+await page.mouse.click(750,375,{button:'middle'});
+assert(await mode()==='build','drag-to-look allows middle click');
+await page.mouse.up({button:'right'});
+await page.mouse.click(750,375,{button:'middle'});
+assert(await mode()==='build','ending camera drag disables middle click');
 assert(await quest.isVisible(),'quest starts on the left');
 const closeQuest=quest.getByRole('button',{name:'Закрыть задание'});
 await closeQuest.click();
@@ -69,7 +78,7 @@ const pos=await page.evaluate(()=>panelTest.position());await page.keyboard.down
 for(const order of [['KeyC','KeyV'],['KeyV','KeyC']]){const camera=await page.locator('#viewLabel').innerText();await page.keyboard.down(order[0]);await page.keyboard.down(order[1]);await page.keyboard.up(order[1]);await page.keyboard.up(order[0]);assert(await page.locator('#viewLabel').innerText()===camera,'mode chord keeps camera');}
 const camera=await page.locator('#viewLabel').innerText();await page.keyboard.press('KeyV');assert(await page.locator('#viewLabel').innerText()!==camera,'single V changes camera');
 await page.evaluate(()=>{for(const [code,key] of [['KeyX','ч'],['KeyZ','я']])dispatchEvent(new KeyboardEvent('keydown',{code,key}));for(const code of ['KeyX','KeyZ'])dispatchEvent(new KeyboardEvent('keyup',{code}));});assert(await page.locator('#navigator-dialog').evaluate(e=>e.open),'Russian physical chord');await page.keyboard.press('Escape');
-await page.locator('#mode-switch').click();assert(await page.locator('.battle-bar').isVisible(),'battle visible');assert(!await page.locator('.hotbar').isVisible(),'build hidden');
+await page.keyboard.press('c+v');assert(await page.locator('.battle-bar').isVisible(),'battle visible');assert(!await page.locator('.hotbar').isVisible(),'build hidden');
 const rim=()=>page.locator('.dock-frame').evaluate(e=>{
   const style=getComputedStyle(e,'::before');
   return {name:style.animationName,angle:style.getPropertyValue('--battle-rim-angle')};
@@ -80,11 +89,11 @@ await page.waitForFunction(angle=>getComputedStyle(document.querySelector('.dock
 await page.emulateMedia({reducedMotion:'reduce'});
 assert((await rim()).name==='none','reduced motion keeps rim still');
 await page.emulateMedia({reducedMotion:'no-preference'});
-await page.screenshot({path:'/tmp/kub-panel-battle.png'});await page.locator('#weapons-button').click();assert(await page.locator('#weapons-dialog').evaluate(e=>e.open),'gear opens in battle mode');await page.keyboard.press('Escape');await page.locator('#mode-switch').click();
+await page.screenshot({path:'/tmp/kub-panel-battle.png'});await page.locator('#weapons-button').click();assert(await page.locator('#weapons-dialog').evaluate(e=>e.open),'gear opens in battle mode');await page.keyboard.press('Escape');await page.keyboard.press('c+v');
 assert((await rim()).name==='none','exploration rim stays still');
 await page.locator('.slot').nth(2).click();assert(await page.locator('.slot').nth(2).evaluate(e=>e.classList.contains('selected')),'build selection works');
 await page.evaluate(()=>panelTest.stage(2));await page.locator('#navigator-button').click();assert((await page.locator('#navigator-task').innerText()).includes('биты'),'forge context');await page.keyboard.press('Escape');await page.evaluate(()=>panelTest.stage(0));
-for(const width of [390,640]){await page.setViewportSize({width,height:844});for(let i=0;i<2;i++){assert(await page.locator('.dock-frame').evaluate(e=>e.getBoundingClientRect().right<=innerWidth && e.scrollWidth<=e.clientWidth+1),'dock fits '+width);await page.locator('#mode-switch').click();}}
+for(const width of [390,640]){await page.setViewportSize({width,height:844});for(let i=0;i<2;i++){assert(await page.locator('.dock-frame').evaluate(e=>e.getBoundingClientRect().right<=innerWidth && e.scrollWidth<=e.clientWidth+1),'dock fits '+width);await page.keyboard.press('c+v');}}
 await page.screenshot({path:'/tmp/kub-panel-mobile.png'});
 await page.setViewportSize({width:390,height:844});
 await page.locator('#inventory-button').click();

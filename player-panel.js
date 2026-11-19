@@ -49,7 +49,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   const hotbar = $('.hotbar');
   const dock = document.createElement('section'); dock.className='player-dock'; dock.dataset.mode='build'; dock.setAttribute('aria-label','Панель игрока');
   hotbar.before(dock);
-  dock.innerHTML=`<div class="dock-caption"><span class="dock-dot"></span><span id="dock-mode" aria-live="polite">СБОРКА</span><button id="mode-switch" title="Сменить режим · C + V / С + М или нажатие на колёсико">Сборка / Сражение <kbd>C + V</kbd></button></div><div class="dock-frame"><button id="navigator-button" class="dock-end navigator" aria-label="Позвать Навигатора · Z + X / Я + Ч" title="Навигатор · Z + X / Я + Ч">${portrait}<span>Навигатор</span><kbd>Z + X</kbd></button><div class="dock-content"></div><div class="dock-tools"><button id="inventory-button" title="Инвентарь · B / И">${icon('bag')}<span>Инвентарь</span><kbd>B</kbd></button><button id="weapons-button" title="Снаряжение · C / С">${icon('shield')}<span>Снаряжение</span><kbd>C</kbd></button></div></div>`;
+  dock.innerHTML=`<div class="dock-caption"><span class="dock-dot"></span><span id="dock-mode" aria-live="polite">СБОРКА</span></div><div class="dock-frame"><button id="navigator-button" class="dock-end navigator" aria-label="Позвать Навигатора · Z + X / Я + Ч" title="Навигатор · Z + X / Я + Ч">${portrait}<span>Навигатор</span><kbd>Z + X</kbd></button><div class="dock-content"></div><div class="dock-tools"><button id="inventory-button" title="Инвентарь · B / И">${icon('bag')}<span>Инвентарь</span><kbd>B</kbd></button><button id="weapons-button" title="Снаряжение · C / С">${icon('shield')}<span>Снаряжение</span><kbd>C</kbd></button></div></div>`;
   const quest = $('#quest-panel');
   const questTab = document.createElement('button');
   questTab.id = 'quest-tab';
@@ -92,7 +92,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   const inventory=()=>storage.toggle('bag'), equipment=()=>storage.toggle('gear');
   $('#inventory-button').onclick=inventory;
   function toggleMode(){if(!blocked())switchMode()}
-  $('#navigator-button').onclick=showNavigator;$('#mode-switch').onclick=toggleMode;$('#weapons-button').onclick=equipment;
+  $('#navigator-button').onclick=showNavigator;$('#weapons-button').onclick=equipment;
   dialog.querySelector('.paths-heading button').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>input.clear());
   $('#navigator-resume').onclick=()=>dialog.close();$('#navigator-paths').onclick=()=>{dialog.close();$('#paths-button').click()};
