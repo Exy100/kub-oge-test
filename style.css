@@ -220,7 +220,6 @@
 .player-dock[data-mode=battle] .dock-mode-tab kbd{color:#e3c5a9;border-color:#c58a6166}
 .dock-mode-tab:hover{border-color:#94794e;box-shadow:inset 2px 0 #fff8,inset -2px 0 #fff8,inset 0 -2px #fff8,0 3px 0 #6e715a,0 2px 10px #e9d6a344}
 .dock-mode-tab:focus-visible{outline:3px solid #f8e1a1;outline-offset:3px}
-/* Reserve the material caption in battle too, keeping the tab in place. */
 
 @media(max-width:650px){.dock-mode-tab{min-height:38px;width:192px;gap:7px;font-size:11px}}
 
