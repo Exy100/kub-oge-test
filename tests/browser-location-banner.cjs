@@ -29,10 +29,25 @@ const {chromium} = require('playwright');
     }));
     await page.goto('http://127.0.0.1:8079/');
     const banner = page.locator('#location-banner');
+    const message = page.locator('#message');
+    const strip = page.getByRole('group',{name:'Подсказки управления', includeHidden:true});
+    const helpHint = strip.getByText('Справка по управлению');
+    const buildHint = strip.locator('.build-hint').first();
+    const forgeHint = strip.locator('.forge-hint');
+    assert(await message.isHidden());
     assert(await banner.isHidden());
     await page.evaluate(() => {
       const el=document.querySelector('#location-banner');
       window.arrivals=[];
+      const controls=document.querySelector('.controls');
+      new MutationObserver(()=>{
+        if(controls.hidden)window.stripDuration=performance.now()-window.stripShownAt;
+        else window.stripShownAt=performance.now();
+      }).observe(controls,{attributes:true,attributeFilter:['hidden']});
+      const message=document.querySelector('#message');
+      new MutationObserver(()=>{
+        if(message.hidden) window.messageHiddenAt=performance.now();
+      }).observe(message,{attributes:true,attributeFilter:['hidden']});
       new MutationObserver(()=>{
         window.arrivals.push({name:el.textContent, hidden:el.hidden, time:performance.now()});
       }).observe(el,{attributes:true,attributeFilter:['hidden']});
@@ -42,11 +57,26 @@ const {chromium} = require('playwright');
     await page.locator('#play').click();
     await banner.waitFor({state:'visible'});
     assert.equal(await banner.innerText(),'Остров мечтателей');
+    assert.equal(await message.innerText(),'Маленький остров. Безграничные возможности.');
+    assert(await message.isVisible());
     const delay = await page.evaluate(()=>arrivals.find(a=>!a.hidden).time-window.entered);
     assert(delay>=2900 && delay<5500,'first title delay '+delay);
     assert.equal(await banner.evaluate(el=>el.getAnimations()[0].effect.getTiming().duration),8300);
     await banner.waitFor({state:'hidden',timeout:15000});
 
+    assert(await message.isHidden());
+    const greetingDuration=await page.evaluate(()=>window.messageHiddenAt-window.entered);
+    assert(greetingDuration>=9950 && greetingDuration<12000,'arrival message duration '+greetingDuration);
+    assert(await buildHint.isVisible());
+    assert((await helpHint.innerText()).includes('H / Р'));
+    await page.keyboard.press('h');
+    await page.locator('#controls-guide').waitFor({state:'visible'});
+    await page.keyboard.press('Escape');
+    await page.keyboard.press('l');
+    await message.waitFor({state:'visible'});
+    await message.waitFor({state:'hidden',timeout:7000});
+
+    assert(await helpHint.isVisible() && !await buildHint.isVisible(),'first island keeps help after 15s in battle');
     // Change destination twice before the pending title becomes visible.
     for(const forward of [true,false,true]){
       await page.evaluate(direction=>window.atGate(direction),forward);
@@ -54,8 +84,12 @@ const {chromium} = require('playwright');
     }
     await banner.waitFor({state:'visible'});
     assert.equal(await banner.innerText(),'Остров трёх арок');
+    assert(await message.isVisible());
+    assert((await message.innerText()).includes('три арки'));
     assert.deepEqual(await page.evaluate(()=>arrivals.filter(a=>!a.hidden).map(a=>a.name)),['Остров мечтателей','Остров трёх арок']);
 
+    await page.keyboard.press('l');
+    assert(await buildHint.isVisible() && await helpHint.isVisible());
     // Freeze only the banner animation while checking its geometry at different widths.
     await banner.evaluate(el=>{const a=el.getAnimations()[0];a.pause();a.currentTime=2500});
     for(const width of [1440,1024,801,768,590,390,320]){
@@ -74,9 +108,23 @@ const {chromium} = require('playwright');
     await banner.waitFor({state:'hidden'});
     await banner.waitFor({state:'visible'});
     assert.equal(await banner.innerText(),'Кузница данных');
+    assert(await forgeHint.isVisible() && !await buildHint.isVisible() && await helpHint.isVisible());
+    assert(await strip.evaluate(el=>{
+      const r=el.getBoundingClientRect(),last=el.lastElementChild.getBoundingClientRect();
+      return document.querySelector('#message').getBoundingClientRect().bottom<=r.top && last.left>=0 && last.right<=innerWidth;
+    }),'forge message clears help strip at mobile width');
+    await strip.waitFor({state:'hidden',timeout:16000});
+    await page.evaluate(()=>window.atGate(false));
+    await page.keyboard.press('e');
+    assert(await helpHint.isVisible() && await buildHint.isVisible(),'return restores full strip');
+    await page.evaluate(()=>window.atGate(true));
+    await page.keyboard.press('e');
+    assert(await forgeHint.isVisible(),'re-entering forge shows strip again');
     await page.evaluate(()=>window.atGate(true));
     await page.keyboard.press('e');
     await page.waitForFunction(()=>document.querySelector('#location-banner:not([hidden])')?.textContent==='Сад открытий');
+    assert(await helpHint.isVisible() && !await forgeHint.isVisible() && !await buildHint.isVisible());
+    await strip.waitFor({state:'hidden',timeout:16000});
     await page.evaluate(()=>document.exitPointerLock());
     await page.waitForFunction(()=>!document.pointerLockElement);
     await page.locator('#reset').click();
@@ -84,6 +132,20 @@ const {chromium} = require('playwright');
     await banner.waitFor({state:'hidden'});
     await banner.waitFor({state:'visible'});
     assert.equal(await banner.innerText(),'Сад открытий');
+    assert.equal(await message.innerText(),'Текущий остров начат заново.');
+    assert(await helpHint.isVisible(),'restart shows help again');
+    await message.waitFor({state:'hidden',timeout:10000});
+    assert(await helpHint.isVisible(),'strip outlasts 10-second arrival notice');
+    await strip.waitFor({state:'hidden',timeout:6000});
+    const duration=await page.evaluate(()=>window.stripDuration);
+    assert(duration>=14950 && duration<17000,'control strip duration '+duration);
+    // Returning through the forge must cancel its pending hide on the second island.
+    for(let i=0;i<2;i++){
+      await page.evaluate(()=>window.atGate(false));
+      await page.keyboard.press('e');
+    }
+    await page.waitForTimeout(15300);
+    assert(await buildHint.isVisible() && await helpHint.isVisible(),'second island remains visible past previous timer');
     assert.deepEqual(errors,[]);
     console.log('PASS location title timing, all four islands, rapid travel, restart, reduced motion and seven viewport widths');
   } finally {
