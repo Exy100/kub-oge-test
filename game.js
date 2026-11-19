@@ -7,7 +7,7 @@ import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
 import { createForge } from './forge.js?v=15';
 import { loadAppearance } from './appearance.js';
-import { createCustomizer } from './customizer.js';
+import { createCustomizer } from './customizer.js?v=2';
 import { followCamera } from './follow-camera.js';
 import { createStage, placeTarget, removeTarget, isLimited, MATERIAL_NAMES } from './progression.js';
 const $=s=>document.querySelector(s), scene=new THREE.Scene();scene.background=new THREE.Color('#c9dfda');scene.fog=new THREE.Fog('#c9dfda',35,85);
@@ -70,7 +70,7 @@ const reducedHandMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const gathering=equipGatheringWand({character,camera,scene,renderer});
 player.position.set(0,0,6);let yaw=0,pitch=.23,third=true,selected=0;const physics=createPhysicsState();let jumpRequested=false;const keys={},ray=new THREE.Raycaster();let last=performance.now(),noticeUntil=0;
 const forge=createForge({scene,box,solids,canStore:hasBagRoom,onCollect:animateCollection,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChange(){if(stage.index===2)update()},notify});
-const customizer=createCustomizer({character,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},notify});
+const customizer=createCustomizer({character,canEdit:()=>stage.index===0,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},notify});
 const playerAccount={coins:0};
 const bag=createPlayerInventory(()=>[
   ...MATERIAL_NAMES.map((name,i)=>({id:'material-'+i,name,category:'Материал',kind:'resource',glyph:'◆',
@@ -154,8 +154,8 @@ function travel(){
   refreshMission();notify(['Ты вернулся на первый остров.','Собери три арки из трёх материалов.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][stage.index]);return true;
 }
 $('#travel-prompt').onclick=travel;
-document.querySelectorAll('.slot').forEach((s,i)=>{s.setAttribute('role','button');s.tabIndex=0;s.setAttribute('aria-label',MATERIAL_NAMES[i]);s.onclick=()=>select(i);s.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();select(i)}}});function toggle(){third=!third;player.visible=third;$('#viewLabel').textContent=third?'Вид от третьего лица':'Вид от первого лица'}$('#camera').onclick=toggle;
-$('#play').onclick=()=>{ $('#welcome').classList.add('hidden');panel.start();renderer.domElement.requestPointerLock?.()};$('#sound').onclick=()=>{document.exitPointerLock?.();$('#welcome').classList.remove('hidden')};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
+document.querySelectorAll('.slot').forEach((s,i)=>{s.setAttribute('role','button');s.tabIndex=0;s.setAttribute('aria-label',MATERIAL_NAMES[i]);s.onclick=()=>select(i);s.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();select(i)}}});function toggle(){third=!third;player.visible=third}
+$('#play').onclick=()=>{ $('#welcome').classList.add('hidden');panel.start();renderer.domElement.requestPointerLock?.()};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
 let dragging=false;
 function mouseControlsCamera(){
   return (document.pointerLockElement===renderer.domElement || dragging)
@@ -199,6 +199,12 @@ document.addEventListener('mouseup',e=>{if(!(e.buttons & 3))dragging=false});
 renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('mousemove',e=>{if(mouseControlsCamera()){yaw-=e.movementX*.003;pitch=THREE.MathUtils.clamp(pitch+e.movementY*.003,-.7,1.1)}});
 addEventListener('keydown',e=>{
   if(!$('#welcome').classList.contains('hidden'))return;
+  if(e.code==='KeyP'){
+    if(e.repeat||e.altKey||e.ctrlKey||e.metaKey||e.isComposing||e.target?.closest?.('input,textarea,select,[contenteditable]'))return;
+    if(customizer.isOpen()){e.preventDefault();customizer.close()}
+    else if(!modalOpen()){e.preventDefault();panel.input.clear();customizer.open()}
+    return;
+  }
   if(modalOpen()){
     if((panel.guideOpen()&&e.code==='KeyH') || (panel.storageOpen()&&['KeyB','KeyC'].includes(e.code)))panel.input.down(e);
     return;
