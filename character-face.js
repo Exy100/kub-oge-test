@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { PALETTES, SMILING_EYES_INDEX, SMILING_LID, normalizeAppearance } from './appearance.js?v=7';
+import { PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, normalizeAppearance } from './appearance.js?v=8';
 
 // Chamfered silhouettes instead of sharp voxel corners; the rest of the world stays cubic.
 export function makeSoftBox() {
@@ -144,7 +144,7 @@ export function createFace(parent, initial) {
 
     // Eyes share a blink pivot; eyebrow shape and spacing also change with the preset.
     const eyeShapes=[
-      [.048,.033,0,.094,0],[.055,.025,.15,.094,-.12],[.044,.044,0,.095,.04],
+      [.048,.033,0,.094,0],[.055,.025,.15,.094,-.12],[.044,.044,0,.095,0],
       [.05,.023,0,.098,0],[.052,.023,.22,.092,-.25],[.063,.031,0,.105,.06],
       [.053,.016,.05,.094,-.04],[.045,.029,-.14,.09,.22],[.05,.039,.04,.098,-.06],[.053,.034,-.1,.098,.12],
     ];
@@ -162,6 +162,13 @@ export function createFace(parent, initial) {
         mesh(pivot,'iris','sphere',-side*.005,0,-.012,.028,.039,.005,0x62402b);
         mesh(pivot,'pupil','sphere',-side*.005,.002,-.016,.017,.029,.003,0x34251e);
         mesh(pivot,'eye-glint','sphere',.005,.016,-.020,.006,.007,.002,0xfffbef);
+      } else if (appearance.eyes === ROUND_EYES.index) {
+        const irisRadius = ew * ROUND_EYES.iris;
+        const pupilRadius = ew * ROUND_EYES.pupil;
+        mesh(pivot,'eye-white','sphere',0,0,0,ew,eh,.009,0xfff5e1);
+        mesh(pivot,'iris','sphere',0,0,-.010,irisRadius,irisRadius,.004,0x486e62);
+        mesh(pivot,'pupil','sphere',0,0,-.015,pupilRadius,pupilRadius,.002,0x283d3e);
+        mesh(pivot,'eye-glint','sphere',.009,.009,-.018,.005,.005,.002,0xffffff);
       } else {
         mesh(pivot,'eye-white','sphere',0,0,0,ew,eh,.009,0xfff5e1);
         mesh(pivot,'iris','sphere',-side*.004,-.001,-.010,ew*.43,eh*.76,.004,appearance.eyes===8?0x5e8295:0x486e62);

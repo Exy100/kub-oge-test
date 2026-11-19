@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
-import { createCharacter } from './character.js?v=8';
-import { FEATURES, PALETTES, SMILING_EYES_INDEX, SMILING_LID, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance, saveAppearance } from './appearance.js?v=7';
+import { createCharacter } from './character.js?v=9';
+import { FEATURES, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance, saveAppearance } from './appearance.js?v=8';
 
 export function createCustomizer({ character, onOpen, notify, canEdit = () => false }) {
   const dialog=document.querySelector('#character-dialog');
@@ -19,6 +19,18 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
       const lidPath='M'+SMILING_LID.start.join(' ') + SMILING_LID.curves.map(points=>' C'+points.join(' ')).join('')+' Z';
       for(const x of [22,58]){
         drawing+=`<g transform="translate(${x} 33) scale(1 -1)"><path d="${lidPath}" fill="#493b38"/><path d="M-9 12 Q0 16 9 12" fill="none" stroke="${hex(PALETTES[draft.palette].colors[2])}" stroke-width="2.6" stroke-linecap="round"/></g>`;
+      }
+    } else if(key==='eyes' && i===ROUND_EYES.index){
+      const radius=9;
+      const browColor=hex(PALETTES[draft.palette].colors[2]);
+      for(const x of [22,58]){
+        drawing+=`<g transform="translate(${x} 30)">
+          <path d="M-8 -13 H8" stroke="${browColor}" stroke-width="3" stroke-linecap="round"/>
+          <circle r="${radius}" fill="#fff5e1" stroke="#64857c"/>
+          <circle r="${radius*ROUND_EYES.iris}" fill="#486e62"/>
+          <circle r="${radius*ROUND_EYES.pupil}" fill="#283d3e"/>
+          <circle cx="-2" cy="-2" r="1.2" fill="white"/>
+        </g>`;
       }
     } else if(key==='eyes'){
       const sizes=[[10,7],[12,5],[9,10],[11,4],[11,5],[14,7],[12,3],[10,6],[11,9],[12,8]][i];

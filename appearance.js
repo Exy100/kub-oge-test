@@ -5,6 +5,9 @@ export const FEATURES = {
   ears: { label: 'Уши', options: ['Компактные', 'Округлые', 'Овальные', 'Узкие', 'Широкие', 'Прижатые', 'Оттопыренные', 'С мочкой', 'Мягкий кончик', 'Гранёные'] },
   hair: { label: 'Причёска', options: ['Короткие волны', 'Боковой пробор', 'Зачёс назад', 'Взъерошенные', 'Кудри', 'Каре', 'Пикси', 'Хвост', 'Вертикальная стрижка', 'Бейсболка'] },
 };
+// Radii relative to the white of the round-eye preset.
+export const ROUND_EYES = { index: 2, iris: .64, pupil: .31 };
+
 // The thumbnail and the face mesh use the same closed eyelid silhouette (Y up).
 export const SMILING_EYES_INDEX = 4;
 export const SMILING_LID = {
