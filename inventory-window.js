@@ -1,4 +1,4 @@
-import { equipmentSlots } from './player-inventory.js';
+import { equipmentSlots } from './player-inventory.js?v=2';
 
 function element(tag, className, value) {
   const node = document.createElement(tag);
@@ -40,7 +40,7 @@ export function createInventoryWindows({ bag, playerAccount, open, mode, setMode
       cell.setAttribute('role', 'listitem');
       if (item) {
         cell.classList.add('occupied');
-        cell.title = item.category + ' · ' + item.name;
+        cell.title = item.category + ' · ' + item.name + (item.description ? '\n' + item.description : '');
         cell.append(element('span', 'item-glyph', item.glyph), element('span', 'item-name', item.name),
           element('small', 'item-count', '×' + item.quantity));
       } else cell.setAttribute('aria-label', 'Свободная ячейка');
@@ -73,6 +73,7 @@ export function createInventoryWindows({ bag, playerAccount, open, mode, setMode
       button.setAttribute('aria-pressed', String(selected === slot));
       button.onclick = () => { renderKit(selected === slot ? null : slot); slots.querySelector('[data-slot="'+slot+'"]').focus(); };
       button.dataset.slot = slot;
+      if (item?.description) button.title = item.description;
       slots.append(button);
       if (slot !== selected) continue;
       const options = owned.filter(i => i.kind === kind);
@@ -85,6 +86,7 @@ export function createInventoryWindows({ bag, playerAccount, open, mode, setMode
         const select = element('button', '', 'Надеть · ' + option.name);
         const used = Object.values(bag.loadouts[current]).filter(id => id === option.id).length;
         select.disabled = used >= option.quantity;
+        if (option.description) select.title = option.description;
         select.onclick = () => apply(option.id);
         choices.append(select);
       }

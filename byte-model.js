@@ -16,7 +16,7 @@ export function createByteFactory(bitMaterials) {
   const labelTexture=new THREE.CanvasTexture(canvas);labelTexture.colorSpace=THREE.SRGBColorSpace;
   const labelMaterial=new THREE.MeshBasicMaterial({map:labelTexture});const labelGeometry=new THREE.PlaneGeometry(.48,.18);
   function create() {
-    const root=new THREE.Group();root.name='byte-crystal';root.userData.innerBits=[];
+    const root=new THREE.Group();root.name='byte-crystal';root.userData.objectId='byte';root.userData.innerBits=[];
     const piece=(x,y,z,w,h,d,material)=>{const m=new THREE.Mesh(soft,material);m.position.set(x,y,z);m.scale.set(w,h,d);m.castShadow=true;root.add(m);return m};
     // Fine metal edges, faceted corner rivets and inset circuit rails.
     for(const a of [-1,1])for(const b of [-1,1]){

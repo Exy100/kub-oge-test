@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { createForgeState, toggleBit, craftByte, collectByte, insertByte, bitValue } from './forge-state.js?v=5';
-import { createByteFactory } from './byte-model.js';
+import { createByteFactory } from './byte-model.js?v=2';
 
 export function createForge({ scene, box, solids, onOpen, onChange, notify, canStore=()=>true, onCollect=()=>{} }) {
   const state=createForgeState(),pickups=[],bytePickups=[],cells=[],deposited=[],slotMeshes=[];
@@ -52,7 +52,7 @@ export function createForge({ scene, box, solids, onOpen, onChange, notify, canS
   function spawnBits(){
     if(state.crafted>=4)return;
     [[76,2],[78,2],[80,2],[82,2],[84,2],[76,4],[80,4],[84,4]].forEach(([x,z],i)=>{
-      const m=new THREE.Mesh(geometry,Array(6).fill(digits[i%2]));m.position.set(x,.7,z);m.userData.seed=i;m.castShadow=true;scene.add(m);pickups.push(m);
+      const m=new THREE.Mesh(geometry,Array(6).fill(digits[i%2]));m.position.set(x,.7,z);m.userData.seed=i;m.userData.objectId='bit';m.castShadow=true;scene.add(m);pickups.push(m);
     });
   }
   function layoutBytes(){bytePickups.forEach((model,index)=>model.position.set(82.5,1.43+Math.floor(index/2)*.72,-2.4+(index%2)*.8))}
