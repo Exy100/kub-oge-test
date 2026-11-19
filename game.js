@@ -108,13 +108,24 @@ function questNarration(){
     .map(el=>el.textContent.trim()).filter(Boolean)
     .map(text=>/[.!?…]$/.test(text)?text:text+'.').join(' ');
 }
+const locationBanner=$('#location-banner');
+let locationTimer;
+function announceLocation(){
+  clearTimeout(locationTimer);
+  locationBanner.hidden=true;
+  const name=LOCATIONS[stage.index].name;
+  locationTimer=setTimeout(()=>{
+    locationBanner.firstElementChild.textContent=name;
+    locationBanner.hidden=false;
+  },3000);
+}
+locationBanner.addEventListener('animationend',()=>{locationBanner.hidden=true});
 function refreshMission(){
   const location=LOCATIONS[stage.index], quest=location.quest;
   $('.mission .eyebrow').textContent='Остров 0'+(stage.index+1);
   $('#quest-title').textContent=quest.title;
   $('#quest-action').textContent=quest.action;
   $('.progress-label > span').textContent=quest.goal;
-  $('.location').textContent=location.name;
   $('.tip').textContent=quest.tip;
   document.body.classList.toggle('forge-mode',stage.index>=2);
   select(selected);update();
@@ -144,11 +155,12 @@ function travel(){
   gathering.clear();stage=stages[route.to];player.position.set(stage.center,0,stage.index===0?2:stage.index===2?4:3);
   Object.assign(physics,createPhysicsState());Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;selected=0;yaw=0;
   sun.position.set(stage.center-10,25,10);sun.target.position.set(stage.center,0,0);sun.target.updateMatrixWorld();
-  refreshMission();notify(['Ты вернулся на первый остров.','Собери три арки из трёх материалов.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][stage.index]);return true;
+  refreshMission();announceLocation();notify(['Ты вернулся на первый остров.','Собери три арки из трёх материалов.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][stage.index]);return true;
 }
 $('#travel-prompt').onclick=travel;
 document.querySelectorAll('.slot').forEach((s,i)=>{s.setAttribute('role','button');s.tabIndex=0;s.setAttribute('aria-label',MATERIAL_NAMES[i]);s.title=MATERIAL_NAMES[i]+' · '+BUILD_MATERIALS[i].description;s.onclick=()=>select(i);s.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();select(i)}}});function toggle(){third=!third;player.visible=third}
-$('#play').onclick=()=>{ $('#welcome').classList.add('hidden');panel.start();renderer.domElement.requestPointerLock?.()};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
+$('#play').onclick=()=>{ $('#welcome').classList.add('hidden');panel.start();announceLocation();renderer.domElement.requestPointerLock?.()};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
+
 let dragging=false;
 function mouseControlsCamera(){
   return (document.pointerLockElement===renderer.domElement || dragging)
@@ -306,7 +318,7 @@ $('#restart-confirm').onclick=e=>{
   stage.pickups.forEach(m=>scene.remove(m));stage.pickups.length=0;stage.ghosts.forEach(m=>m.visible=true);
   stage.inventory.fill(0);stage.built.clear();stage.unlocked=false;spawnPickups(stage);
   player.position.set(stage.center,0,stage.index===0?6:3);Object.assign(physics,createPhysicsState());jumpRequested=false;
-  yaw=0;pitch=.23;select(0);update();notify('Текущий остров начат заново.');
+  yaw=0;pitch=.23;select(0);update();announceLocation();notify('Текущий остров начат заново.');
 };
 refreshMission();
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();

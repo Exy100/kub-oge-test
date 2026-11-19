@@ -33,13 +33,14 @@ const repo = path.resolve(__dirname, '..');
     await replaceModule('**/game.js*', 'game.js', source => source + `
       stages[0].inventory[0]=3;
       document.querySelector('#welcome').classList.add('hidden');
-      refreshMission();
+      refreshMission();announceLocation();
       window.catalogTest={color:stages[0].pickups[0].material.color.getHex(),id:stages[0].pickups[0].userData.objectId};
     `);
     await page.goto('http://127.0.0.1:8076');
     await page.waitForFunction(() => window.catalogTest);
     assert.deepEqual(await page.evaluate(() => catalogTest), {color:0xaa00ff,id:'material-0'});
-    assert.equal(await page.locator('.location').textContent(), 'Остров проверки');
+    await page.waitForFunction(() => document.querySelector('#location-banner').textContent === 'Остров проверки');
+    assert.equal(await page.locator('#location-banner').textContent(), 'Остров проверки');
     assert.equal(await page.locator('.slot').first().getAttribute('aria-label'), 'Тестовый песчаник');
     assert.match(await page.locator('.slot').first().getAttribute('title'), /Описание из каталога ресурсов/);
     assert.match(await page.locator('#material').textContent(), /^Тестовый песчаник/);
