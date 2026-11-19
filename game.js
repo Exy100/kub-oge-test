@@ -1,7 +1,7 @@
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js';
 import { equipGatheringWand } from './gathering-wand.js?v=14';
-import { createPlayerPanel } from './player-panel.js?v=24';
+import { createPlayerPanel } from './player-panel.js?v=25';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
@@ -191,7 +191,7 @@ renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());docume
 addEventListener('keydown',e=>{
   if(!$('#welcome').classList.contains('hidden'))return;
   if(modalOpen()){
-    if(panel.storageOpen()&&['KeyB','KeyC'].includes(e.code))panel.input.down(e);
+    if((panel.guideOpen()&&e.code==='KeyH') || (panel.storageOpen()&&['KeyB','KeyC'].includes(e.code)))panel.input.down(e);
     return;
   }
   if(e.code==='Space'&&!document.pointerLockElement&&e.target instanceof HTMLButtonElement)return;
