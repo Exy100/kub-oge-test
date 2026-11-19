@@ -2,12 +2,14 @@ import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { FEATURES, PALETTES, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance, saveAppearance } from './appearance.js';
 
-export function createCustomizer({ character, onOpen, notify }) {
+export function createCustomizer({ character, onOpen, notify, canEdit = () => false }) {
   const dialog=document.querySelector('#character-dialog');
   const tabs=document.querySelector('#appearance-tabs');
   const options=document.querySelector('#appearance-options');
   const viewport=document.querySelector('#character-preview');
   let draft=character.getAppearance(), category='eyes', renderer, scene, camera, preview, angle=0, portrait=true, dragX=null;
+  let editable=false;
+  const canChange=()=>editable&&canEdit();
   const categories=[...Object.keys(FEATURES),'palette'];
   const hex=color=>'#'+color.toString(16).padStart(6,'0');
   function thumbnail(key,i) {
@@ -57,18 +59,18 @@ export function createCustomizer({ character, onOpen, notify }) {
     });
     options.setAttribute('aria-labelledby','tab-'+category);
     document.querySelector('#appearance-category').textContent=category==='palette'?'Палитры волос':FEATURES[category].label;
-    document.querySelector('#appearance-note').textContent=category==='palette'?'Любая палитра подходит ко всем 10 причёскам.':category==='hair'?'10 силуэтов без головных уборов.':'10 вариантов · нажми, чтобы примерить';
+    document.querySelector('#appearance-note').textContent=!editable?'Только просмотр · выбран текущий вариант':category==='palette'?'Любая палитра подходит ко всем 10 причёскам.':category==='hair'?'10 силуэтов без головных уборов.':'10 вариантов · нажми, чтобы примерить';
     options.replaceChildren();
     const labels=category==='palette'?PALETTES.map(p=>p.name):FEATURES[category].options;
     labels.forEach((label,i)=>{
       const button=document.createElement('button');button.type='button';button.className='appearance-choice';
-      button.dataset.option=i;button.setAttribute('aria-pressed',String(draft[category]===i));
+      button.disabled=!editable;button.dataset.option=i;button.setAttribute('aria-pressed',String(draft[category]===i));
       if(category==='palette'){
         const swatches=document.createElement('div');swatches.className='hair-swatches';
         PALETTES[i].colors.forEach(color=>{const span=document.createElement('span');span.style.background=hex(color);swatches.append(span)});button.append(swatches);
       }else button.innerHTML=thumbnail(category,i);
       const name=document.createElement('span');name.textContent=label;button.append(name);
-      button.onclick=()=>{draft[category]=i;preview.setAppearance(draft);renderOptions();options.querySelector(`[data-option="${i}"]`).focus()};
+      button.onclick=()=>{if(!canChange())return;draft[category]=i;preview.setAppearance(draft);renderOptions();options.querySelector(`[data-option="${i}"]`).focus()};
       options.append(button);
     });
     document.querySelector('#appearance-summary').textContent=`${FEATURES.hair.options[draft.hair]} · ${PALETTES[draft.palette].name}`;
@@ -104,26 +106,33 @@ export function createCustomizer({ character, onOpen, notify }) {
     renderer.setSize(width,height);camera.aspect=width/height;camera.updateProjectionMatrix();
   }
   function open() {
+    if(dialog.open)return;
+    editable=canEdit();dialog.dataset.editable=String(editable);
+    dialog.querySelector('.character-subtitle').textContent=editable?'Выбери черты лица, причёску и палитру волос.':'Только просмотр. Изменять внешность можно на первом острове.';
+    for(const id of ['character-save','appearance-random','appearance-default'])document.getElementById(id).disabled=!editable;
+    document.querySelector('#character-cancel').textContent=editable?'Отмена':'Закрыть';
+    document.querySelector('#character-close').setAttribute('aria-label',editable?'Закрыть без сохранения':'Закрыть просмотр');
+    dialog.querySelector('.character-footer>span').textContent=editable?'Внешность сохраняется в этом браузере.':'Вернись на первый остров, чтобы изменить образ.';
     onOpen();draft=character.getAppearance();initPreview();preview.setAppearance(draft);angle=0;portrait=true;
     dialog.showModal();renderOptions();resize();setView(true);
   }
   function setView(face) {
     portrait=face;document.querySelector('#preview-face').setAttribute('aria-pressed',String(face));document.querySelector('#preview-body').setAttribute('aria-pressed',String(!face));
   }
-  document.querySelector('#character-button').onclick=open;
   document.querySelector('#character-close').onclick=document.querySelector('#character-cancel').onclick=()=>dialog.close();
   document.querySelector('#character-save').onclick=()=>{
+    if(!canChange())return;
     character.setAppearance(draft);const saved=saveAppearance(draft);dialog.close();
     notify(saved?'Внешность сохранена. Твой исследователь готов к путешествию.':'Внешность применена. Браузер не разрешил сохранить её между запусками.');
   };
-  document.querySelector('#appearance-random').onclick=()=>{draft=randomAppearance();preview.setAppearance(draft);renderOptions()};
-  document.querySelector('#appearance-default').onclick=()=>{draft={...DEFAULT_APPEARANCE};preview.setAppearance(draft);renderOptions()};
+  document.querySelector('#appearance-random').onclick=()=>{if(!canChange())return;draft=randomAppearance();preview.setAppearance(draft);renderOptions()};
+  document.querySelector('#appearance-default').onclick=()=>{if(!canChange())return;draft={...DEFAULT_APPEARANCE};preview.setAppearance(draft);renderOptions()};
   document.querySelector('#preview-left').onclick=()=>angle-=Math.PI/4;
   document.querySelector('#preview-right').onclick=()=>angle+=Math.PI/4;
   document.querySelector('#preview-face').onclick=()=>setView(true);
   document.querySelector('#preview-body').onclick=()=>setView(false);
   dialog.addEventListener('close',()=>dragX=null);
-  return { isOpen:()=>dialog.open,open,
+  return { isOpen:()=>dialog.open,open,close:()=>dialog.close(),
     render(dt,time){
       if(!dialog.open||!renderer)return;
       preview.root.rotation.y=angle;
