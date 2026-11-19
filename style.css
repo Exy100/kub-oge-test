@@ -201,3 +201,26 @@
 @media (max-width:650px) {
   #quest-tab { flex-basis: 25px; height: 76px; }
 }
+
+/* Attached mode tab: shares the dock's ceramic shell and bronze trim. */
+.dock-mode-tab{
+  position:relative;display:flex;align-items:center;justify-content:center;gap:9px;
+  width:202px;min-height:38px;margin:-2px auto 0;padding:5px 15px 7px;
+  border:2px solid #b6a481;border-top:0;border-radius:0 0 16px 16px;
+  background:linear-gradient(110deg,#f4f1df,#dce5d9 55%,#eeeada);
+  box-shadow:inset 2px 0 #fff8,inset -2px 0 #fff8,inset 0 -2px #fff8,0 3px 0 #6e715a;
+  color:#6f7567;font-size:11px;font-weight:800;white-space:nowrap;
+}
+.dock-mode-tab::before{content:'';position:absolute;top:0;left:17px;right:17px;height:1px;background:#a28b6138}
+.dock-mode-tab .mode-label{min-width:108px;padding:2px 12px;border-radius:5px;border-bottom:2px solid transparent;font-size:15px;line-height:1.35;letter-spacing:.35px;text-align:center}
+.dock-mode-tab kbd{margin-left:3px;padding:2px 4px;border-color:#a28b6155;color:#63715e;font-size:8px;font-weight:600}
+.player-dock[data-mode=build] .mode-label{color:#304f3e;background:#bccda960;border-bottom-color:#6f8b55}
+.player-dock[data-mode=battle] .mode-label{color:#fff2db;background:#c26a3740;border-bottom-color:#ffb26b}
+.player-dock[data-mode=battle] .dock-mode-tab{background:linear-gradient(110deg,#63352e,#3c2928 55%,#542f29);border-color:#c58a61;color:#c6b0a5;box-shadow:inset 2px 0 #ffcb8e22,inset -2px 0 #ffcb8e22,inset 0 -2px #ffcb8e22,0 3px 0 #432b26}
+.player-dock[data-mode=battle] .dock-mode-tab kbd{color:#e3c5a9;border-color:#c58a6166}
+.dock-mode-tab:hover{border-color:#94794e;box-shadow:inset 2px 0 #fff8,inset -2px 0 #fff8,inset 0 -2px #fff8,0 3px 0 #6e715a,0 2px 10px #e9d6a344}
+.dock-mode-tab:focus-visible{outline:3px solid #f8e1a1;outline-offset:3px}
+/* Reserve the material caption in battle too, keeping the tab in place. */
+.bottom #material[hidden]{display:block!important;visibility:hidden}
+#message{bottom:252px}
+@media(max-width:650px){.dock-mode-tab{min-height:38px;width:192px;gap:7px;font-size:11px}#message{bottom:246px}}
