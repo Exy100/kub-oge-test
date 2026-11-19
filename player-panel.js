@@ -134,7 +134,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   let mode='build';
   const open=d=>{if(blocked())return;onOpen();d.showModal()};
   function showNavigator(){if(dialog.open){dialog.close();return}$('#navigator-task').textContent=mission().text;$('#navigator-progress').textContent=mission().progress;open(dialog);if(dialog.open)speech.open()}
-  function switchMode(){mode=mode==='build'?'battle':'build';dock.dataset.mode=mode;document.body.classList.toggle('battle-mode',mode==='battle');hotbar.hidden=mode!=='build';battle.hidden=mode!=='battle';$('#dock-mode').textContent=mode==='build'?'СБОРКА':'БОЙ';$('#mode-switch').setAttribute('aria-pressed',String(mode==='battle'));$('#mode-switch .mode-label').textContent=mode==='build'?'Сборка':'Бой';$('#material').hidden=mode!=='build';notify(mode==='build'?'Сборка · материалы и постройки':'Сражение · навыки пока недоступны');}
+  function switchMode(){mode=mode==='build'?'battle':'build';dock.dataset.mode=mode;document.body.classList.toggle('battle-mode',mode==='battle');hotbar.hidden=mode!=='build';battle.hidden=mode!=='battle';$('#dock-mode').textContent=mode==='build'?'СБОРКА':'БОЙ';$('#mode-switch').setAttribute('aria-pressed',String(mode==='battle'));$('#mode-switch .mode-label').textContent=mode==='build'?'Сборка':'Бой';notify(mode==='build'?'Сборка · материалы и постройки':'Сражение · навыки пока недоступны');}
   const guideDialog=$('#controls-guide');
   const guideButton=$('#guide-button');
   const guideTabs=[...guideDialog.querySelectorAll('[role="tab"]')];

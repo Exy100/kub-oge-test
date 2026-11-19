@@ -4,7 +4,7 @@ import { createTreeRenderer } from './world/trees.js';
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js?v=2';
 import { equipGatheringWand } from './gathering-wand.js?v=15';
-import { createPlayerPanel } from './player-panel.js?v=28';
+import { createPlayerPanel } from './player-panel.js?v=29';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
@@ -156,7 +156,13 @@ function update(){
   exitGlow.visible=stages[0].unlocked;secondGlow.visible=stages[1].unlocked;
   $('#arch-status').textContent=stage.index===2?`Биты: ${forge.state.bits} · Байты: ${forge.state.bytes} · Создано: ${forge.state.crafted}/4`:stage.index===1?stage.arches.map((arch,i)=>`${MATERIAL_NAMES[arch.material]}: ${Array.from(stage.built).filter(t=>Math.floor(t/7)===i).length}/7`).join(' · '):stage.index===0&&stage.unlocked?'Портал открыт · подойди к арке и нажми E':stage.index===3?'Путь к саду открыт · 32 бита · 4 байта':'';
 }
-function select(i){selected=i;document.querySelectorAll('.slot').forEach((s,j)=>(s.classList.toggle('selected',i===j),s.setAttribute('aria-pressed',String(i===j))));$('#material').textContent=stage.index===2?'ЛКМ — собрать бит / байт или выложить байт · E — кузница / врата':stage.index===3?'Исследуй сад · E у зелёного портала — вернуться':MATERIAL_NAMES[i]+(isLimited(stage,i)?' · Собирай кубы на острове':' · Свободное строительство')}
+function select(i){
+  selected=i;
+  document.querySelectorAll('.slot').forEach((slot,index)=>{
+    slot.classList.toggle('selected',index===i);
+    slot.setAttribute('aria-pressed',String(index===i));
+  });
+}
 function nearbyRoute(){
   if(player.position.y>=1)return null;
   const routes=[];
