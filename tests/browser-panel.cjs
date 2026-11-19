@@ -6,6 +6,12 @@ await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascrip
 await page.goto('http://127.0.0.1:8064');if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();
 await page.waitForFunction(()=>document.pointerLockElement===document.querySelector('#world'));
 const mode=()=>page.locator('.player-dock').getAttribute('data-mode');
+await page.keyboard.down('l');
+await page.keyboard.down('l');
+assert(await mode()==='battle','holding L switches only once');
+await page.keyboard.up('l');
+await physical('KeyL','д');
+assert(await mode()==='build','same physical key on Russian layout returns to build');
 const cdp=await page.context().newCDPSession(page);
 async function pressBack(x,y,heldButtons=0){
   await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'back',buttons:heldButtons|8,clickCount:1});
@@ -94,6 +100,8 @@ const bagWindow=page.locator('#inventory-dialog'), gearWindow=page.locator('#wea
 await page.evaluate(()=>panelTest.playerAccount.coins=17);
 await page.locator('#inventory-button').click();
 assert(await bagWindow.isVisible(),'bag opens by mouse');
+await physical('KeyL','д');
+assert(await mode()==='build' && await bagWindow.isVisible(),'L leaves an open inventory alone');
 const heading=await bagWindow.locator('h2').boundingBox();
 await checkBrowserBack(heading.x+5,heading.y+5,'build');
 assert(await mode()==='build' && await bagWindow.isVisible(),'inventory blocks gameplay shortcut');

@@ -4,7 +4,7 @@ import { createTreeRenderer } from './world/trees.js';
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js?v=2';
 import { equipGatheringWand } from './gathering-wand.js?v=15';
-import { createPlayerPanel } from './player-panel.js?v=26';
+import { createPlayerPanel } from './player-panel.js?v=27';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
@@ -235,7 +235,7 @@ addEventListener('keyup',e=>{
 });
 addEventListener('blur',()=>{resetBackPress();dragging=false;panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
 function act(button){
-  if(panel.isBattle()){notify('Для строительства нажми C + V или боковую кнопку мыши «Назад» при управлении камерой.');return}
+  if(panel.isBattle()){notify('Для строительства нажми L / Д или C + V.');return}
   ray.setFromCamera(new THREE.Vector2(),camera);
   if(stage.index>=2){if(stage.index===2&&button===0&&forge.collect(ray,player.position))character.react();return}
   const {pickups,ghosts,placed,targets}=stage;
