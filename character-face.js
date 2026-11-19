@@ -80,8 +80,8 @@ function capFrontZ(y) {
   return a[1]+(b[1]-a[1])*(y-a[0])/(b[0]-a[0]);
 }
 function makeCapLabel() {
-  const geometry=new THREE.PlaneGeometry(.32,.115,12,8),p=geometry.attributes.position;
-  for(let i=0;i<p.count;i++){const y=p.getY(i)+.242;p.setY(i,y);p.setZ(i,capFrontZ(y)-.004)}
+  const geometry=new THREE.PlaneGeometry(.38,.144,12,8),p=geometry.attributes.position;
+  for(let i=0;i<p.count;i++){const y=p.getY(i)+.249;p.setY(i,y);p.setZ(i,capFrontZ(y)-.004)}
   // Front of the character is -Z. Flip UVs so text reads normally from that side.
   const uv=geometry.attributes.uv;for(let i=0;i<uv.count;i++)uv.setX(i,1-uv.getX(i));
   geometry.computeVertexNormals();return geometry;
@@ -142,10 +142,10 @@ export function createFace(parent, initial) {
     if(capLabelMaterial)return capLabelMaterial;
     let map=null;
     if(typeof document!=='undefined'){
-      const canvas=document.createElement('canvas');canvas.width=512;canvas.height=192;
-      const ctx=canvas.getContext('2d');ctx.clearRect(0,0,512,192);
-      ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.font='600 60px Arial, sans-serif';
-      ctx.fillText('экзамены,',256,76);ctx.fillText('сдавайтесь.',256,147);
+      const canvas=document.createElement('canvas');canvas.width=512;canvas.height=194;
+      const ctx=canvas.getContext('2d');
+      ctx.fillStyle='#ffffff';ctx.textAlign='center';ctx.font='600 78px Arial, sans-serif';
+      ctx.fillText('экзамены,',256,78);ctx.fillText('сдавайтесь.',256,170);
       map=new THREE.CanvasTexture(canvas);map.colorSpace=THREE.SRGBColorSpace;map.anisotropy=8;
     }
     capLabelMaterial=new THREE.MeshBasicMaterial({map,color:0xffffff,transparent:true,alphaTest:.08,side:THREE.DoubleSide,depthWrite:false});
