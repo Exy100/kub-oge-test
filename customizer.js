@@ -57,9 +57,13 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
         const glint=i===SPARKLING_EYES_INDEX
           ? `<path transform="translate(${x-1.4} 28)" d="M0 -2.6 L.55 -.55 2 0 .55 .55 0 2.6 -.55 .55 -2 0 -.55 -.55Z" fill="#fffaf0"/><circle cx="${x+1.6}" cy="32" r=".8" fill="white"/>`
           : `<circle cx="${x-1}" cy="28" r="1.5" fill="white"/>`;
+        const outerDrop = x < 40 ? .6 : -.6;
+        const browPath = i === SPARKLING_EYES_INDEX
+          ? `M${x-10} ${17+outerDrop} l20 ${-2*outerDrop}`
+          : `M${x-10} ${19+(i%3)} Q${x} ${16+(i%4)} ${x+10} ${19-(i%3)}`;
         drawing+=`<ellipse cx="${x}" cy="30" rx="${sizes[0]}" ry="${sizes[1]}" fill="#faf5e8" stroke="#64857c"/>
           <ellipse cx="${x}" cy="30" rx="4" ry="${Math.min(6,sizes[1])}" fill="${iris}"/>${glint}
-          <path d="M${x-10} ${19+(i%3)} Q${x} ${16+(i%4)} ${x+10} ${19-(i%3)}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`;
+          <path d="${browPath}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`;
       }
     }
     if(key==='nose'){
