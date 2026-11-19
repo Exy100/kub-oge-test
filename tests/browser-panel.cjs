@@ -6,33 +6,42 @@ await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascrip
 await page.goto('http://127.0.0.1:8064');if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();
 await page.waitForFunction(()=>document.pointerLockElement===document.querySelector('#world'));
 const mode=()=>page.locator('.player-dock').getAttribute('data-mode');
-await page.mouse.click(740,370,{button:'middle'});
-assert(await mode()==='battle','middle button enters battle under pointer lock');
+const cdp=await page.context().newCDPSession(page);
+async function pressBack(x,y,heldButtons=0){
+  await cdp.send('Input.dispatchMouseEvent',{type:'mousePressed',x,y,button:'back',buttons:heldButtons|8,clickCount:1});
+  await cdp.send('Input.dispatchMouseEvent',{type:'mouseReleased',x,y,button:'back',buttons:heldButtons,clickCount:1});
+}
+async function checkBrowserBack(x,y,expectedMode){
+  await page.evaluate(()=>history.pushState(null,'','#free'));
+  await pressBack(x,y);
+  await page.waitForFunction(()=>location.hash==='#game');
+  assert(await mode()===expectedMode,'browser Back preserves the panel mode');
+}
+await page.evaluate(()=>history.pushState(null,'','#game'));
+await pressBack(740,370);
+assert(await mode()==='battle','Back enters battle under pointer lock');
 // Input layers can consume the compatibility mousedown after pointerdown.
 await page.evaluate(()=>window.addEventListener('mousedown',e=>e.stopImmediatePropagation(),{capture:true,once:true}));
-await page.mouse.click(740,370,{button:'middle'});
+await pressBack(740,370);
 assert(await mode()==='build','pointer press alone returns to build');
+await pressBack(740,370);
+assert(await mode()==='battle','next Back press toggles exactly once');
 await page.mouse.click(740,370,{button:'middle'});
-assert(await mode()==='battle','next middle press toggles exactly once');
 await page.mouse.wheel(0,120);
-assert(await mode()==='battle','scroll keeps mode');
+assert(await mode()==='battle','wheel click and scroll keep mode');
+assert(new URL(page.url()).hash==='#game','camera shortcut preserves browser history position');
 await page.evaluate(()=>document.exitPointerLock());await page.waitForFunction(()=>!document.pointerLockElement);
-await page.mouse.click(740,370,{button:'middle'});
-assert(await mode()==='battle','free cursor over world keeps mode');
+await checkBrowserBack(740,370,'battle');
 const quest=page.locator('#quest-panel'), questTab=page.locator('#quest-tab');
-await page.locator('#quest-title').click({button:'middle'});
-assert(await mode()==='battle','free cursor over quest keeps mode');
-await page.locator('#inventory-button').click({button:'middle'});
-assert(await mode()==='battle','free cursor over dock keeps mode');
 assert(await page.locator('#mode-switch').count()===0,'mode switch pill removed');
 await page.mouse.move(740,370);
 await page.mouse.down({button:'right'});
 await page.mouse.move(750,375);
-await page.mouse.click(750,375,{button:'middle'});
-assert(await mode()==='build','drag-to-look allows middle click');
+await pressBack(750,375,2);
+assert(await mode()==='build','Back switches during camera drag');
+assert(new URL(page.url()).hash==='#game','drag shortcut preserves browser history position');
 await page.mouse.up({button:'right'});
-await page.mouse.click(750,375,{button:'middle'});
-assert(await mode()==='build','ending camera drag disables middle click');
+await checkBrowserBack(750,375,'build');
 assert(await quest.isVisible(),'quest starts on the left');
 const closeQuest=quest.getByRole('button',{name:'Закрыть задание'});
 await closeQuest.click();
@@ -53,7 +62,8 @@ const bagWindow=page.locator('#inventory-dialog'), gearWindow=page.locator('#wea
 await page.evaluate(()=>panelTest.playerAccount.coins=17);
 await page.locator('#inventory-button').click();
 assert(await bagWindow.isVisible(),'bag opens by mouse');
-await page.locator('#inventory-dialog h2').click({button:'middle'});
+const heading=await bagWindow.locator('h2').boundingBox();
+await checkBrowserBack(heading.x+5,heading.y+5,'build');
 assert(await mode()==='build' && await bagWindow.isVisible(),'inventory blocks gameplay shortcut');
 assert(await bagWindow.locator('.bag-cell').count()===20,'twenty cells');
 assert(await bagWindow.locator('.occupied').count()===1,'coins do not consume a cell');
