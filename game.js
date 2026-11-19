@@ -86,10 +86,11 @@ function hasBagRoom(id){
 function animateCollection(mesh){
   if(bag.loadouts.build.tool==='wand')gathering.collect(mesh);
 }
-const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:questInstructions[stage.index].speech,progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
+const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:questNarration(),progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
 const restartDialog=$('#restart-dialog');
 let restartStage=null;
 function modalOpen(){return restartDialog.open||forge.isOpen()||customizer.isOpen()||panel.isOpen()}
+
 function notify(t){$('#message').textContent=t;noticeUntil=performance.now()+4500}
 function spawnPickups(state){
   if(state.index>1)return;
@@ -100,14 +101,20 @@ function spawnPickups(state){
 stages.forEach(spawnPickups);
 const questInstructions=[
   {title:'Солнечная арка',island:'Остров мечтателей',action:'Собери 7 кубов песчаника',goal:'Построй арку',
-    speech:'Собери 7 кубов песчаника и дострой арку. Она откроет портал на новый остров.',tip:'У готовой арки нажми E, чтобы перейти на следующий остров.'},
+    tip:'У готовой арки нажми E, чтобы перейти на следующий остров.'},
   {title:'Остров трёх арок',island:'Остров трёх арок',action:'Собери песчаник, дерево и камень',goal:'Построй три арки',
-    speech:'Собери три арки из песчаника, дерева и камня. Средняя арка откроет путь к кузнице.',tip:'Выбирай материал клавишами 1, 3 и 4.'},
+    tip:'Выбирай материал клавишами 1, 3 и 4.'},
   {title:'Кузница байтов',island:'Кузница данных',action:'Собери биты и создай байты',goal:'Выложи байты у арки',
-    speech:'Собери сине-серые биты. У верстака нажми E, заполни 8 слотов и создай байт. Забери готовые байты и выложи 4 штуки на площадку справа от арки — ЛКМ.',tip:'E у верстака открывает кузницу. ЛКМ на площадке справа от арки устанавливает байт.'},
+    tip:'E у верстака открывает кузницу. ЛКМ на площадке справа от арки устанавливает байт.'},
   {title:'Сад открытий',island:'Сад открытий',action:'Исследуй новую локацию',goal:'Врата открыты',
-    speech:'Исследуй Сад открытий. Чтобы вернуться в кузницу, подойди к зелёному порталу и нажми E.',tip:'Зелёный портал возвращает в кузницу.'},
+    tip:'Зелёный портал возвращает в кузницу.'},
 ];
+// Only instruction fields opt into narration. Counters and statistics stay visual.
+function questNarration(){
+  return [...document.querySelectorAll('#quest-panel [data-quest-instruction]')]
+    .map(el=>el.textContent.trim()).filter(Boolean)
+    .map(text=>/[.!?…]$/.test(text)?text:text+'.').join(' ');
+}
 function refreshMission(){
   const quest=questInstructions[stage.index];
   $('.mission .eyebrow').textContent='Остров 0'+(stage.index+1);
