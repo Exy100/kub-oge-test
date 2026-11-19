@@ -80,7 +80,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   dock.querySelector('.dock-content').append(battle);
   battle.querySelectorAll('button').forEach(b=>b.onclick=()=>notify('Боевые навыки откроются вместе с боевой системой.'));
   const dialog=document.createElement('dialog');dialog.id='navigator-dialog';dialog.className='panel-dialog';dialog.setAttribute('aria-labelledby','navigator-title');
-  dialog.innerHTML=`<div class="paths-heading"><div><div class="eyebrow">ТВОЙ СПУТНИК</div><h2 id="navigator-title">Навигатор</h2></div><button aria-label="Закрыть Навигатора">×</button></div><div class="navigator-talk">${portrait}<div><h3>Каждый большой путь начинается с куба.</h3><p id="navigator-task"></p></div></div><div id="navigator-progress"></div><p>Я помогу с текущей целью. Собирай материалы, следуй подсказкам площадки и открывай новые острова.</p><div class="navigator-actions"><button id="navigator-paths">Выбрать направление →</button><button id="navigator-resume">Вернуться на остров</button><button id="navigator-change">Сменить помощника</button></div>`;
+  dialog.innerHTML=`<div class="paths-heading"><div><div class="eyebrow">ТВОЙ СПУТНИК</div><h2 id="navigator-title">Навигатор</h2></div><button aria-label="Закрыть Навигатора">×</button></div><div class="navigator-talk">${portrait}<div><h3>Каждый большой путь начинается с куба.</h3><p id="navigator-task"></p></div></div><div id="navigator-progress"></div><p>Я помогу с текущей целью. Собирай материалы, следуй подсказкам площадки и открывай новые острова.</p><div class="navigator-actions"><button id="navigator-resume">Вернуться на остров</button><button id="navigator-change">Сменить помощника</button></div>`;
   document.body.append(dialog);
   if(choice.selected())$('#navigator-title').textContent='Навигатор · '+NAVIGATORS.find(n=>n.id===choice.selected()).name;
   $('#navigator-change').onclick=()=>{dialog.close();choice.open()};
@@ -97,7 +97,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   $('#navigator-button').onclick=showNavigator;$('#weapons-button').onclick=equipment;
   dialog.querySelector('.paths-heading button').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>input.clear());
-  $('#navigator-resume').onclick=()=>dialog.close();$('#navigator-paths').onclick=()=>{dialog.close();$('#paths-button').click()};
+  $('#navigator-resume').onclick=()=>dialog.close();
   const input=createPanelKeys({switchMode,navigator:showNavigator,camera,inventory,equipment});
   let greeted=false;
   return {start(){if(greeted)return;greeted=true;live.greet();bubble.hidden=false;setTimeout(()=>bubble.hidden=true,6500);if($('#greeting-enabled').checked)speech.greet()},update(dt,time,active){live.update(dt,time,active)},storageOpen:storage.isOpen,isOpen:()=>dialog.open||storage.isOpen()||choice.isOpen(),isBattle:()=>mode==='battle',toggleMode,input};

@@ -1,11 +1,10 @@
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js';
 import { equipGatheringWand } from './gathering-wand.js?v=14';
-import { createPlayerPanel } from './player-panel.js?v=23';
+import { createPlayerPanel } from './player-panel.js?v=24';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
-import { createLearningHub } from './learning-hub.js';
 import { createForge } from './forge.js?v=15';
 import { loadAppearance } from './appearance.js';
 import { createCustomizer } from './customizer.js';
@@ -70,7 +69,6 @@ const character=createCharacter(loadAppearance()), player=character.root;scene.a
 const reducedHandMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const gathering=equipGatheringWand({character,camera,scene,renderer});
 player.position.set(0,0,6);let yaw=0,pitch=.23,third=true,selected=0;const physics=createPhysicsState();let jumpRequested=false;const keys={},ray=new THREE.Raycaster();let last=performance.now(),noticeUntil=0;
-const hub=createLearningHub({scene,box,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChoose(path,saved){notify(saved?`Выбрано: ${path.title}. Можно сменить в «Направлениях».`:`Выбрано: ${path.title}. Выбор действует до закрытия страницы.`);}});
 const forge=createForge({scene,box,solids,canStore:hasBagRoom,onCollect:animateCollection,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChange(){if(stage.index===2)update()},notify});
 const customizer=createCustomizer({character,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},notify});
 const playerAccount={coins:0};
@@ -89,7 +87,7 @@ function animateCollection(mesh){
   if(bag.loadouts.build.tool==='wand')gathering.collect(mesh);
 }
 const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:questInstructions[stage.index].speech,progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
-function modalOpen(){return hub.isOpen()||forge.isOpen()||customizer.isOpen()||panel.isOpen()}
+function modalOpen(){return forge.isOpen()||customizer.isOpen()||panel.isOpen()}
 function notify(t){$('#message').textContent=t;noticeUntil=performance.now()+4500}
 function spawnPickups(state){
   if(state.index>1)return;
@@ -199,7 +197,7 @@ addEventListener('keydown',e=>{
   if(e.code==='Space'&&!document.pointerLockElement&&e.target instanceof HTMLButtonElement)return;
   if(panel.input.down(e))return;
   if(e.code==='KeyE'&&!e.repeat){
-    if(!travel()&&!(stage.index===2&&forge.open(player.position)))hub.openNearby();
+    if(!travel()&&stage.index===2)forge.open(player.position);
     return;
   }
   if(['Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();
@@ -249,7 +247,7 @@ function act(button){
   const point=new THREE.Vector3();
   if(!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),0),point)||point.distanceTo(player.position)>=6||Math.abs(point.x-stage.center)>=10||Math.abs(point.z)>=9)return;
   const x=Math.round(point.x),z=Math.round(point.z);
-  if(hub.contains(x,z)||(stage.index===1&&Math.abs(x-46)<2&&Math.abs(z-6)<2)){notify('Оставь проход к порталу свободным.');return}
+  if(stage.index===1&&Math.abs(x-46)<2&&Math.abs(z-6)<2){notify('Оставь проход к порталу свободным.');return}
   if(stage.arches.some(a=>Math.abs(x-a.x)<=2&&Math.abs(z-a.z)<=1)){notify('Эта площадка оставлена для арки.');return}
   if(Math.hypot(x-player.position.x,z-player.position.z)<1)return;
   const column=placed.filter(m=>m.position.x===x&&m.position.z===z);if(column.length>=5)return;
@@ -285,11 +283,11 @@ if(active){
 jumpRequested=false;
 player.rotation.y=yaw;
 character.animate(dt,{dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,grounded:physics.grounded,velocity:physics.velocity,time:now/1000});
-const eye=player.position.clone().add(new THREE.Vector3(0,1.5,0));const look=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));if(third){followCamera(camera,eye,look,[...solids,exitGlow,secondGlow,...returnGlows,...forge.cameraObstacles])}else{camera.position.copy(eye);camera.lookAt(eye.clone().add(look))}stage.pickups.forEach(m=>{const phase=m.userData.animationPhase;m.rotation.y=now*.0008+phase;m.position.y=.65+Math.sin(now*.002+phase)*.12});if(now>noticeUntil&&noticeUntil){$('#message').textContent='✦ Наведи прицел на куб и нажми ЛКМ';noticeUntil=0}hub.update(player.position,now/1000,active);
+const eye=player.position.clone().add(new THREE.Vector3(0,1.5,0));const look=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));if(third){followCamera(camera,eye,look,[...solids,exitGlow,secondGlow,...returnGlows,...forge.cameraObstacles])}else{camera.position.copy(eye);camera.lookAt(eye.clone().add(look))}stage.pickups.forEach(m=>{const phase=m.userData.animationPhase;m.rotation.y=now*.0008+phase;m.position.y=.65+Math.sin(now*.002+phase)*.12});if(now>noticeUntil&&noticeUntil){$('#message').textContent='✦ Наведи прицел на куб и нажми ЛКМ';noticeUntil=0}
 const route=nearbyRoute(),travelButton=$('#travel-prompt');travelButton.hidden=!active||!route;
 if(route)travelButton.textContent=route.ready?route.label:route.locked;
 for(const portal of [exitGlow,secondGlow,...returnGlows])portal.material.opacity=.4+Math.sin(now*.002)*.12;
-forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!hub.isOpen()&&!customizer.isOpen()&&!panel.isOpen());
+forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);
 gathering.update(dt,now/1000,{active,third,visible:!panel.isBattle()&&bag.loadouts.build.tool==='wand',dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
 if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
