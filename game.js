@@ -116,9 +116,14 @@ function questNarration(){
     .map(text=>/[.!?…]$/.test(text)?text:text+'.').join(' ');
 }
 const locationBanner=$('#location-banner');
+const controlStrip=$('.bottom .controls');
+let controlStripTimer;
 let locationTimer;
 function announceLocation(message){
   notify(message,10000);
+  clearTimeout(controlStripTimer);
+  controlStrip.hidden=false;
+  if(stage.index>=2)controlStripTimer=setTimeout(()=>{controlStrip.hidden=true},15000);
   clearTimeout(locationTimer);
   locationBanner.hidden=true;
   const name=LOCATIONS[stage.index].name;
@@ -136,6 +141,10 @@ function refreshMission(){
   $('.progress-label > span').textContent=quest.goal;
   $('.tip').textContent=quest.tip;
   document.body.classList.toggle('forge-mode',stage.index>=2);
+  controlStrip.querySelector('.forge-hint').hidden=stage.index!==2;
+  const interact=controlStrip.querySelector('.interact-hint');
+  interact.hidden=stage.index<2;
+  interact.lastElementChild.textContent=stage.index===2?'Верстак / портал':'Вернуться через портал';
   select(selected);update();
 }
 function update(){
