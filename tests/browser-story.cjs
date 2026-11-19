@@ -6,7 +6,8 @@ await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascrip
 window.storyTest={
  snapshot(){return {index:stage.index,built:stage.built.size,inventory:stage.inventory.slice(),unlocked:stage.unlocked,pickups:stage.pickups.length}},
  nearGate(){player.position.set(stage.index===0?0:stage.center+6,0,stage.index===0?0:5)},
- nearHub(){player.position.set(-5,0,1)},
+ formerPortal(x){player.position.set(x,0,1)},
+ portalSolids(){return solids.filter(b=>Math.abs(Math.abs(b.position.x)-5)<1.6&&Math.abs(b.position.z)<.4&&b.position.y>.1).length},
  collect(){for(const m of [...stage.pickups]){player.position.set(m.position.x,0,m.position.z+2);camera.position.set(m.position.x,2.5,m.position.z);camera.lookAt(m.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)}},
  build(i,material){const t=stage.targets[i];select(material??t.material);player.position.set(t.x,0,t.z+2);camera.position.set(t.x,t.y,t.z+2);camera.lookAt(t.x,t.y,t.z);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)},
  remove(i){const t=stage.targets[i];player.position.set(t.x,0,t.z+2);camera.position.set(t.x,t.y,t.z+2);camera.lookAt(t.x,t.y,t.z);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(2)},
@@ -23,10 +24,15 @@ window.storyTest={
 };`}));
 const assert=(ok,msg)=>{if(!ok)throw Error(msg)};
 await page.goto('http://127.0.0.1:8050');if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();
-await page.evaluate(()=>{document.exitPointerLock();window.storyTest.nearHub()});await page.waitForFunction(()=>!document.querySelector('#portal-prompt').hidden);await page.keyboard.press('e');
-assert(await page.locator('#paths-dialog').evaluate(e=>e.open),'hub opens with E');
-await page.locator('[data-choose="code"]').click();assert((await page.locator('#chosen-path').textContent()).includes('программирования'),'path selection');
-assert(await page.evaluate(()=>localStorage.getItem('kub.learning-path.v1'))==='code','path persistence');
+await page.evaluate(()=>document.exitPointerLock());
+await page.waitForFunction(()=>!document.pointerLockElement);
+assert(await page.locator('#paths-button,#paths-dialog,#chosen-path,#portal-prompt,#navigator-paths').count()===0,'learning path UI removed');
+assert(await page.evaluate(()=>storyTest.portalSolids())===0,'former learning portals have no solid frames');
+for(const x of [-5,5]){
+  await page.evaluate(x=>storyTest.formerPortal(x),x);await page.keyboard.press('e');
+  assert(await page.locator('dialog[open]').count()===0,'E at former portal does not open a dialog');
+}
+await page.screenshot({path:'/tmp/kub-no-learning-portals.png'});
 await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===0,'portal must be locked');
 await page.evaluate(()=>window.storyTest.collect());let s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.inventory[0]===7&&s.pickups===0,'collect first island cubes');
 await page.keyboard.press('KeyB');
@@ -81,6 +87,6 @@ await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('
 await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===2,'return to forge');
 assert((await page.evaluate(()=>window.storyTest.forgeSnapshot())).unlocked,'forge progress retained');
 await page.locator('#reset').click();let reset=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(reset.bits===0&&reset.pickups===8&&!reset.unlocked&&reset.inserted===0,'forge reset');
-await page.reload();assert((await page.locator('#chosen-path').textContent()).includes('программирования'),'selected path restored');
-console.log(JSON.stringify({result:'hub, 28 placements, four islands, 32 bits, animated faces, four transparent bytes collected into bag and offered to arch, locked/open gate, return and reset passed',errors}));if(errors.length)throw Error(errors.join(';'));
+await page.reload();assert(await page.locator('#paths-button,#paths-dialog,#chosen-path,#portal-prompt').count()===0,'learning path UI stays absent after reload');
+console.log(JSON.stringify({result:'no learning portals, 28 placements, four islands, 32 bits, animated faces, four transparent bytes collected into bag and offered to arch, locked/open gate, return and reset passed',errors}));if(errors.length)throw Error(errors.join(';'));
 }finally{if(browser)await browser.close();server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
