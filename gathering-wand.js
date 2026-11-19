@@ -2,7 +2,7 @@ import * as THREE from './vendor/three.module.js';
 
 // Original concept 8: ceramic tuning fork, sage grip, brass terminals.
 export function createGatheringWand(){
-  const root=new THREE.Group();root.name='gathering-wand-8';const geometries=[],materials=[];
+  const root=new THREE.Group();root.name='gathering-wand-8';root.userData.objectId='wand';const geometries=[],materials=[];
   const mat=(color,extra={})=>{const m=new THREE.MeshStandardMaterial({color,roughness:.45,...extra});materials.push(m);return m};
   const ivory=mat(0xf0e6cd),bronze=mat(0xb29560,{metalness:.7,roughness:.3}),leather=mat(0x667957,{roughness:.9}),dark=mat(0x37473d),gold=mat(0xffd27a,{emissive:0xffad35,emissiveIntensity:.4});
   function mesh(name,g,m,x=0,y=0,z=0){geometries.push(g);const o=new THREE.Mesh(g,m);o.name=name;o.position.set(x,y,z);o.castShadow=true;root.add(o);return o}
