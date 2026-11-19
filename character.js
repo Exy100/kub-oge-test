@@ -32,7 +32,6 @@ export function createCharacter(appearance) {
   block(body, 'belt', 0, .79, 0, .51, .07, .32, 0x6c5940);
   block(body, 'buckle', 0, .79, -.18, .085, .065, .025, 0xd6bc77);
   for (const side of [-1, 1]) {
-    block(body, 'collar', side * .115, 1.265, -.16, .15, .065, .07, 0xf3e5bc);
     block(body, 'pocket', side * .13, 1.03, -.177, .12, .14, .035, 0x668d86);
     block(body, 'pocket-flap', side * .13, 1.09, -.2, .13, .035, .025, 0xdbdfcb);
     block(body, 'pocket-button', side * .13, 1.075, -.218, .025, .025, .012, 0x7e7154);
