@@ -42,3 +42,16 @@ test('head collision cancels ascent beneath a solid block',()=>{
 test('a fast descent cannot tunnel through stone',()=>{
   const p={x:0,y:5,z:0},s={velocity:-100,grounded:false};movePlayer(p,s,{dt:.1},[large]);near(p.y,.7);assert.equal(s.grounded,true);
 });
+
+// The previous jump peaked at about 1.10 units with the 120 Hz physics step.
+test('jump reaches about 1.21 units and lands safely at 30/60/120 FPS',()=>{
+  for(const fps of [30,60,120]){
+    const p={x:0,y:0,z:0},s=createPhysicsState();let peak=0;
+    for(let frame=0;frame<fps*2;frame++){
+      movePlayer(p,s,{dt:1/fps,jump:frame===0},[]);
+      peak=Math.max(peak,p.y);
+    }
+    assert.ok(Math.abs(peak-1.21)<.005,`peak at ${fps} FPS: ${peak}`);
+    near(p.y,0);assert.equal(s.grounded,true);near(s.velocity,0);
+  }
+});
