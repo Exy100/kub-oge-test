@@ -26,6 +26,12 @@ await page.locator('#inventory-button').click({button:'middle'});
 assert(await mode()==='battle','free cursor over dock keeps mode');
 const modeTab=page.locator('#mode-switch');
 assert(await modeTab.isVisible() && await modeTab.getAttribute('aria-pressed')==='true','attached tab shows battle');
+assert(await modeTab.locator('.mode-label').innerText()==='Бой','tab names current battle mode');
+await modeTab.locator('.mode-label').click();
+assert(await modeTab.locator('.mode-label').innerText()==='Сборка','label click updates current mode');
+// The empty edge of the tab is clickable too.
+await modeTab.click({position:{x:8,y:12}});
+assert(await mode()==='battle','tab edge toggles mode');
 await modeTab.click();
 assert(await mode()==='build' && await modeTab.getAttribute('aria-pressed')==='false','tab selects build');
 await modeTab.press('Enter');

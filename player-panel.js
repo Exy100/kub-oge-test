@@ -50,7 +50,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   const dock = document.createElement('section'); dock.className='player-dock'; dock.dataset.mode='build'; dock.setAttribute('aria-label','Панель игрока');
   hotbar.before(dock);
   dock.innerHTML=`<div class="dock-caption"><span class="dock-dot"></span><span id="dock-mode" aria-live="polite">СБОРКА</span></div><div class="dock-frame"><button id="navigator-button" class="dock-end navigator" aria-label="Позвать Навигатора · Z + X / Я + Ч" title="Навигатор · Z + X / Я + Ч">${portrait}<span>Навигатор</span><kbd>Z + X</kbd></button><div class="dock-content"></div><div class="dock-tools"><button id="inventory-button" title="Инвентарь · B / И">${icon('bag')}<span>Инвентарь</span><kbd>B</kbd></button><button id="weapons-button" title="Снаряжение · C / С">${icon('shield')}<span>Снаряжение</span><kbd>C</kbd></button></div></div>`;
-  dock.insertAdjacentHTML('beforeend', `<button id="mode-switch" class="dock-mode-tab" type="button" aria-label="Боевой режим" aria-pressed="false" title="Сменить режим · C + V / С + М"><span class="mode-label mode-label-battle">Бой</span><span class="mode-divider" aria-hidden="true">/</span><span class="mode-label mode-label-build">Сборка</span><kbd aria-hidden="true">C + V</kbd></button>`);
+  dock.insertAdjacentHTML('beforeend', `<button id="mode-switch" class="dock-mode-tab" type="button" aria-label="Режим Бой / Сборка" aria-pressed="false" title="Сменить режим · C + V / С + М"><span class="mode-label">Сборка</span><kbd aria-hidden="true">C + V</kbd></button>`);
   const quest = $('#quest-panel');
   const questTab = document.createElement('button');
   questTab.id = 'quest-tab';
@@ -88,7 +88,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   let mode='build';
   const open=d=>{if(blocked())return;onOpen();d.showModal()};
   function showNavigator(){if(dialog.open){dialog.close();return}$('#navigator-task').textContent=mission().text;$('#navigator-progress').textContent=mission().progress;open(dialog);if(dialog.open)speech.open()}
-  function switchMode(){mode=mode==='build'?'battle':'build';dock.dataset.mode=mode;document.body.classList.toggle('battle-mode',mode==='battle');hotbar.hidden=mode!=='build';battle.hidden=mode!=='battle';$('#dock-mode').textContent=mode==='build'?'СБОРКА':'БОЙ';$('#mode-switch').setAttribute('aria-pressed',String(mode==='battle'));$('#material').hidden=mode!=='build';notify(mode==='build'?'Сборка · материалы и постройки':'Сражение · навыки пока недоступны');}
+  function switchMode(){mode=mode==='build'?'battle':'build';dock.dataset.mode=mode;document.body.classList.toggle('battle-mode',mode==='battle');hotbar.hidden=mode!=='build';battle.hidden=mode!=='battle';$('#dock-mode').textContent=mode==='build'?'СБОРКА':'БОЙ';$('#mode-switch').setAttribute('aria-pressed',String(mode==='battle'));$('#mode-switch .mode-label').textContent=mode==='build'?'Сборка':'Бой';$('#material').hidden=mode!=='build';notify(mode==='build'?'Сборка · материалы и постройки':'Сражение · навыки пока недоступны');}
   const storage=createInventoryWindows({bag,playerAccount,open,mode:()=>mode,setMode:next=>{if(next!==mode)switchMode()}});
   const inventory=()=>storage.toggle('bag'), equipment=()=>storage.toggle('gear');
   $('#inventory-button').onclick=inventory;
