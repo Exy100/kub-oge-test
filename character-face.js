@@ -93,6 +93,28 @@ function makeSmilingLid() {
   shape.closePath();
   return new THREE.ExtrudeGeometry(shape, {depth:1, bevelEnabled:false, curveSegments:10});
 }
+// The character faces -Z. Push the surface toward +Z inside two oval
+// footprints and tint the deepest part to suggest the occluded interior.
+function makeWideNose() {
+  const geometry = new THREE.SphereGeometry(1, 48, 32);
+  const positions = geometry.attributes.position;
+  const colors = new Float32Array(positions.count * 3).fill(1);
+  for (let i = 0; i < positions.count; i++) {
+    const x = positions.getX(i), y = positions.getY(i), z = positions.getZ(i);
+    if (z >= 0) continue;
+    const dx = (Math.abs(x) - .50) / .25;
+    const dy = (y + .46) / .28;
+    const radiusSquared = dx * dx + dy * dy;
+    if (radiusSquared >= 1) continue;
+    const depth = (1 - radiusSquared) ** 2;
+    positions.setZ(i, z + .48 * depth);
+    colors.set([1 - .58 * depth, 1 - .72 * depth, 1 - .76 * depth], i * 3);
+  }
+  geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
+
 export function createFace(parent, initial) {
   const geometry = {
     smilingLid: makeSmilingLid(), soft: makeSoftBox(), scalp: makeHairScalp(), partedScalp: makePartedScalp(), head: makeRoundedCube(.18), rounded: makeRoundedCube(.2), swept: makeSweptLock(), sphere: new THREE.SphereGeometry(1,12,8),
@@ -186,7 +208,13 @@ export function createFace(parent, initial) {
     if(nose===0)mesh(group,'nose-button','rounded',0,-.050,-.218,.062,.044,.057,0xd79f78);
     if(nose===1){mesh(group,'nose-bridge','soft',0,-.02,-.216,.042,.085,.05,skin);mesh(group,'nose-tip','soft',0,-.061,-.242,.052,.034,.045,skinShadow)}
     if(nose===2){mesh(group,'nose-upturned','sphere',0,-.045,-.236,.038,.022,.038,skin);mesh(group,'nose-shadow','soft',0,-.065,-.238,.038,.009,.018,skinShadow)}
-    if(nose===3){mesh(group,'nose-wide','sphere',0,-.05,-.229,.052,.028,.029,skin);for(const side of [-1,1])mesh(group,'nostril','sphere',side*.03,-.066,-.247,.009,.006,.005,skinShadow)}
+    if (nose === 3) {
+      geometry.wideNose ??= makeWideNose();
+      if (!materials.has('wideNose')) {
+        materials.set('wideNose', new THREE.MeshStandardMaterial({color:skin, roughness:.82, vertexColors:true}));
+      }
+      mesh(group,'nose-wide','wideNose',0,-.05,-.229,.052,.028,.029,'wideNose');
+    }
     if(nose===4)mesh(group,'nose-slender','soft',0,-.028,-.231,.028,.091,.055,skinShadow);
     if(nose===5){mesh(group,'nose-bridge','soft',0,-.013,-.229,.039,.064,.058,skin);mesh(group,'nose-hook','sphere',0,-.053,-.25,.027,.031,.028,skinShadow)}
     if(nose===6)mesh(group,'nose-flat','soft',0,-.048,-.21,.071,.038,.025,skinShadow);
