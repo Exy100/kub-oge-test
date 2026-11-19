@@ -16,18 +16,24 @@ assert(!await page.locator('#character-dialog').evaluate(e=>e.open),'typing does
 await page.keyboard.press('KeyP');await page.waitForFunction(()=>document.querySelector('#character-preview canvas')?.width>0);
 await page.waitForTimeout(200);await page.screenshot({path:'/tmp/kub-character-editor.png'});
 assert(await page.locator('#appearance-options button').count()===10,'ten eye options');
+await page.getByLabel('Янтарный',{exact:true}).check();
 await page.locator('[data-option="7"]').click();assert(JSON.stringify(await page.evaluate(()=>window.avatarTest.appearance()))===JSON.stringify(original),'draft does not alter live player');
 await page.locator('#character-cancel').click();assert(JSON.stringify(await page.evaluate(()=>window.avatarTest.appearance()))===JSON.stringify(original),'cancel preserves appearance');
 await page.keyboard.press('KeyP');
+const colors=page.locator('#eye-colors input');
+assert(await colors.count()===5,'five iris colors');
+await page.locator('[data-option="8"]').click();
+await page.getByLabel('Серый',{exact:true}).check();
+await page.screenshot({path:'/tmp/kub-eye-color-editor.png'});
 for(const category of ['eyes','nose','mouth','ears','hair','palette']){
  await page.locator('#tab-'+category).click();assert(await page.locator('#appearance-options button').count()===10,'ten '+category+' options');await page.locator('[data-option="9"]').click();
 }
 await page.locator('#preview-right').click();await page.locator('#preview-body').click();await page.waitForTimeout(100);await page.screenshot({path:'/tmp/kub-character-full.png'});
-await page.locator('#character-save').click();let applied=await page.evaluate(()=>window.avatarTest.appearance());assert(Object.values(applied).every(v=>v===9),'all six choices apply to live rig');
-await page.reload();await page.waitForFunction(()=>window.avatarTest);assert(Object.values(await page.evaluate(()=>window.avatarTest.appearance())).every(v=>v===9),'appearance survives reload');
+await page.locator('#character-save').click();let applied=await page.evaluate(()=>window.avatarTest.appearance());assert(applied.eyeColor===4 && Object.entries(applied).every(([key,v])=>key==='eyeColor'||v===9),'shape and color apply independently');
+await page.reload();await page.waitForFunction(()=>window.avatarTest);assert(JSON.stringify(await page.evaluate(()=>window.avatarTest.appearance()))===JSON.stringify(applied),'appearance survives reload');
 if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();await page.evaluate(()=>document.exitPointerLock());await page.waitForFunction(()=>!document.pointerLockElement);await page.keyboard.press('KeyP');
 await page.locator('#tab-hair').click();await page.locator('[data-option="5"]').click();await page.locator('#tab-palette').click();await page.locator('[data-option="3"]').click();await page.locator('#preview-face').click();await page.screenshot({path:'/tmp/kub-character-copper.png'});
-await page.keyboard.press('Escape');assert(Object.values(await page.evaluate(()=>window.avatarTest.appearance())).every(v=>v===9),'Escape cancels draft');
+await page.keyboard.press('Escape');assert(JSON.stringify(await page.evaluate(()=>window.avatarTest.appearance()))===JSON.stringify(applied),'Escape cancels draft');
 await page.keyboard.press('KeyP');await page.locator('#appearance-random').click();await page.locator('#appearance-default').click();await page.locator('#character-save').click();assert(JSON.stringify(await page.evaluate(()=>window.avatarTest.appearance()))===JSON.stringify(original),'reset applies defaults');
 await page.evaluate(()=>{localStorage.setItem('kub.appearance.v1','broken-json')});await page.reload();await page.waitForFunction(()=>window.avatarTest);assert(JSON.stringify(await page.evaluate(()=>window.avatarTest.appearance()))===JSON.stringify(original),'corrupt storage falls back');
 if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();await page.evaluate(()=>document.exitPointerLock());await page.waitForFunction(()=>!document.pointerLockElement);await page.keyboard.press('KeyP');
@@ -61,5 +67,5 @@ assert(await page.locator('#character-save').isEnabled(),'return to first island
 await page.locator('#tab-eyes').click();await page.locator('[data-option="6"]').click();
 await page.locator('#character-save').click();assert((await page.evaluate(()=>avatarTest.appearance())).eyes===6,'editing works after return');
 await page.screenshot({path:'/tmp/kub-clean-header.png'});
-console.log(JSON.stringify({result:'60 choices, preview, save, reload, cancel, Escape, random/reset, corrupt/blocked storage and narrow layout passed',errors}));if(errors.length)throw Error(errors.join(';'));
+console.log(JSON.stringify({result:'eye colors, preview, save, reload, cancel, Escape, random/reset, corrupt/blocked storage and narrow layout passed',errors}));if(errors.length)throw Error(errors.join(';'));
 }finally{if(browser)await browser.close();server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
