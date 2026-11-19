@@ -24,7 +24,12 @@ await page.locator('#quest-title').click({button:'middle'});
 assert(await mode()==='battle','free cursor over quest keeps mode');
 await page.locator('#inventory-button').click({button:'middle'});
 assert(await mode()==='battle','free cursor over dock keeps mode');
-assert(await page.locator('#mode-switch').count()===0,'mode switch pill removed');
+const modeTab=page.locator('#mode-switch');
+assert(await modeTab.isVisible() && await modeTab.getAttribute('aria-pressed')==='true','attached tab shows battle');
+await modeTab.click();
+assert(await mode()==='build' && await modeTab.getAttribute('aria-pressed')==='false','tab selects build');
+await modeTab.press('Enter');
+assert(await mode()==='battle','keyboard activates mode tab');
 await page.mouse.move(740,370);
 await page.mouse.down({button:'right'});
 await page.mouse.move(750,375);
@@ -99,7 +104,7 @@ await page.screenshot({path:'/tmp/kub-panel-battle.png'});await page.locator('#w
 assert((await rim()).name==='none','exploration rim stays still');
 await page.locator('.slot').nth(2).click();assert(await page.locator('.slot').nth(2).evaluate(e=>e.classList.contains('selected')),'build selection works');
 await page.evaluate(()=>panelTest.stage(2));await page.locator('#navigator-button').click();assert((await page.locator('#navigator-task').innerText()).includes('биты'),'forge context');await page.keyboard.press('Escape');await page.evaluate(()=>panelTest.stage(0));
-for(const width of [390,640]){await page.setViewportSize({width,height:844});for(let i=0;i<2;i++){assert(await page.locator('.dock-frame').evaluate(e=>e.getBoundingClientRect().right<=innerWidth && e.scrollWidth<=e.clientWidth+1),'dock fits '+width);await page.keyboard.press('c+v');}}
+for(const width of [390,640]){await page.setViewportSize({width,height:844});for(let i=0;i<2;i++){assert(await page.locator('.dock-frame').evaluate(e=>e.getBoundingClientRect().right<=innerWidth && e.scrollWidth<=e.clientWidth+1),'dock fits '+width);assert(await modeTab.evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight}),'mode tab fits '+width);await modeTab.click();}}
 await page.screenshot({path:'/tmp/kub-panel-mobile.png'});
 await page.setViewportSize({width:390,height:844});
 await page.locator('#inventory-button').click();
