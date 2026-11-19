@@ -154,12 +154,24 @@ function mouseControlsCamera(){
   return (document.pointerLockElement===renderer.domElement || dragging)
     && $('#welcome').classList.contains('hidden') && !modalOpen();
 }
-document.addEventListener('pointerlockchange',()=>{dragging=false});
-document.addEventListener('mousedown',e=>{
-  if(e.button!==1 || !mouseControlsCamera())return;
+// Chromium can deliver both a pointer event and a compatibility mouse event
+// for a single press. The mouse event also covers a second button during a camera drag.
+let middleButtonHeld=false;
+function middleDown(e){
+  if(e.button!==1 || (e.pointerType && e.pointerType!=='mouse') || !mouseControlsCamera())return;
   e.preventDefault();
-  panel.toggleMode();
-},true);
+  if(!middleButtonHeld)panel.toggleMode();
+  middleButtonHeld=true;
+}
+function middleUp(e){
+  if(e.button===1)middleButtonHeld=false;
+}
+document.addEventListener('pointerlockchange',()=>{dragging=false;middleButtonHeld=false});
+document.addEventListener('pointerdown',middleDown,true);
+document.addEventListener('mousedown',middleDown,true);
+document.addEventListener('pointerup',middleUp,true);
+document.addEventListener('mouseup',middleUp,true);
+document.addEventListener('pointercancel',()=>{middleButtonHeld=false},true);
 document.addEventListener('auxclick',e=>{
   if(e.button===1 && mouseControlsCamera())e.preventDefault();
 },true);
@@ -195,7 +207,7 @@ addEventListener('keyup',e=>{
   if((!modalOpen()||panel.storageOpen())&&$('#welcome').classList.contains('hidden'))panel.input.up(e);
   else panel.input.clear();
 });
-addEventListener('blur',()=>{dragging=false;panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
+addEventListener('blur',()=>{middleButtonHeld=false;dragging=false;panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
 function act(button){
   if(panel.isBattle()){notify('Для строительства нажми на колёсико или используй C + V.');return}
   ray.setFromCamera(new THREE.Vector2(),camera);

@@ -8,6 +8,12 @@ await page.waitForFunction(()=>document.pointerLockElement===document.querySelec
 const mode=()=>page.locator('.player-dock').getAttribute('data-mode');
 await page.mouse.click(740,370,{button:'middle'});
 assert(await mode()==='battle','middle button enters battle under pointer lock');
+// Input layers can consume the compatibility mousedown after pointerdown.
+await page.evaluate(()=>window.addEventListener('mousedown',e=>e.stopImmediatePropagation(),{capture:true,once:true}));
+await page.mouse.click(740,370,{button:'middle'});
+assert(await mode()==='build','pointer press alone returns to build');
+await page.mouse.click(740,370,{button:'middle'});
+assert(await mode()==='battle','next middle press toggles exactly once');
 await page.mouse.wheel(0,120);
 assert(await mode()==='battle','scroll keeps mode');
 await page.evaluate(()=>document.exitPointerLock());await page.waitForFunction(()=>!document.pointerLockElement);
