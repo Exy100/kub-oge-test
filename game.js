@@ -154,33 +154,41 @@ function mouseControlsCamera(){
   return (document.pointerLockElement===renderer.domElement || dragging)
     && $('#welcome').classList.contains('hidden') && !modalOpen();
 }
-// Chromium can deliver both a pointer event and a compatibility mouse event
-// for a single press. The mouse event also covers a second button during a camera drag.
-let middleButtonHeld=false;
-function middleDown(e){
-  if(e.button!==1 || (e.pointerType && e.pointerType!=='mouse') || !mouseControlsCamera())return;
-  e.preventDefault();
-  if(!middleButtonHeld)panel.toggleMode();
-  middleButtonHeld=true;
+// Pointer and compatibility mouse events can describe the same Back press.
+// During a multi-button camera drag, only mousedown reports the extra press.
+let backHeld=false;
+let consumeBackPress=false;
+function backDown(e){
+  if(e.button!==3 || (e.pointerType && e.pointerType!=='mouse'))return;
+  if(!backHeld){
+    backHeld=true;
+    consumeBackPress=mouseControlsCamera();
+    if(consumeBackPress)panel.toggleMode();
+  }
+  if(consumeBackPress)e.preventDefault();
 }
-function middleUp(e){
-  if(e.button===1)middleButtonHeld=false;
+function backUp(e){
+  if(e.button!==3)return;
+  backHeld=false;
+  // Keep the original decision for mouseup and auxclick, even if capture ended.
+  if(consumeBackPress)e.preventDefault();
 }
-document.addEventListener('pointerlockchange',()=>{dragging=false;middleButtonHeld=false});
-document.addEventListener('pointerdown',middleDown,true);
-document.addEventListener('mousedown',middleDown,true);
-document.addEventListener('pointerup',middleUp,true);
-document.addEventListener('mouseup',middleUp,true);
-document.addEventListener('pointercancel',()=>{middleButtonHeld=false},true);
+function resetBackPress(){backHeld=false;consumeBackPress=false}
+document.addEventListener('pointerlockchange',()=>{dragging=false});
+document.addEventListener('pointerdown',backDown,true);
+document.addEventListener('mousedown',backDown,true);
+document.addEventListener('pointerup',backUp,true);
+document.addEventListener('mouseup',backUp,true);
+document.addEventListener('pointercancel',resetBackPress,true);
 document.addEventListener('auxclick',e=>{
-  if(e.button===1 && mouseControlsCamera())e.preventDefault();
+  if(e.button===3 && consumeBackPress)e.preventDefault();
 },true);
 renderer.domElement.addEventListener('mousedown',e=>{
-  if(e.button===1)return;
+  if(e.button!==0 && e.button!==2)return;
   dragging=true;
   if(!modalOpen()&&document.pointerLockElement)act(e.button);
 });
-document.addEventListener('mouseup',e=>{if(e.button!==1)dragging=false});
+document.addEventListener('mouseup',e=>{if(!(e.buttons & 3))dragging=false});
 renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('mousemove',e=>{if(mouseControlsCamera()){yaw-=e.movementX*.003;pitch=THREE.MathUtils.clamp(pitch+e.movementY*.003,-.7,1.1)}});
 addEventListener('keydown',e=>{
   if(!$('#welcome').classList.contains('hidden'))return;
@@ -207,9 +215,9 @@ addEventListener('keyup',e=>{
   if((!modalOpen()||panel.storageOpen())&&$('#welcome').classList.contains('hidden'))panel.input.up(e);
   else panel.input.clear();
 });
-addEventListener('blur',()=>{middleButtonHeld=false;dragging=false;panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
+addEventListener('blur',()=>{resetBackPress();dragging=false;panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
 function act(button){
-  if(panel.isBattle()){notify('Для строительства нажми на колёсико или используй C + V.');return}
+  if(panel.isBattle()){notify('Для строительства нажми C + V или боковую кнопку мыши «Назад» при управлении камерой.');return}
   ray.setFromCamera(new THREE.Vector2(),camera);
   if(stage.index>=2){if(stage.index===2&&button===0&&forge.collect(ray,player.position))character.react();return}
   const {pickups,ghosts,placed,targets}=stage;
