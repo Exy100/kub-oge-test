@@ -26,27 +26,6 @@
 .player-dock{width:min(740px,100%)}.dock-end.navigator{flex-basis:112px;width:112px;height:112px;overflow:visible;justify-content:flex-end;padding-bottom:7px;background:linear-gradient(140deg,#f1efda,#c1d5bd)}.navigator-live{display:block;width:128px;height:138px;margin-top:-30px;pointer-events:none}.navigator-live canvas{position:static;display:block;width:100%;height:100%;pointer-events:none}.navigator .navigator-portrait[hidden]{display:none}.navigator>span:not(.navigator-live){font-size:9px}.dock-caption{margin-left:142px}#navigator-greeting{position:absolute;bottom:calc(100% + 17px);left:50%;transform:translateX(-50%);padding:13px 22px;border-radius:16px 16px 16px 4px;border:1px solid #baa47f;background:#fffdf0;color:#385c48;box-shadow:0 6px 20px #28423422;font-size:17px;font-weight:800;white-space:nowrap;pointer-events:none;z-index:3}#navigator-greeting:after{content:'';position:absolute;bottom:-7px;left:50%;width:12px;height:12px;transform:rotate(45deg);border-right:1px solid #baa47f;border-bottom:1px solid #baa47f;background:#fffdf0}.greeting-toggle{display:flex;justify-content:center;align-items:center;gap:8px;font-size:11px;color:#5a755c;margin:12px 0}.greeting-toggle input{accent-color:#668654}.navigator-choice .robot-preview{height:220px}.bottom .controls{max-width:100%;flex-wrap:wrap;justify-content:center;gap:4px 14px}.controls[hidden],.controls span[hidden]{display:none}
 @media(max-width:650px){.dock-end.navigator{flex-basis:78px;width:78px;height:91px}.navigator-live{width:94px;height:108px;margin-top:-23px}.dock-caption{margin-left:100px;font-size:7px;gap:4px}.navigator>span:not(.navigator-live){font-size:7px}#navigator-greeting{padding:10px 16px;font-size:14px;bottom:calc(100% + 14px)}.navigator-choice .robot-preview{height:155px}.greeting-toggle{font-size:10px}.dock-frame{gap:4px}.player-dock .slot{min-width:0}.player-dock .cube{width:17px;height:20px}}
 
-.dock-tools {
-  flex: 0 0 126px;
-  display: grid;
-  gap: 5px;
-}
-.dock-tools button {
-  display: grid;
-  grid-template-columns: 19px 1fr auto;
-  align-items: center;
-  gap: 4px;
-  height: 36px;
-  padding: 4px 7px;
-  border: 1px solid #ab9d7d;
-  border-radius: 9px 5px;
-  background: linear-gradient(130deg,#fffdf0,#d4decc);
-  color: #365548;
-  font-size: 10px;
-  font-weight: 700;
-}
-.dock-tools svg { width: 19px; fill: none; stroke: currentColor; stroke-width: 3; stroke-linejoin: round; }
-.dock-tools kbd { font-size: 9px; padding: 2px; }
 .bag-summary, .kit-modes { display: flex; align-items: center; gap: 8px; margin: 18px 0 12px; }
 .bag-summary { justify-content: space-between; font-size: 13px; }
 .coin-balance { background: #ede2bb; color: #695224; border-radius: 14px; padding: 5px 12px; }
@@ -69,9 +48,6 @@
 .kit-slot small { font-size: 12px; }
 .kit-choices:not([hidden]) { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; font-size: 13px; margin-top: 12px; }
 @media(max-width:650px){
-  .dock-tools { flex-basis: 74px; gap: 4px; }
-  .dock-tools button { grid-template-columns: 1fr auto; font-size: 9px; padding: 3px; gap: 1px; }
-  .dock-tools svg { display: none; }
   .kit-window { padding: 15px; }
   .bag-cell { min-height: 62px; }
   .bag-grid { gap: 4px; }
@@ -91,14 +67,6 @@
 }
 .player-dock[data-mode="battle"] .navigator > span,
 .player-dock[data-mode="battle"] .navigator > kbd { color: #fff5e1; }
-.player-dock[data-mode="battle"] .dock-tools button {
-  background: linear-gradient(140deg,#fff1df,#eecabd); border-color: #ae7258; color: #472a26;
-}
-.player-dock[data-mode="battle"] #quest-tab {
-  background: linear-gradient(135deg,#8c493a,#502d2c); border-color: #ffab64; color: #fff0d8;
-}
-.player-dock[data-mode="battle"] #quest-tab[aria-expanded=false] { background: #f1ceba; color: #532f28; }
-.player-dock[data-mode="battle"] #quest-tab span:first-child { color: inherit; }
 @property --battle-rim-angle {
   syntax: "<angle>";
   initial-value: 0deg;
@@ -182,63 +150,52 @@
   .quest-instructions { padding:7px; }
   #quest-action,.mission .progress-label { font-size:11px; }
 }
-#quest-tab {
-  flex: 0 0 32px; height: 80px; padding: 6px 2px; display: grid;
-  justify-items: center; align-content: center; gap: 3px;
-  background: linear-gradient(105deg,#41624f,#294738); color: #fff2cb;
-  border: 1px solid #987e4d; border-radius: 4px 10px 4px 8px;
-  box-shadow: inset 0 0 0 2px #d6c69c77, 0 2px 0 #8f896d;
-}
-#quest-tab span:first-child { color: #e6ce90; font-size: 14px; }
-#quest-tab span:last-child { writing-mode: vertical-rl; font-size: 10px; font-weight: 700; }
-#quest-tab[aria-expanded=false] { background: #f1e8cb; color: #385641; }
-#quest-tab[aria-expanded=false] span:first-child { color: #775f31; }
-#quest-tab:focus-visible { outline: 3px solid #b78d37; outline-offset: 2px; }
 @media (prefers-reduced-motion:no-preference) {
   .mission:not([hidden]) { animation: quest-unfold .22s ease-out; }
   @keyframes quest-unfold { from { opacity: 0; transform: translateX(-10px); } }
 }
-@media (max-width:650px) {
-  #quest-tab { flex-basis: 25px; height: 76px; }
+/* Tabs attach to the lower edge of the ceramic frame. */
+.dock-tabs {
+  --tab-face:linear-gradient(155deg,#faf7e8,#dfe6d6);
+  --tab-ink:#304e40; --tab-rim:#a79976; --tab-shadow:#767961;
+  --key-bg:#fffcf1; --key-rim:#b7b79e; --tab-accent:#556f50;
+  display:grid; grid-template-columns:1.08fr 1.14fr 1fr 1fr 1fr; gap:4px;
+  margin:0 10px;
 }
-
-/* Attached mode tab: shares the dock's ceramic shell and bronze trim. */
-.dock-mode-tab{
-  position:relative;display:flex;align-items:center;justify-content:center;gap:9px;
-  width:202px;min-height:38px;margin:-2px auto 0;padding:5px 15px 7px;
-  border:2px solid #b6a481;border-top:0;border-radius:0 0 16px 16px;
-  background:linear-gradient(110deg,#f4f1df,#dce5d9 55%,#eeeada);
-  box-shadow:inset 2px 0 #fff8,inset -2px 0 #fff8,inset 0 -2px #fff8,0 3px 0 #6e715a;
-  color:#6f7567;font-size:11px;font-weight:800;white-space:nowrap;
+.player-dock[data-mode="battle"] .dock-tabs {
+  --tab-face:linear-gradient(155deg,#683b34,#432d2c);
+  --tab-ink:#fff0dc; --tab-rim:#c58a61; --tab-shadow:#512f29;
+  --key-bg:#52342e; --key-rim:#ad7d60; --tab-accent:#ffc086;
 }
-.dock-mode-tab::before{content:'';position:absolute;top:0;left:17px;right:17px;height:1px;background:#a28b6138}
-.dock-mode-tab .mode-label{min-width:108px;padding:2px 12px;border-radius:5px;border-bottom:2px solid transparent;font-size:15px;line-height:1.35;letter-spacing:.35px;text-align:center}
-.dock-mode-tab kbd{margin-left:3px;padding:2px 4px;border-color:#a28b6155;color:#63715e;font-size:8px;font-weight:600}
-.player-dock[data-mode=build] .mode-label{color:#304f3e;background:#bccda960;border-bottom-color:#6f8b55}
-.player-dock[data-mode=battle] .mode-label{color:#fff2db;background:#c26a3740;border-bottom-color:#ffb26b}
-.player-dock[data-mode=battle] .dock-mode-tab{background:linear-gradient(110deg,#63352e,#3c2928 55%,#542f29);border-color:#c58a61;color:#c6b0a5;box-shadow:inset 2px 0 #ffcb8e22,inset -2px 0 #ffcb8e22,inset 0 -2px #ffcb8e22,0 3px 0 #432b26}
-.player-dock[data-mode=battle] .dock-mode-tab kbd{color:#e3c5a9;border-color:#c58a6166}
-.dock-mode-tab:hover{border-color:#94794e;box-shadow:inset 2px 0 #fff8,inset -2px 0 #fff8,inset 0 -2px #fff8,0 3px 0 #6e715a,0 2px 10px #e9d6a344}
-.dock-mode-tab:focus-visible{outline:3px solid #f8e1a1;outline-offset:3px}
-
-@media(max-width:650px){.dock-mode-tab{min-height:38px;width:192px;gap:7px;font-size:11px}}
-
-/* Bronze hex key and its matching controls window. */
-#guide-button {
-  flex: 0 0 40px; height: 46px; padding: 0; border: 0; background: transparent;
-  display: grid; align-items: center; color: #fff2be;
+.dock-tabs button {
+  display:grid; grid-template-columns:auto 1fr auto; align-items:center; gap:4px;
+  min-width:0; min-height:44px; padding:5px 7px;
+  border:1px solid var(--tab-rim); border-top:0; border-radius:0 0 12px 12px;
+  background:var(--tab-face); color:var(--tab-ink);
+  box-shadow:inset 0 0 0 1px #fffcdf36,0 2px 0 var(--tab-shadow);
+  font-weight:700; font-size:12px;
 }
-#guide-button span {
-  position: relative; display: grid; place-items: center; height: 38px; font: bold 25px/1 system-ui;
-  clip-path: polygon(24% 0,76% 0,100% 50%,76% 100%,24% 100%,0 50%);
-  background: linear-gradient(145deg,#ffe19b,#a16b35 58%,#523e30); isolation: isolate;
+.dock-tabs button:hover { box-shadow:inset 0 0 0 2px var(--tab-rim),0 2px 0 var(--tab-shadow); }
+.dock-tabs button:focus-visible { outline:3px solid var(--tab-accent); outline-offset:1px; z-index:1; }
+.dock-tabs svg,.dock-glyph { width:18px; height:18px; color:var(--tab-accent); }
+.dock-tabs svg { fill:none; stroke:currentColor; stroke-width:3; stroke-linejoin:round; }
+.dock-glyph { display:grid; place-items:center; font:700 18px/1 system-ui; }
+.guide-glyph { clip-path:polygon(25% 0,75% 0,100% 50%,75% 100%,25% 100%,0 50%); background:#765633; color:#fff4d4; font-size:13px; }
+.dock-tabs kbd { justify-self:end; white-space:nowrap; font:700 10px/1.3 system-ui; padding:2px 3px; border:1px solid var(--key-rim); border-radius:4px; color:var(--tab-ink); background:var(--key-bg); }
+.dock-tabs #mode-switch { border-bottom:3px solid var(--tab-accent); }
+.dock-tabs #quest-tab[aria-expanded=true] .dock-glyph { border-radius:4px; color:var(--key-bg); background:var(--tab-ink); }
+@media (max-width:740px) {
+  .dock-tabs { gap:3px; margin:0 4px; }
+  .dock-tabs button { grid-template-columns:1fr auto; row-gap:2px; padding:5px 4px; }
+  .dock-tabs button > span { grid-column:1 / -1; grid-row:2; }
+  .dock-tabs svg,.dock-glyph { justify-self:center; }
+  .dock-tabs kbd { grid-row:1; grid-column:2; }
 }
-#guide-button span::before {
-  content: ''; position: absolute; inset: 3px; z-index: -1; clip-path: inherit;
-  background: linear-gradient(145deg,#84613e,#493528);
+@media (max-width:450px) {
+  .dock-tabs { grid-template-columns:1.12fr 1.22fr .9fr .9fr 1fr; gap:2px; margin:0 1px; }
+  .dock-tabs button { column-gap:1px; padding:4px 2px; font-size:10px; }
+  .dock-tabs kbd { font-size:9px; }
 }
-#guide-button:hover span { color: white; filter: brightness(1.15); }
-#guide-button:focus-visible { outline: 2px solid #ad7029; outline-offset: 1px; }
 #controls-guide {
   width: min(510px,calc(100vw - 24px)); max-height: calc(100dvh - 24px); overflow: auto;
   margin: auto; padding: 0; border: 3px solid #a17a4b; border-radius: 16px 6px;
@@ -267,10 +224,6 @@
 .guide-mouse-shape { position: relative; flex: 0 0 44px; height: 64px; margin-left: 5px; border-radius: 24px 24px 20px 20px; background: linear-gradient(100deg,#604734,#382b23); border: 2px solid #94714a; }
 .guide-mouse-shape::before { content: ''; position: absolute; top: 6px; left: 16px; width: 7px; height: 13px; border-radius: 5px; background: #dcc59f; }
 .guide-mouse-shape i { position: absolute; top: 24px; left: -5px; width: 7px; height: 15px; background: #ffca68; border: 1px solid #805323; border-radius: 4px; }
-@media(max-width:650px) {
-  #guide-button { flex-basis: 28px; }
-  #guide-button span { height: 28px; font-size: 19px; }
-}
 @media(max-width:450px) {
   .dock-end.navigator { width: 56px; flex-basis: 56px; }
   .guide-header { flex-wrap: wrap; row-gap: 8px; }

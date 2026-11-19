@@ -73,7 +73,10 @@ await closeQuest.focus();await page.keyboard.press('Space');
 assert(!await quest.isVisible(),'keyboard closes quest');
 await questTab.click();
 const guideButton=page.locator('#guide-button'), guide=page.locator('#controls-guide');
-assert(await questTab.evaluate(b=>b.previousElementSibling.id==='guide-button' && b.previousElementSibling.previousElementSibling.matches('.dock-tools') && !b.nextElementSibling),'help sits between equipment and quest');
+await physical('KeyJ','о');
+assert(!await quest.isVisible(),'Russian J closes quest');
+await page.keyboard.press('j');
+assert(await quest.isVisible(),'J opens quest');
 await guideButton.click();
 assert(await guide.getByRole('tab',{name:'Клавиатура'}).getAttribute('aria-selected')==='true','keyboard guide selected initially');
 await page.keyboard.press('ArrowRight');
@@ -149,7 +152,23 @@ await page.screenshot({path:'/tmp/kub-panel-battle.png'});await page.locator('#w
 assert((await rim()).name==='none','exploration rim stays still');
 await page.locator('.slot').nth(2).click();assert(await page.locator('.slot').nth(2).evaluate(e=>e.classList.contains('selected')),'build selection works');
 await page.evaluate(()=>panelTest.stage(2));await page.locator('#navigator-button').click();assert((await page.locator('#navigator-task').innerText()).includes('биты'),'forge context');await page.keyboard.press('Escape');await page.evaluate(()=>panelTest.stage(0));
-for(const width of [390,640]){await page.setViewportSize({width,height:844});for(let i=0;i<2;i++){assert(await page.locator('.dock-frame').evaluate(e=>e.getBoundingClientRect().right<=innerWidth && e.scrollWidth<=e.clientWidth+1),'dock fits '+width);assert(await modeTab.evaluate(e=>{const r=e.getBoundingClientRect();return r.left>=0&&r.right<=innerWidth&&r.bottom<=innerHeight}),'mode tab fits '+width);await modeTab.click();}}
+for(const width of [320,390,640,768,1440]){
+  await page.setViewportSize({width,height:844});
+  for(let i=0;i<2;i++){
+    const fits=await page.locator('.dock-tabs').evaluate(row=>{
+      const frame=document.querySelector('.dock-frame').getBoundingClientRect();
+      return row.children.length===5 && [...row.children].every(button=>{
+        const tab=button.getBoundingClientRect();
+        const key=button.querySelector('kbd').getBoundingClientRect();
+        const glyph=button.firstElementChild.getBoundingClientRect();
+        return tab.top>=frame.bottom-1 && tab.bottom<=innerHeight && tab.left>=0 && tab.right<=innerWidth
+          && button.scrollWidth<=button.clientWidth+1 && key.left>=glyph.right && key.right<=tab.right-1;
+      });
+    });
+    assert(fits,'attached buttons and right-hand key caps fit at '+width+' in '+await mode());
+    await modeTab.click();
+  }
+}
 await page.setViewportSize({width:390,height:844});
 await page.screenshot({path:'/tmp/kub-panel-mobile.png'});
 await guideButton.click();

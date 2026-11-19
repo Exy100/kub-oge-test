@@ -4,7 +4,7 @@ import { createNavigatorSpeech } from './navigator-speech.js?v=14';
 import { createNavigatorChoice } from './navigator-choice.js?v=11';
 import { NAVIGATORS } from './navigator-model.js?v=11';
 // Physical codes keep chords identical on Russian and English layouts.
-export function createPanelKeys({ switchMode, navigator, camera, inventory, equipment, guide }) {
+export function createPanelKeys({ switchMode, navigator, camera, inventory, equipment, guide, quest }) {
   const held = new Set(); let chord = false;
   return {
     down(e) {
@@ -14,6 +14,7 @@ export function createPanelKeys({ switchMode, navigator, camera, inventory, equi
         if (!e.repeat) switchMode();
         return true;
       }
+      if (e.code === 'KeyJ') { e.preventDefault?.(); if (!e.repeat) quest(); return true; }
       if (e.code === 'KeyH') { e.preventDefault?.(); if (!e.repeat) guide(); return true; }
       if (e.code === 'KeyB') { e.preventDefault?.(); if (!e.repeat) inventory?.(); return true; }
       if (!['KeyZ','KeyX','KeyC','KeyV'].includes(e.code)) return false;
@@ -55,18 +56,25 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   const hotbar = $('.hotbar');
   const dock = document.createElement('section'); dock.className='player-dock'; dock.dataset.mode='build'; dock.setAttribute('aria-label','Панель игрока');
   hotbar.before(dock);
-  dock.innerHTML=`<div class="dock-caption"><span class="dock-dot"></span><span id="dock-mode" aria-live="polite">СБОРКА</span></div><div class="dock-frame"><button id="navigator-button" class="dock-end navigator" aria-label="Позвать Навигатора · Z + X / Я + Ч" title="Навигатор · Z + X / Я + Ч">${portrait}<span>Навигатор</span><kbd>Z + X</kbd></button><div class="dock-content"></div><div class="dock-tools"><button id="inventory-button" title="Инвентарь · B / И">${icon('bag')}<span>Инвентарь</span><kbd>B</kbd></button><button id="weapons-button" title="Снаряжение · C / С">${icon('shield')}<span>Снаряжение</span><kbd>C</kbd></button></div><button id="guide-button" type="button" aria-haspopup="dialog" aria-controls="controls-guide" aria-label="Управление · H / Р" title="Управление · H / Р"><span aria-hidden="true">?</span></button></div>`;
-  dock.insertAdjacentHTML('beforeend', `<button id="mode-switch" class="dock-mode-tab" type="button" aria-label="Режим Бой / Сборка" aria-pressed="false" title="Сменить режим · L / Д или C + V / С + М"><span class="mode-label">Сборка</span><kbd aria-hidden="true">L / Д</kbd></button>`);
+  dock.innerHTML=`
+    <div class="dock-caption"><span class="dock-dot"></span><span id="dock-mode" aria-live="polite">СБОРКА</span></div>
+    <div class="dock-frame">
+      <button id="navigator-button" class="dock-end navigator" aria-label="Позвать Навигатора · Z + X / Я + Ч" title="Навигатор · Z + X / Я + Ч">${portrait}<span>Навигатор</span><kbd>Z + X</kbd></button>
+      <div class="dock-content"></div>
+    </div>
+    <div class="dock-tabs" role="group" aria-label="Действия панели игрока">
+      <button id="inventory-button" type="button" title="Инвентарь · B / И">${icon('bag')}<span>Инвентарь</span><kbd>B / И</kbd></button>
+      <button id="weapons-button" type="button" title="Снаряжение · C / С">${icon('shield')}<span>Снаряжение</span><kbd>C / С</kbd></button>
+      <button id="mode-switch" type="button" aria-label="Режим Бой / Сборка" aria-pressed="false" title="Сменить режим · L / Д или C + V / С + М"><b class="dock-glyph" aria-hidden="true">⇄</b><span class="mode-label">Сборка</span><kbd>L / Д</kbd></button>
+      <button id="guide-button" type="button" aria-haspopup="dialog" aria-controls="controls-guide" title="Управление · H / Р"><b class="dock-glyph guide-glyph" aria-hidden="true">?</b><span>Справка</span><kbd>H / Р</kbd></button>
+      <button id="quest-tab" type="button" aria-controls="quest-panel"><b class="dock-glyph" aria-hidden="true">✦</b><span>Задание</span><kbd>J / О</kbd></button>
+    </div>`;
   const quest = $('#quest-panel');
-  const questTab = document.createElement('button');
-  questTab.id = 'quest-tab';
-  questTab.type = 'button';
-  questTab.setAttribute('aria-controls', quest.id);
-  questTab.innerHTML = '<span aria-hidden="true">✦</span><span>Задание</span>';
+  const questTab = $('#quest-tab');
   function showQuest(visible) {
     quest.hidden = !visible;
     questTab.setAttribute('aria-expanded', String(visible));
-    questTab.title = visible ? 'Свернуть задание' : 'Открыть задание';
+    questTab.title = (visible ? 'Свернуть задание' : 'Открыть задание') + ' · J / О';
     questTab.setAttribute('aria-label', questTab.title);
   }
   $('#quest-close').onclick = () => {
@@ -74,8 +82,8 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
     showQuest(false);
     questTab.focus({preventScroll:true});
   };
-  questTab.onclick = () => { if (!blocked()) showQuest(quest.hidden); };
-  dock.querySelector('.dock-frame').append(questTab);
+  function toggleQuest() { if (!blocked()) showQuest(quest.hidden); }
+  questTab.onclick = toggleQuest;
   showQuest(true);
   dock.querySelector('.dock-content').append(hotbar);
   live=createLiveNavigator($('#navigator-button'),choice.selected()??27);
@@ -176,7 +184,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   dialog.querySelector('.paths-heading button').onclick=()=>dialog.close();
   dialog.addEventListener('close',()=>input.clear());
   $('#navigator-resume').onclick=()=>dialog.close();
-  const input=createPanelKeys({switchMode,navigator:showNavigator,camera,inventory,equipment,guide:toggleGuide});
+  const input=createPanelKeys({switchMode,navigator:showNavigator,camera,inventory,equipment,guide:toggleGuide,quest:toggleQuest});
   let greeted=false;
   return {updatePortal,start(){if(greeted)return;greeted=true;live.greet();bubble.hidden=false;setTimeout(()=>bubble.hidden=true,6500);if($('#greeting-enabled').checked)speech.greet()},update(dt,time,active){live.update(dt,time,active)},storageOpen:storage.isOpen,guideOpen:()=>guideDialog.open,isOpen:()=>guideDialog.open||dialog.open||storage.isOpen()||choice.isOpen(),isBattle:()=>mode==='battle',toggleMode,input};
 }
