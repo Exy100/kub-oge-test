@@ -1,6 +1,7 @@
+import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js';
 import { equipGatheringWand } from './gathering-wand.js?v=14';
-import { createPlayerPanel } from './player-panel.js?v=15';
+import { createPlayerPanel } from './player-panel.js?v=16';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=4';
@@ -87,7 +88,7 @@ function hasBagRoom(id){
 function animateCollection(mesh){
   if(bag.loadouts.build.tool==='wand')gathering.collect(mesh);
 }
-const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:$('.mission > p').textContent,progress:$('.blueprint b').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
+const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:questInstructions[stage.index].speech,progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
 function modalOpen(){return hub.isOpen()||forge.isOpen()||customizer.isOpen()||panel.isOpen()}
 function notify(t){$('#message').textContent=t;noticeUntil=performance.now()+4500}
 function spawnPickups(state){
@@ -97,28 +98,35 @@ function spawnPickups(state){
   entries.forEach(([x,z,material],phase)=>{const m=box(x,.55,z,.65,.65,.65,mats[material]);m.userData.material=material;m.userData.animationPhase=phase;state.pickups.push(m)});
 }
 stages.forEach(spawnPickups);
+const questInstructions=[
+  {title:'Солнечная арка',island:'Остров мечтателей',action:'Собери 7 кубов песчаника',goal:'Построй арку',
+    speech:'Собери 7 кубов песчаника и дострой арку. Она откроет портал на новый остров.',tip:'У готовой арки нажми E, чтобы перейти на следующий остров.'},
+  {title:'Остров трёх арок',island:'Остров трёх арок',action:'Собери песчаник, дерево и камень',goal:'Построй три арки',
+    speech:'Собери три арки из песчаника, дерева и камня. Средняя арка откроет путь к кузнице.',tip:'Выбирай материал клавишами 1, 3 и 4.'},
+  {title:'Кузница байтов',island:'Кузница данных',action:'Собери биты и создай байты',goal:'Выложи байты у арки',
+    speech:'Собери сине-серые биты. У верстака нажми E, заполни 8 слотов и создай байт. Забери готовые байты и выложи 4 штуки на площадку справа от арки — ЛКМ.',tip:'E у верстака открывает кузницу. ЛКМ на площадке справа от арки устанавливает байт.'},
+  {title:'Сад открытий',island:'Сад открытий',action:'Исследуй новую локацию',goal:'Врата открыты',
+    speech:'Исследуй Сад открытий. Чтобы вернуться в кузницу, подойди к зелёному порталу и нажми E.',tip:'Зелёный портал возвращает в кузницу.'},
+];
 function refreshMission(){
-  const descriptions=[
-    ['ПЕРВЫЙ ПОРТАЛ','Построй путь дальше.','Собери 7 кубов песчаника и дострой арку. Она откроет портал на новый остров.','Солнечная арка','7 кубов · песчаник','Остров мечтателей','Дострой арку, подойди к ней и нажми E.'],
-    ['ТРИ МАТЕРИАЛА','Три арки. Три материала.','Собери три арки: песчаник, дерево, камень. После сборки всех трёх средняя арка откроет путь к кузнице.','Остров трёх арок','21 куб · 7 на каждую арку','Остров трёх арок','Выбирай песчаник, дерево и камень клавишами 1, 3 и 4.'],
-    ['КУЗНИЦА ДАННЫХ','Восемь битов. Один байт.','Собери сине-серые биты. У верстака нажми E, заполни 8 слотов и создай байт. Забери готовые байты в сумку и выложи 4 штуки на площадку справа от арки — ЛКМ.','Кузница байтов','8 бит = 1 байт · 4 байта = 32 бита','Кузница данных','Арка стоит справа от кузницы. Площадка рядом с ней: наведи прицел на свободное место и нажми ЛКМ.'],
-    ['НОВЫЕ ГОРИЗОНТЫ','Дверь в новый мир.','Ты собрал 32 бита, создал 4 байта и открыл врата в арке. Исследуй новую локацию — её следующее задание ещё впереди.','Сад открытий','Путь пройден · продолжение следует','Сад открытий','Зелёный портал возвращает в кузницу.'],
-  ][stage.index];
-  $('.mission .eyebrow').textContent=`ОСТРОВ 0${stage.index+1} · ${descriptions[0]}`;
-  $('.mission h1').textContent=descriptions[1];$('.mission > p').textContent=descriptions[2];
-  $('.blueprint b').textContent=descriptions[3];$('.blueprint small').textContent=descriptions[4];
-  $('.location').textContent=descriptions[5];$('.tip').textContent=descriptions[6];
+  const quest=questInstructions[stage.index];
+  $('.mission .eyebrow').textContent='Остров 0'+(stage.index+1);
+  $('#quest-title').textContent=quest.title;
+  $('#quest-action').textContent=quest.action;
+  $('.progress-label > span').textContent=quest.goal;
+  $('.location').textContent=quest.island;
+  $('.tip').textContent=quest.tip;
   document.body.classList.toggle('forge-mode',stage.index>=2);
   $('#reset').title='Начать текущий остров заново';select(selected);update();
 }
 function update(){
   const n=stage.index<2?stage.built.size:stage.index===2?forge.state.cells.filter(Boolean).length:4;
   const total=stage.index<2?stage.targets.length:4;
-  $('.progress-label > span').textContent=stage.index<2?'Кубы на своих местах':'Байты на площадке';
-  $('#count').textContent=`${n} / ${total}`;$('#progress').style.width=n/total*100+'%';
+  $('#count').textContent=`${n} / ${total}`;
+  drawQuestDiagram($('#quest-diagram'),stage,forge.state.cells);
   document.querySelectorAll('.slot b').forEach((el,i)=>el.textContent=isLimited(stage,i)?stage.inventory[i]:'∞');
   exitGlow.visible=stages[0].unlocked;secondGlow.visible=stages[1].unlocked;
-  $('#arch-status').textContent=stage.index===2?`Биты: ${forge.state.bits} · Байты: ${forge.state.bytes} · Создано: ${forge.state.crafted}/4`:stage.index===1?stage.arches.map((arch,i)=>`${MATERIAL_NAMES[arch.material]}: ${Array.from(stage.built).filter(t=>Math.floor(t/7)===i).length}/7`).join(' · '):stage.index===0&&stage.unlocked?'Портал открыт · подойди к арке и нажми E':'';
+  $('#arch-status').textContent=stage.index===2?`Биты: ${forge.state.bits} · Байты: ${forge.state.bytes} · Создано: ${forge.state.crafted}/4`:stage.index===1?stage.arches.map((arch,i)=>`${MATERIAL_NAMES[arch.material]}: ${Array.from(stage.built).filter(t=>Math.floor(t/7)===i).length}/7`).join(' · '):stage.index===0&&stage.unlocked?'Портал открыт · подойди к арке и нажми E':stage.index===3?'Путь к саду открыт · 32 бита · 4 байта':'';
 }
 function select(i){selected=i;document.querySelectorAll('.slot').forEach((s,j)=>(s.classList.toggle('selected',i===j),s.setAttribute('aria-pressed',String(i===j))));$('#material').textContent=stage.index===2?'ЛКМ — собрать бит / байт или выложить байт · E — кузница / врата':stage.index===3?'Исследуй сад · E у зелёного портала — вернуться':MATERIAL_NAMES[i]+(isLimited(stage,i)?' · Собирай кубы на острове':' · Свободное строительство')}
 function nearbyRoute(){

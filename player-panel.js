@@ -50,6 +50,21 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   const dock = document.createElement('section'); dock.className='player-dock'; dock.dataset.mode='build'; dock.setAttribute('aria-label','Панель игрока');
   hotbar.before(dock);
   dock.innerHTML=`<div class="dock-caption"><span class="dock-dot"></span><span id="dock-mode" aria-live="polite">СБОРКА</span><button id="mode-switch" title="Сменить панель · C + V / С + М">Сборка / Сражение <kbd>C + V</kbd></button></div><div class="dock-frame"><button id="navigator-button" class="dock-end navigator" aria-label="Позвать Навигатора · Z + X / Я + Ч" title="Навигатор · Z + X / Я + Ч">${portrait}<span>Навигатор</span><kbd>Z + X</kbd></button><div class="dock-content"></div><div class="dock-tools"><button id="inventory-button" title="Инвентарь · B / И">${icon('bag')}<span>Инвентарь</span><kbd>B</kbd></button><button id="weapons-button" title="Снаряжение · C / С">${icon('shield')}<span>Снаряжение</span><kbd>C</kbd></button></div></div>`;
+  const quest = $('#quest-panel');
+  const questTab = document.createElement('button');
+  questTab.id = 'quest-tab';
+  questTab.type = 'button';
+  questTab.setAttribute('aria-controls', quest.id);
+  questTab.innerHTML = '<span aria-hidden="true">✦</span><span>Задание</span>';
+  function showQuest(visible) {
+    quest.hidden = !visible;
+    questTab.setAttribute('aria-expanded', String(visible));
+    questTab.title = visible ? 'Свернуть задание' : 'Открыть задание';
+    questTab.setAttribute('aria-label', questTab.title);
+  }
+  questTab.onclick = () => { if (!blocked()) showQuest(quest.hidden); };
+  dock.querySelector('.dock-frame').append(questTab);
+  showQuest(true);
   dock.querySelector('.dock-content').append(hotbar);
   live=createLiveNavigator($('#navigator-button'),choice.selected()??27);
   const bubble=document.createElement('div');bubble.id='navigator-greeting';bubble.setAttribute('role','status');bubble.hidden=true;bubble.textContent='Привет!';$('#navigator-button').append(bubble);
@@ -63,7 +78,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   document.body.append(dialog);
   if(choice.selected())$('#navigator-title').textContent='Навигатор · '+NAVIGATORS.find(n=>n.id===choice.selected()).name;
   $('#navigator-change').onclick=()=>{dialog.close();choice.open()};
-  const speech=createNavigatorSpeech({dialog,getText:()=>$('#navigator-task').textContent+' '+$('#navigator-progress').textContent});
+  const speech=createNavigatorSpeech({dialog,getText:()=>$('#navigator-task').textContent});
   let mode='build';
   const open=d=>{if(blocked())return;onOpen();d.showModal()};
   function showNavigator(){if(dialog.open){dialog.close();return}$('#navigator-task').textContent=mission().text;$('#navigator-progress').textContent=mission().progress;open(dialog);if(dialog.open)speech.open()}
