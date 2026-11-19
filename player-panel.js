@@ -91,8 +91,13 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   const battle=document.createElement('div');battle.className='battle-bar';battle.hidden=true;
   const skills=[['sword','Удар'],['shield','Защита'],['spark','Импульс'],['bow','Выстрел'],['heal','Восстановление'],['wave','Волна']];
   battle.innerHTML=skills.map(([glyph,name],i)=>`<button class="combat-slot" aria-disabled="true" title="${name} · откроется с боевой системой" aria-label="${name}: пока недоступно"><kbd>${i+1}</kbd>${icon(glyph)}<span>${name}</span><small>◇</small></button>`).join('');
+  for (const bar of [hotbar, battle]) {
+    for (let number = bar.children.length + 1; number <= 9; number++) {
+      bar.insertAdjacentHTML('beforeend', `<button type="button" class="empty-slot" disabled aria-label="Ячейка ${number} пуста"><kbd>${number}</kbd></button>`);
+    }
+  }
   dock.querySelector('.dock-content').append(battle);
-  battle.querySelectorAll('button').forEach(b=>b.onclick=()=>notify('Боевые навыки откроются вместе с боевой системой.'));
+  battle.querySelectorAll('.combat-slot').forEach(b=>b.onclick=()=>notify('Боевые навыки откроются вместе с боевой системой.'));
   const dialog=document.createElement('dialog');dialog.id='navigator-dialog';dialog.className='panel-dialog';dialog.setAttribute('aria-labelledby','navigator-title');
   dialog.innerHTML=`<div class="paths-heading"><div><div class="eyebrow">ТВОЙ СПУТНИК</div><h2 id="navigator-title">Навигатор</h2></div><button aria-label="Закрыть Навигатора">×</button></div><div class="navigator-talk">${portrait}<div><h3>Каждый большой путь начинается с куба.</h3><p id="navigator-task"></p></div></div><div id="navigator-progress"></div><p>Я помогу с текущей целью. Собирай материалы, следуй подсказкам площадки и открывай новые острова.</p><div class="navigator-actions"><button id="navigator-resume">Вернуться на остров</button><button id="navigator-change">Сменить помощника</button></div>`;
   document.body.append(dialog);
