@@ -155,6 +155,14 @@ await page.evaluate(()=>panelTest.stage(2));await page.locator('#navigator-butto
 for(const width of [320,390,640,768,1440]){
   await page.setViewportSize({width,height:844});
   for(let i=0;i<2;i++){
+    const cells=page.locator('.dock-content > :visible > *');
+    assert(await cells.count()===9,'nine visible cells in either mode');
+    assert(await cells.evaluateAll(items=>items.every((cell,i)=>{
+      const box=cell.getBoundingClientRect();
+      return cell.querySelector('kbd').textContent===String(i+1)
+        && box.width>0 && box.right<=innerWidth && box.top===items[0].getBoundingClientRect().top
+        && (i<6 || cell.disabled);
+    })),'numbered cells fit in one row and empty cells are disabled at '+width);
     const fits=await page.locator('.dock-tabs').evaluate(row=>{
       const frame=document.querySelector('.dock-frame').getBoundingClientRect();
       return row.children.length===5 && [...row.children].every(button=>{
