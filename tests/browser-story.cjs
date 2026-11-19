@@ -12,6 +12,8 @@ window.storyTest={
  build(i,material){const t=stage.targets[i];select(material??t.material);player.position.set(t.x,0,t.z+2);camera.position.set(t.x,t.y,t.z+2);camera.lookAt(t.x,t.y,t.z);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)},
  remove(i){const t=stage.targets[i];player.position.set(t.x,0,t.z+2);camera.position.set(t.x,t.y,t.z+2);camera.lookAt(t.x,t.y,t.z);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(2)},
  getPosition(){return player.position.toArray()},
+ worldCounts(){return {colliders:solids.length,blocks:stage.placed.length,tray:forge.bytePickups.length,platform:forge.deposited.length}},
+ playerState(){return {coins:playerAccount.coins,kits:bag.loadouts,mode:panel.isBattle(),third}},
  forgeSnapshot(){return {bits:forge.state.bits,slots:forge.state.slots.filter(Boolean).length,bytes:forge.state.bytes,pending:forge.state.pendingBytes,crafted:forge.state.crafted,inserted:forge.state.cells.filter(Boolean).length,unlocked:forge.state.unlocked,pickups:forge.pickups.length}},
  nextGate(){player.position.set(stage.index===1?40:86,0,stage.index===1?-1:-3)},
  nearBench(){player.position.set(80,0,-1.3)},
@@ -39,6 +41,38 @@ await page.keyboard.press('KeyB');
 const sandstone=page.locator('.bag-cell').filter({hasText:'Песчаник'});
 assert((await sandstone.innerText()).includes('×7'),'gathered sandstone occupies a stack');
 await page.keyboard.press('KeyB');
+const restart=page.locator('#reset'), confirmation=page.locator('#restart-dialog');
+const confirm=page.locator('#restart-confirm'), cancel=page.locator('#restart-cancel');
+assert(await restart.evaluate(el=>!!el.closest('#quest-panel')) && await page.locator('.hotbar #reset').count()===0,'restart belongs to quest only');
+await restart.focus();
+await page.keyboard.press('Enter');await page.keyboard.press('Space');
+assert(!await confirmation.isVisible(),'keyboard cannot request a restart');
+await page.locator('#quest-tab').click();
+assert(!await restart.isVisible(),'collapsed quest hides restart');
+await page.locator('#quest-tab').click();
+await page.evaluate(()=>storyTest.build(0));
+const beforeCancel=await page.evaluate(()=>storyTest.snapshot());
+await restart.dblclick();
+assert(await confirmation.isVisible(),'double-click only opens confirmation');
+await page.keyboard.press('e');await page.keyboard.press('KeyB');
+assert(await page.locator('dialog[open]').count()===1,'game input suspended');
+await confirm.focus();await page.keyboard.press('Enter');await page.keyboard.press('Space');
+assert(await confirmation.isVisible(),'keyboard cannot confirm');
+await page.keyboard.press('Escape');
+assert(!await confirmation.isVisible() && JSON.stringify(beforeCancel)===JSON.stringify(await page.evaluate(()=>storyTest.snapshot())),'Escape preserves state');
+await restart.click();
+assert(await cancel.evaluate(el=>el===document.activeElement),'cancel receives initial focus');
+await cancel.click();
+assert(JSON.stringify(beforeCancel)===JSON.stringify(await page.evaluate(()=>storyTest.snapshot())),'explicit cancellation preserves state');
+await restart.click();await confirm.click();
+let fresh=await page.evaluate(()=>storyTest.snapshot());
+assert(fresh.index===0 && fresh.pickups===7 && fresh.built===0 && fresh.inventory.every(n=>n===0),'partial arch reset restores its seven resources');
+const firstCounts=await page.evaluate(()=>storyTest.worldCounts());
+await restart.click();assert((await confirmation.innerText()).includes('пока нет прогресса'),'empty island warning');
+await confirm.click();
+assert(JSON.stringify(firstCounts)===JSON.stringify(await page.evaluate(()=>storyTest.worldCounts())),'repeat restart preserves collider count');
+await page.evaluate(()=>storyTest.collect());
+assert((await page.evaluate(()=>storyTest.snapshot())).inventory[0]===7,'all seven new cubes can be collected after two resets');
 const diagram=page.locator('#quest-diagram');
 const drawing=()=>diagram.evaluate(canvas=>canvas.toDataURL());
 const emptyArch=await drawing();
@@ -84,9 +118,40 @@ for(let batch=0;batch<4;batch++){
 assert((await page.evaluate(()=>window.storyTest.forgeSnapshot())).pickups===0,'no extra bits after fourth byte');
 await page.evaluate(()=>window.storyTest.viewArch());await page.waitForTimeout(200);await page.screenshot({path:'/tmp/kub-byte-arch.png'});
 await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===3,'door enters next location');
+await restart.click();
+assert((await confirmation.innerText()).includes('Врата кузницы останутся открыты'),'garden warning matches scope');
+await confirm.click();
+assert((await page.evaluate(()=>storyTest.forgeSnapshot())).unlocked,'garden restart preserves adjacent gate');
 await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===2,'return to forge');
 assert((await page.evaluate(()=>window.storyTest.forgeSnapshot())).unlocked,'forge progress retained');
-await page.locator('#reset').click();let reset=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(reset.bits===0&&reset.pickups===8&&!reset.unlocked&&reset.inserted===0,'forge reset');
+await page.keyboard.press('c+v');
+const beforeForgeReset=await page.evaluate(()=>storyTest.playerState());
+await restart.click();await cancel.click();
+assert((await page.evaluate(()=>storyTest.forgeSnapshot())).unlocked,'cancelling keeps forge gate open');
+await restart.click();await confirm.click();
+const cleanForge={bits:0,slots:0,bytes:0,pending:0,crafted:0,inserted:0,unlocked:false,pickups:8};
+assert(JSON.stringify(await page.evaluate(()=>storyTest.forgeSnapshot()))===JSON.stringify(cleanForge),'forge reset clears all four offerings and restores one batch');
+assert((await page.evaluate(()=>storyTest.worldCounts())).platform===0,'physical offerings removed');
+assert(JSON.stringify(beforeForgeReset)===JSON.stringify(await page.evaluate(()=>storyTest.playerState())),'player gear, coins, camera and battle mode retained');
+await page.evaluate(()=>storyTest.nextGate());await page.keyboard.press('e');
+assert((await page.evaluate(()=>storyTest.snapshot())).index===2,'garden gate relocked');
+await page.keyboard.press('c+v');
+await page.evaluate(()=>storyTest.collectBits());await page.evaluate(()=>storyTest.nearBench());await page.keyboard.press('e');
+await page.locator('#fill-bits').click();await page.locator('#craft-byte').click();await page.locator('#forge-close').click();
+await page.evaluate(()=>storyTest.collectBits());await page.evaluate(()=>storyTest.nearBench());await page.keyboard.press('e');
+await page.locator('[data-slot="0"]').click();await page.locator('#forge-close').click();
+const partialForge=await page.evaluate(()=>storyTest.forgeSnapshot());
+assert(partialForge.slots===1 && partialForge.bits===7 && partialForge.pending===1,'partly loaded forge and uncollected byte');
+await page.evaluate(()=>storyTest.nearGate());await page.keyboard.press('e');
+assert((await page.evaluate(()=>storyTest.snapshot())).built===21,'forge reset preserves second island');
+await restart.click();await confirm.click();
+assert((await page.evaluate(()=>storyTest.snapshot())).pickups===21 && !(await page.evaluate(()=>storyTest.snapshot())).unlocked,'second island reset restores materials and closes portal');
+assert(JSON.stringify(partialForge)===JSON.stringify(await page.evaluate(()=>storyTest.forgeSnapshot())),'reset on previous island preserves pending forge work');
+await page.evaluate(()=>storyTest.collect());
+for(let i=0;i<21;i++)await page.evaluate(i=>storyTest.build(i),i);
+await page.evaluate(()=>storyTest.nextGate());await page.keyboard.press('e');
+await restart.click();await confirm.click();
+assert(JSON.stringify(await page.evaluate(()=>storyTest.forgeSnapshot()))===JSON.stringify(cleanForge) && (await page.evaluate(()=>storyTest.worldCounts())).tray===0,'reset clears occupied bench slots and physical byte tray');
 await page.reload();assert(await page.locator('#paths-button,#paths-dialog,#chosen-path,#portal-prompt').count()===0,'learning path UI stays absent after reload');
 console.log(JSON.stringify({result:'no learning portals, 28 placements, four islands, 32 bits, animated faces, four transparent bytes collected into bag and offered to arch, locked/open gate, return and reset passed',errors}));if(errors.length)throw Error(errors.join(';'));
 }finally{if(browser)await browser.close();server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});

@@ -87,7 +87,9 @@ function animateCollection(mesh){
   if(bag.loadouts.build.tool==='wand')gathering.collect(mesh);
 }
 const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:questInstructions[stage.index].speech,progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
-function modalOpen(){return forge.isOpen()||customizer.isOpen()||panel.isOpen()}
+const restartDialog=$('#restart-dialog');
+let restartStage=null;
+function modalOpen(){return restartDialog.open||forge.isOpen()||customizer.isOpen()||panel.isOpen()}
 function notify(t){$('#message').textContent=t;noticeUntil=performance.now()+4500}
 function spawnPickups(state){
   if(state.index>1)return;
@@ -115,7 +117,7 @@ function refreshMission(){
   $('.location').textContent=quest.island;
   $('.tip').textContent=quest.tip;
   document.body.classList.toggle('forge-mode',stage.index>=2);
-  $('#reset').title='Начать текущий остров заново';select(selected);update();
+  select(selected);update();
 }
 function update(){
   const n=stage.index<2?stage.built.size:stage.index===2?forge.state.cells.filter(Boolean).length:4;
@@ -256,14 +258,49 @@ function act(button){
   if(isLimited(stage,selected)){if(!stage.inventory[selected]){notify('Сначала собери кубы выбранного материала.');return}stage.inventory[selected]--}
   const block=box(x,y,z,.98,.98,.98,mats[selected],true);block.userData.material=selected;placed.push(block);update();
 }
-$('#reset').onclick=()=>{
+function restartWarning(){
+  if(stage.index===3)return 'Вы вернётесь к началу сада. Врата кузницы останутся открыты.';
+  if(stage.index===2){
+    if(forge.state.crafted || forge.state.bits || forge.state.slots.some(Boolean))
+      return 'Биты и байты в сумке, на верстаке и площадке будут сброшены. Врата придётся открыть заново.';
+  }else if(stage.placed.length || stage.inventory.some(Boolean) || stage.unlocked){
+    return 'Постройки и собранные на этом острове материалы будут сброшены. Чтобы открыть портал, нужно будет заново выполнить задание острова.';
+  }
+  return 'На этом острове пока нет прогресса для сброса. Вы вернётесь на стартовую позицию.';
+}
+$('#reset').onclick=e=>{
+  if(e.detail!==1 || e.button!==0 || modalOpen() || !$('#welcome').classList.contains('hidden'))return;
+  restartStage=stage;
+  $('#restart-island').textContent=questInstructions[stage.index].island;
+  $('#restart-loss').textContent=restartWarning();
+  document.exitPointerLock?.();
+  Object.keys(keys).forEach(k=>keys[k]=false);
+  dragging=false;jumpRequested=false;panel.input.clear();
+  restartDialog.showModal();
+  $('#restart-cancel').focus();
+};
+$('#restart-cancel').onclick=()=>restartDialog.close();
+addEventListener('pagehide',()=>{if(restartDialog.open)restartDialog.close()});
+$('#restart-confirm').onclick=e=>{
+  // Keyboard-generated clicks have detail 0. A second click in a double-click
+  // must never confirm a prompt that appeared under the pointer.
+  if(e.detail!==1 || e.button!==0 || !restartDialog.open)return;
+  const target=restartStage;
+  restartStage=null;
+  restartDialog.close();
+  if(target!==stage)return;
   gathering.clear();
   if(stage.index===2)forge.reset();
-  stage.placed.forEach(m=>{scene.remove(m);solids.splice(solids.indexOf(m),1)});stage.placed.length=0;
+  for(const block of stage.placed){
+    scene.remove(block);
+    const index=solids.indexOf(block);
+    if(index>=0)solids.splice(index,1);
+  }
+  stage.placed.length=0;
   stage.pickups.forEach(m=>scene.remove(m));stage.pickups.length=0;stage.ghosts.forEach(m=>m.visible=true);
   stage.inventory.fill(0);stage.built.clear();stage.unlocked=false;spawnPickups(stage);
   player.position.set(stage.center,0,stage.index===0?6:3);Object.assign(physics,createPhysicsState());jumpRequested=false;
-  Object.keys(keys).forEach(k=>keys[k]=false);update();notify('Текущий остров начат заново.');
+  yaw=0;pitch=.23;select(0);update();notify('Текущий остров начат заново.');
 };
 refreshMission();
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();
@@ -287,7 +324,7 @@ const eye=player.position.clone().add(new THREE.Vector3(0,1.5,0));const look=new
 const route=nearbyRoute(),travelButton=$('#travel-prompt');travelButton.hidden=!active||!route;
 if(route)travelButton.textContent=route.ready?route.label:route.locked;
 for(const portal of [exitGlow,secondGlow,...returnGlows])portal.material.opacity=.4+Math.sin(now*.002)*.12;
-forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!customizer.isOpen()&&!panel.isOpen());
+forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);
 gathering.update(dt,now/1000,{active,third,visible:!panel.isBattle()&&bag.loadouts.build.tool==='wand',dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
 if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
