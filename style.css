@@ -120,6 +120,23 @@
 }
 .mission[hidden] { display:none; }
 .quest-heading { text-align:center; border-bottom:1px solid #e6fff1b3; position:relative; }
+#quest-close {
+  position:absolute; z-index:1; top:-14px; right:-10px; width:44px; height:44px;
+  padding:0; border:0; background:transparent; color:#193e30;
+  filter:drop-shadow(-1px 2px 2px #24483769);
+}
+#quest-close::before {
+  content:""; position:absolute; inset:0; border-radius:0 12px 0 0;
+  clip-path:polygon(0 0,100% 0,100% 100%);
+  background:linear-gradient(45deg,#b8ad90 42%,#fff9e4 53%,#f1e9ce 100%);
+}
+#quest-close span { position:absolute; right:6px; top:2px; font:700 23px/1 sans-serif; }
+#quest-close:hover::before { background:linear-gradient(45deg,#b4a27e 42%,#fffced 56%,#fff5da); }
+#quest-close:focus-visible { outline:2px solid #234f39; outline-offset:1px; border-radius:5px; }
+@media (max-width:800px) {
+  #quest-close { top:-7px; right:-7px; }
+  .quest-heading h1 { padding-inline:10px; }
+}
 .quest-heading::after { content:""; position:absolute; bottom:-3px; left:50%; width:5px; height:5px; background:#eafff1; transform:rotate(45deg); }
 .mission .eyebrow { display:inline-block; padding:3px 12px; background:#e8f9e8d9; border:1px solid #fff; border-radius:20px; color:#254e3c; letter-spacing:.08em; }
 .mission h1 { color:#143b2c; font-size:clamp(22px,2vw,30px); line-height:1.1; margin:9px 0 12px; }
