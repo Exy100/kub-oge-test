@@ -4,7 +4,7 @@ import { createTreeRenderer } from './world/trees.js';
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js?v=2';
 import { equipGatheringWand } from './gathering-wand.js?v=15';
-import { createPlayerPanel } from './player-panel.js?v=27';
+import { createPlayerPanel } from './player-panel.js?v=28';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
@@ -160,21 +160,21 @@ function select(i){selected=i;document.querySelectorAll('.slot').forEach((s,j)=>
 function nearbyRoute(){
   if(player.position.y>=1)return null;
   const routes=[];
-  if(stage.index>0)routes.push({x:stage.center+6,z:6,to:stage.index-1,ready:true,label:'E · Вернуться на предыдущий остров'});
-  if(stage.index===0)routes.push({x:0,z:-1,to:1,ready:stage.unlocked,label:'E · Перейти на остров трёх арок',locked:'Портал спит · дострой арку'});
-  if(stage.index===1)routes.push({x:40,z:-2,to:2,ready:stage.unlocked,label:'E · Отправиться в кузницу',locked:'Собери все три арки, чтобы открыть кузницу'});
-  if(stage.index===2)routes.push({x:86,z:-4,to:3,ready:forge.state.unlocked,label:'E · Пройти сквозь врата',locked:'Выложи 4 байта на площадку у арки'});
+  if(stage.index>0)routes.push({x:stage.center+6,z:6,to:stage.index-1,ready:true,label:'Вернуться в локацию «'+LOCATIONS[stage.index-1].name+'»'});
+  if(stage.index===0)routes.push({x:0,z:-1,to:1,ready:stage.unlocked,label:'Перейти на остров трёх арок',locked:'Дострой арку, чтобы открыть проход.'});
+  if(stage.index===1)routes.push({x:40,z:-2,to:2,ready:stage.unlocked,label:'Отправиться в кузницу',locked:'Собери все три арки, чтобы открыть кузницу.'});
+  if(stage.index===2)routes.push({x:86,z:-4,to:3,ready:forge.state.unlocked,label:'Пройти сквозь врата',locked:'Выложи четыре байта на площадку у арки.'});
   return routes.find(route=>Math.hypot(player.position.x-route.x,player.position.z-route.z)<1.8);
 }
 function travel(){
   const route=nearbyRoute();if(!route)return false;
-  if(!route.ready){notify(route.locked);return true}
+  if(!route.ready)return true;
   gathering.clear();stage=stages[route.to];player.position.set(stage.center,0,stage.index===0?2:stage.index===2?4:3);
   Object.assign(physics,createPhysicsState());Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;selected=0;yaw=0;
   sun.position.set(stage.center-10,25,10);sun.target.position.set(stage.center,0,0);sun.target.updateMatrixWorld();
   refreshMission();announceLocation(['Ты вернулся на первый остров.','Собери три арки из трёх материалов.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][stage.index]);return true;
 }
-$('#travel-prompt').onclick=travel;
+$('#portal-go').onclick=()=>{if(!modalOpen())travel()};
 document.querySelectorAll('.slot').forEach((s,i)=>{s.setAttribute('role','button');s.tabIndex=0;s.setAttribute('aria-label',MATERIAL_NAMES[i]);s.title=MATERIAL_NAMES[i]+' · '+BUILD_MATERIALS[i].description;s.onclick=()=>select(i);s.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();select(i)}}});function toggle(){third=!third;player.visible=third}
 $('#play').onclick=()=>{ $('#welcome').classList.add('hidden');panel.start();announceLocation('Маленький остров. Безграничные возможности.');renderer.domElement.requestPointerLock?.()};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
 
@@ -356,8 +356,7 @@ jumpRequested=false;
 player.rotation.y=yaw;
 character.animate(dt,{dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,grounded:physics.grounded,velocity:physics.velocity,time:now/1000});
 const eye=player.position.clone().add(new THREE.Vector3(0,1.5,0));const look=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));if(third){followCamera(camera,eye,look,[...solids,exitGlow,secondGlow,...returnGlows,...forge.cameraObstacles])}else{camera.position.copy(eye);camera.lookAt(eye.clone().add(look))}stage.pickups.forEach(m=>{const phase=m.userData.animationPhase;m.rotation.y=now*.0008+phase;m.position.y=.65+Math.sin(now*.002+phase)*.12});
-const route=nearbyRoute(),travelButton=$('#travel-prompt');travelButton.hidden=!active||!route;
-if(route)travelButton.textContent=route.ready?route.label:route.locked;
+panel.updatePortal(nearbyRoute(),active&&!document.hidden,now);
 for(const portal of [exitGlow,secondGlow,...returnGlows])portal.material.opacity=.4+Math.sin(now*.002)*.12;
 forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);

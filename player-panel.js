@@ -1,6 +1,6 @@
 import { createInventoryWindows } from './inventory-window.js?v=2';
 import { createLiveNavigator } from './navigator-live.js?v=11';
-import { createNavigatorSpeech } from './navigator-speech.js?v=13';
+import { createNavigatorSpeech } from './navigator-speech.js?v=14';
 import { createNavigatorChoice } from './navigator-choice.js?v=11';
 import { NAVIGATORS } from './navigator-model.js?v=11';
 // Physical codes keep chords identical on Russian and English layouts.
@@ -91,6 +91,46 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   if(choice.selected())$('#navigator-title').textContent='Навигатор · '+NAVIGATORS.find(n=>n.id===choice.selected()).name;
   $('#navigator-change').onclick=()=>{dialog.close();choice.open()};
   const speech=createNavigatorSpeech({dialog,getText:()=>$('#navigator-task').textContent});
+  // Keep the bubble in the dock layout so wrapped controls stay above it.
+  const portal=document.createElement('div');
+  portal.id='travel-prompt';
+  portal.hidden=true;
+  portal.innerHTML=`<div class="portal-voice"><span class="portal-signal" aria-hidden="true"></span>Навигатор</div>
+    <div role="status" aria-atomic="true"><strong class="portal-title"></strong><p class="portal-line"></p></div>
+    <button id="portal-go" type="button"><kbd>E / У</kbd><span></span></button>`;
+  dock.prepend(portal);
+  const portalTitle=portal.querySelector('.portal-title');
+  const portalLine=portal.querySelector('.portal-line');
+  const portalGo=portal.querySelector('button');
+  let currentLine,announced=false,lastSpokenLine,lastSpokenAt=0;
+  function updatePortal(route,active,now){
+    const line=route && (route.ready?route.label:route.locked);
+    const changed=line!==currentLine;
+    if(changed){currentLine=line;announced=false}
+    if(!active || !route){
+      if(!portal.hidden){portal.hidden=true;speech.leavePortal()}
+      return;
+    }
+    if(!portal.hidden && !changed)return;
+    const title=route.ready?'Портал открыт':'Портал спит';
+    portalTitle.textContent=title;
+    portalLine.hidden=route.ready;
+    portalLine.textContent=route.ready?'':line;
+    portalGo.hidden=!route.ready;
+    portalGo.lastElementChild.textContent=route.label;
+    portal.dataset.ready=String(route.ready);
+    bubble.hidden=true;
+    portal.hidden=false;
+    if(!announced){
+      // A jump or a single step across the boundary needn't repeat the same line.
+      if(line!==lastSpokenLine || now-lastSpokenAt>=8000){
+        const words=route.ready?'Нажми E, чтобы '+line[0].toLowerCase()+line.slice(1)+'.':line;
+        speech.portal(title+'. '+words);
+        lastSpokenLine=line;lastSpokenAt=now;
+      }
+      announced=true;
+    }
+  }
   let mode='build';
   const open=d=>{if(blocked())return;onOpen();d.showModal()};
   function showNavigator(){if(dialog.open){dialog.close();return}$('#navigator-task').textContent=mission().text;$('#navigator-progress').textContent=mission().progress;open(dialog);if(dialog.open)speech.open()}
@@ -138,5 +178,5 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   $('#navigator-resume').onclick=()=>dialog.close();
   const input=createPanelKeys({switchMode,navigator:showNavigator,camera,inventory,equipment,guide:toggleGuide});
   let greeted=false;
-  return {start(){if(greeted)return;greeted=true;live.greet();bubble.hidden=false;setTimeout(()=>bubble.hidden=true,6500);if($('#greeting-enabled').checked)speech.greet()},update(dt,time,active){live.update(dt,time,active)},storageOpen:storage.isOpen,guideOpen:()=>guideDialog.open,isOpen:()=>guideDialog.open||dialog.open||storage.isOpen()||choice.isOpen(),isBattle:()=>mode==='battle',toggleMode,input};
+  return {updatePortal,start(){if(greeted)return;greeted=true;live.greet();bubble.hidden=false;setTimeout(()=>bubble.hidden=true,6500);if($('#greeting-enabled').checked)speech.greet()},update(dt,time,active){live.update(dt,time,active)},storageOpen:storage.isOpen,guideOpen:()=>guideDialog.open,isOpen:()=>guideDialog.open||dialog.open||storage.isOpen()||choice.isOpen(),isBattle:()=>mode==='battle',toggleMode,input};
 }
