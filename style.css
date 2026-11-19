@@ -352,3 +352,10 @@ body > header .brand { pointer-events:auto; }
 @media(prefers-reduced-motion:reduce) {
   #location-banner { --arrival-shift:0px; }
 }
+
+@media (max-width:650px) {
+  .bottom .controls {
+    gap:4px 10px; padding:5px 8px; border-radius:8px;
+    background:#294338d9; color:#fff; font-size:11px; text-shadow:none;
+  }
+}
