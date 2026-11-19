@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { FEATURES, PALETTES, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance } from '../appearance.js';
+import { EYE_COLORS, FEATURES, PALETTES, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance } from '../appearance.js';
 import { createCharacter } from '../character.js';
 
 test('catalog has ten distinct options per feature and ten three-tone palettes',()=>{
@@ -41,6 +41,20 @@ test('blink and interaction gesture are brief and return to neutral',()=>{
   c.animate(.3,{time:0});assert.ok(Math.abs(arms[1].rotation.x+.12)<1e-7);c.dispose();
 });
 test('random appearance covers independent feature choices and remains valid',()=>{
-  assert.deepEqual(randomAppearance(()=>0),{eyes:0,nose:0,mouth:0,ears:0,hair:0,palette:0});
-  assert.deepEqual(randomAppearance(()=>.999),{eyes:9,nose:9,mouth:9,ears:9,hair:9,palette:9});
+  assert.deepEqual(randomAppearance(()=>0),{eyes:0,eyeColor:0,nose:0,mouth:0,ears:0,hair:0,palette:0});
+  assert.deepEqual(randomAppearance(()=>.999),{eyes:9,eyeColor:4,nose:9,mouth:9,ears:9,hair:9,palette:9});
+});
+
+test('old saves keep their iris color and every new color works across eye shapes',()=>{
+  for(const [eyes,expected] of [[0,0],[2,1],[8,2]]) assert.equal(normalizeAppearance({eyes}).eyeColor,expected);
+  const character=createCharacter();
+  for(const eyes of [0,2,8,4,9]) for(const [eyeColor,{color}] of EYE_COLORS.entries()){
+    character.setAppearance({...DEFAULT_APPEARANCE,eyes,eyeColor});
+    const iris=character.root.getObjectByName('iris');
+    if(eyes===4) assert.equal(iris,undefined);
+    else assert.equal(iris.material.color.getHex(),color);
+    assert.equal(Boolean(character.root.getObjectByName('eye-spark')),eyes===8);
+    assert.equal(character.getAppearance().eyeColor,eyeColor);
+  }
+  character.dispose();
 });

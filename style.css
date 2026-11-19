@@ -364,3 +364,12 @@ body > header .brand { pointer-events:auto; }
   .portal-title { font-size:16px; }
 }
 @media(max-width:450px) { #travel-prompt { --tail:27px; } }
+
+#eye-colors { border:0; padding:0; margin:15px 0 0; min-width:0; }
+#eye-colors legend { padding:0; margin-bottom:6px; font-weight:700; font-size:13px; }
+.eye-swatches { display:flex; flex-wrap:wrap; gap:5px; }
+.eye-swatches label { display:flex; align-items:center; gap:5px; padding:5px 7px; border:1px solid #a7b6a1; border-radius:8px; font-size:12px; cursor:pointer; }
+.eye-swatches label:has(:checked) { background:#ddebd3; border-color:#54704c; }
+.eye-swatches input { appearance:none; margin:0; width:19px; height:19px; border:1px solid #43584d; border-radius:50%; background:radial-gradient(circle at 34% 30%,#fff 0 9%,transparent 11%),radial-gradient(circle,#25312f 0 27%,var(--iris) 30%); }
+.eye-swatches label:focus-within { outline:2px solid #4e6949; outline-offset:1px; }
+#eye-colors:disabled label { cursor:default; }
