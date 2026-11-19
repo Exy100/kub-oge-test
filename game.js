@@ -20,7 +20,29 @@ box(0,-1.6,0,23,2.5,21,0x987a55);box(0,-3.4,0,20,1.5,18,0x7d8171);box(0,-4.7,0,1
 for(let x=-11;x<=11;x++)for(let z=-10;z<=10;z++){const edge=Math.abs(x)>9&&Math.abs(z)>8;if(edge)continue;box(x,-.28,z,1,.55,1,[0x9cbb76,0x96b570,0xa0bd79,0x91b16b][Math.abs(x*13+z*7)%4]);}
 for(let x=-3;x<=3;x++)for(let z=-3;z<=1;z++)box(x,.015,z,.98,.08,.98,0xded9bb);
 function tree(x,z,s=1){box(x,1.25*s,z,.6*s,2.5*s,.6*s,0x8d6b44,true);box(x,3*s,z,2.7*s,1.6*s,2.6*s,0x668d49);box(x-.3*s,4*s,z,2*s,1*s,1.9*s,0x7ca456);box(x+.5*s,3.2*s,z+.5*s,1.5*s,1.3*s,1.7*s,0x85ac5e)}
-[[-8,-6,1.2],[-5,-8,.9],[7,-7,1.4],[9,1,1],[-9,3,1.1],[6,7,.8]].forEach(t=>tree(...t));
+// First-island trees: six overlapping foliage masses and a visible fork, all voxel-shaped.
+const islandTreeMaterials=[0x8d6b44,0x9b7950,0x608646,0x72994f,0x7ca456,0x85ac5e]
+  .map(color=>new THREE.MeshStandardMaterial({color,roughness:1}));
+function islandTree(x,z,s,variant){
+  const mirror=variant%2?-1:1;
+  const parts=[
+    // Keep the original trunk collision footprint; the fork sits above the player's head.
+    [0,1.25,0,.6,2.5,.6,0,true],
+    [.38,2.32,.12,.9,.24,.34,1,false],
+    [0,3.05,0,2.1,1.6,2.05,2,false],
+    [-.85,2.85,.12,1.25,1.1,1.5,3,false],
+    [.8,3.08,.35,1.15,1.25,1.5,4,false],
+    [-.15,3.3,-.85,1.6,1.3,1.05,3,false],
+    [-.25,4,-.12,1.65,1,1.5,4,false],
+    [.1,3.65,.8,1.3,.9,1,5,false],
+  ];
+  parts.forEach(([dx,y,dz,w,h,d,material,collide],i)=>{
+    const mesh=box(x+dx*s*mirror,y*s,z+dz*s,w*s,h*s,d*s,islandTreeMaterials[material],collide);
+    mesh.name=i===0?'island-tree-trunk':i===1?'island-tree-fork':'island-tree-foliage';
+  });
+}
+[[-8,-6,1.2],[-5,-8,.9],[7,-7,1.4],[9,1,1],[-9,3,1.1],[6,7,.8]]
+  .forEach(([x,z,s],i)=>islandTree(x,z,s,i));
 for(let i=0;i<30;i++){const x=Math.sin(i*43)*10,z=Math.cos(i*19)*9;if(Math.abs(x)<4&&Math.abs(z)<4)continue;box(x,.15,z,.12,.3,.12,0x708d49);if(i%3===0)box(x,.35,z,.24,.15,.24,i%2?0xf3dda1:0xece8cc)}
 [[8,-3],[-7,-2],[4,8]].forEach(([x,z])=>{box(x,.35,z,1.2,.7,1,0xa9ada0,true);box(x+.6,.2,z+.6,.7,.4,.8,0xb8b9ab,true)});
 // Distant drifting block clouds.
