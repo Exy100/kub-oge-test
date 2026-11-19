@@ -4,7 +4,7 @@ import { equipGatheringWand } from './gathering-wand.js?v=14';
 import { createPlayerPanel } from './player-panel.js?v=23';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
-import { createPhysicsState, movePlayer } from './physics.js?v=4';
+import { createPhysicsState, movePlayer } from './physics.js?v=5';
 import { createLearningHub } from './learning-hub.js';
 import { createForge } from './forge.js?v=15';
 import { loadAppearance } from './appearance.js';

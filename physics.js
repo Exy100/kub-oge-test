@@ -1,6 +1,8 @@
 // Axis-aligned solid boxes, with the player's position at the soles of the feet.
 export const PLAYER_RADIUS = .3;
 export const PLAYER_HEIGHT = 1.7;
+// Jump height is proportional to launch speed squared at unchanged gravity.
+const JUMP_SPEED = 6 * Math.sqrt(1.1);
 const EPSILON = 1e-7;
 
 function bounds(box, axis) {
@@ -48,7 +50,7 @@ export function movePlayer(position, state, { dt, vx = 0, vz = 0, jump = false, 
   // Recheck support before jumping: removing a block or walking off it cannot grant an air jump.
   state.grounded = supported(position, solids) && state.velocity <= 0;
   if (jump && state.grounded) {
-    state.velocity = 6;
+    state.velocity = JUMP_SPEED;
     state.grounded = false;
   }
   // Small steps also preserve diagonal sliding at corners and reliable ledge support.
