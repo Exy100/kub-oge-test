@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, normalizeAppearance } from './appearance.js?v=8';
+import { EYE_COLORS, SPARKLING_EYES_INDEX, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, normalizeAppearance } from './appearance.js?v=9';
 
 // Chamfered silhouettes instead of sharp voxel corners; the rest of the world stays cubic.
 export function makeSoftBox() {
@@ -93,9 +93,16 @@ function makeSmilingLid() {
   shape.closePath();
   return new THREE.ExtrudeGeometry(shape, {depth:1, bevelEnabled:false, curveSegments:10});
 }
+function makeEyeSpark() {
+  const shape = new THREE.Shape();
+  shape.moveTo(0, 1);
+  for (const [x,y] of [[.24,.25],[1,0],[.24,-.25],[0,-1],[-.24,-.25],[-1,0],[-.24,.25]]) shape.lineTo(x,y);
+  shape.closePath();
+  return new THREE.ShapeGeometry(shape).rotateY(Math.PI);
+}
 export function createFace(parent, initial) {
   const geometry = {
-    smilingLid: makeSmilingLid(), soft: makeSoftBox(), scalp: makeHairScalp(), partedScalp: makePartedScalp(), head: makeRoundedCube(.18), rounded: makeRoundedCube(.2), swept: makeSweptLock(), sphere: new THREE.SphereGeometry(1,12,8),
+    spark: makeEyeSpark(), smilingLid: makeSmilingLid(), soft: makeSoftBox(), scalp: makeHairScalp(), partedScalp: makePartedScalp(), head: makeRoundedCube(.18), rounded: makeRoundedCube(.2), swept: makeSweptLock(), sphere: new THREE.SphereGeometry(1,12,8),
     facet: new THREE.IcosahedronGeometry(1,0), cone: new THREE.ConeGeometry(1,2,6),
     softEar: new THREE.SphereGeometry(1,16,12), capBrim: makeCapBrim(), capLabel: makeCapLabel(),
   };
@@ -148,6 +155,7 @@ export function createFace(parent, initial) {
       [.05,.023,0,.098,0],[.052,.023,.22,.092,-.25],[.063,.031,0,.105,.06],
       [.053,.016,.05,.094,-.04],[.045,.029,-.14,.09,.22],[.05,.039,.04,.098,-.06],[.053,.034,-.1,.098,.12],
     ];
+    const irisColor = EYE_COLORS[appearance.eyeColor].color;
     const [ew,eh,tilt,spacing,brow]=eyeShapes[appearance.eyes];
     for(const side of [-1,1]) {
       if (appearance.eyes === SMILING_EYES_INDEX) {
@@ -159,23 +167,27 @@ export function createFace(parent, initial) {
       const pivot=new THREE.Group();pivot.name='blink-eye';pivot.position.set(side*spacing,.015,-.205);pivot.rotation.z=side*tilt;group.add(pivot);eyes.push(pivot);
       if (appearance.eyes === 0) {
         mesh(pivot,'eye-white','rounded',0,0,0,.107,.086,.020,0xfff0da);
-        mesh(pivot,'iris','sphere',-side*.005,0,-.012,.028,.039,.005,0x62402b);
+        mesh(pivot,'iris','sphere',-side*.005,0,-.012,.028,.039,.005,irisColor);
         mesh(pivot,'pupil','sphere',-side*.005,.002,-.016,.017,.029,.003,0x34251e);
         mesh(pivot,'eye-glint','sphere',.005,.016,-.020,.006,.007,.002,0xfffbef);
       } else if (appearance.eyes === ROUND_EYES.index) {
         const irisRadius = ew * ROUND_EYES.iris;
         const pupilRadius = ew * ROUND_EYES.pupil;
         mesh(pivot,'eye-white','sphere',0,0,0,ew,eh,.009,0xfff5e1);
-        mesh(pivot,'iris','sphere',0,0,-.010,irisRadius,irisRadius,.004,0x486e62);
+        mesh(pivot,'iris','sphere',0,0,-.010,irisRadius,irisRadius,.004,irisColor);
         mesh(pivot,'pupil','sphere',0,0,-.015,pupilRadius,pupilRadius,.002,0x283d3e);
         mesh(pivot,'eye-glint','sphere',.009,.009,-.018,.005,.005,.002,0xffffff);
       } else {
         mesh(pivot,'eye-white','sphere',0,0,0,ew,eh,.009,0xfff5e1);
-        mesh(pivot,'iris','sphere',-side*.004,-.001,-.010,ew*.43,eh*.76,.004,appearance.eyes===8?0x5e8295:0x486e62);
+        mesh(pivot,'iris','sphere',-side*.004,-.001,-.010,ew*.43,eh*.76,.004,irisColor);
         mesh(pivot,'pupil','sphere',-side*.004,-.001,-.014,ew*.20,eh*.55,.002,0x283d3e);
-        mesh(pivot,'eye-glint','sphere',-.009,.009,-.017,.006,.007,.002,0xffffff);
+        if (appearance.eyes === SPARKLING_EYES_INDEX) {
+          mesh(pivot,'eye-spark','spark',-.008,.010,-.018,.009,.011,1,0xfffaf0);
+          mesh(pivot,'second-glint','sphere',.008,-.008,-.017,.0035,.004,.002,0xffffff);
+        } else {
+          mesh(pivot,'eye-glint','sphere',-.009,.009,-.017,.006,.007,.002,0xffffff);
+        }
       }
-      if(appearance.eyes===8)mesh(pivot,'second-glint','sphere',.009,-.008,-.017,.0035,.004,.002,0xffffff);
       if (appearance.eyes === 0) {
         const raised = side === -1;
         mesh(group,'eyebrow','rounded',side*spacing,raised ? .100 : .085,-.204,

@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
-import { createCharacter } from './character.js?v=10';
-import { FEATURES, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance, saveAppearance } from './appearance.js?v=8';
+import { createCharacter } from './character.js?v=11';
+import { EYE_COLORS, SPARKLING_EYES_INDEX, FEATURES, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance, saveAppearance } from './appearance.js?v=9';
 
 export function createCustomizer({ character, onOpen, notify, canEdit = () => false }) {
   const dialog=document.querySelector('#character-dialog');
@@ -12,8 +12,27 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
   const canChange=()=>editable&&canEdit();
   const categories=[...Object.keys(FEATURES),'palette'];
   const hex=color=>'#'+color.toString(16).padStart(6,'0');
+  const colorPicker=document.querySelector('#eye-colors');
+  const swatches=colorPicker.querySelector('.eye-swatches');
+  EYE_COLORS.forEach(({name,color},index)=>{
+    const label=document.createElement('label');
+    const radio=document.createElement('input');
+    radio.type='radio';
+    radio.name='iris-color';
+    radio.value=String(index);
+    radio.style.setProperty('--iris',hex(color));
+    label.append(radio,name);
+    swatches.append(label);
+    radio.onchange=()=>{
+      if (!canChange() || !radio.checked) return;
+      draft.eyeColor=index;
+      preview.setAppearance(draft);
+      renderOptions();
+    };
+  });
   function thumbnail(key,i) {
     const color=hex(PALETTES[draft.palette].colors[0]), light=hex(PALETTES[draft.palette].colors[1]);
+    const iris=hex(EYE_COLORS[draft.eyeColor].color);
     let drawing='';
     if(key==='eyes' && i===SMILING_EYES_INDEX){
       const lidPath='M'+SMILING_LID.start.join(' ') + SMILING_LID.curves.map(points=>' C'+points.join(' ')).join('')+' Z';
@@ -27,14 +46,21 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
         drawing+=`<g transform="translate(${x} 30)">
           <path d="M-8 -13 H8" stroke="${browColor}" stroke-width="3" stroke-linecap="round"/>
           <circle r="${radius}" fill="#fff5e1" stroke="#64857c"/>
-          <circle r="${radius*ROUND_EYES.iris}" fill="#486e62"/>
+          <circle r="${radius*ROUND_EYES.iris}" fill="${iris}"/>
           <circle r="${radius*ROUND_EYES.pupil}" fill="#283d3e"/>
           <circle cx="-2" cy="-2" r="1.2" fill="white"/>
         </g>`;
       }
     } else if(key==='eyes'){
       const sizes=[[10,7],[12,5],[9,10],[11,4],[11,5],[14,7],[12,3],[10,6],[11,9],[12,8]][i];
-      for(const x of [25,55])drawing+=`<ellipse cx="${x}" cy="30" rx="${sizes[0]}" ry="${sizes[1]}" fill="#faf5e8" stroke="#64857c"/><ellipse cx="${x}" cy="30" rx="4" ry="${Math.min(6,sizes[1])}" fill="#486e62"/><circle cx="${x-1}" cy="28" r="1.5" fill="white"/><path d="M${x-10} ${19+(i%3)} Q${x} ${16+(i%4)} ${x+10} ${19-(i%3)}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`;
+      for(const x of [25,55]){
+        const glint=i===SPARKLING_EYES_INDEX
+          ? `<path transform="translate(${x-1.4} 28)" d="M0 -2.6 L.55 -.55 2 0 .55 .55 0 2.6 -.55 .55 -2 0 -.55 -.55Z" fill="#fffaf0"/><circle cx="${x+1.6}" cy="32" r=".8" fill="white"/>`
+          : `<circle cx="${x-1}" cy="28" r="1.5" fill="white"/>`;
+        drawing+=`<ellipse cx="${x}" cy="30" rx="${sizes[0]}" ry="${sizes[1]}" fill="#faf5e8" stroke="#64857c"/>
+          <ellipse cx="${x}" cy="30" rx="4" ry="${Math.min(6,sizes[1])}" fill="${iris}"/>${glint}
+          <path d="M${x-10} ${19+(i%3)} Q${x} ${16+(i%4)} ${x+10} ${19-(i%3)}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`;
+      }
     }
     if(key==='nose'){
       const paths=['M32 30 Q40 20 48 30 Q50 42 40 42 Q30 42 32 30','M36 15 L43 15 L46 40 L33 40 Z','M30 34 Q39 22 49 29 L47 38 L32 38 Z','M25 33 Q40 21 55 33 Q54 43 40 41 Q26 44 25 33','M38 14 L42 14 L45 42 L36 42 Z','M36 14 L43 19 L48 32 L43 42 L35 40 L39 29 Z','M27 29 L53 29 L53 39 L27 39 Z','M40 16 Q43 28 49 34 Q49 46 40 46 Q31 46 31 35 Q37 26 40 16','M40 18 L53 32 L44 44 L29 35 Z','M34 24 Q40 17 46 24 L49 37 Q40 45 31 37 Z'];
@@ -77,6 +103,9 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
     options.setAttribute('aria-labelledby','tab-'+category);
     document.querySelector('#appearance-category').textContent=category==='palette'?'Палитры волос':FEATURES[category].label;
     document.querySelector('#appearance-note').textContent=!editable?'Только просмотр · выбран текущий вариант':category==='palette'?'Любая палитра подходит ко всем 10 причёскам.':category==='hair'?'10 силуэтов без головных уборов.':'10 вариантов · нажми, чтобы примерить';
+    colorPicker.hidden=category!=='eyes';
+    colorPicker.disabled=!editable;
+    for (const radio of swatches.querySelectorAll('input')) radio.checked=Number(radio.value)===draft.eyeColor;
     options.replaceChildren();
     const labels=category==='palette'?PALETTES.map(p=>p.name):FEATURES[category].options;
     labels.forEach((label,i)=>{

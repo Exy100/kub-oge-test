@@ -5,6 +5,15 @@ export const FEATURES = {
   ears: { label: 'Уши', options: ['Компактные', 'Округлые', 'Овальные', 'Узкие', 'Широкие', 'Прижатые', 'Оттопыренные', 'С мочкой', 'Мягкий кончик', 'Гранёные'] },
   hair: { label: 'Причёска', options: ['Короткие волны', 'Боковой пробор', 'Зачёс назад', 'Взъерошенные', 'Кудри', 'Каре', 'Пикси', 'Хвост', 'Вертикальная стрижка', 'Бейсболка'] },
 };
+export const SPARKLING_EYES_INDEX = 8;
+export const EYE_COLORS = [
+  {name:'Карий', color:0x62402b},
+  {name:'Зелёный', color:0x486e62},
+  {name:'Голубой', color:0x5e8295},
+  {name:'Янтарный', color:0xbe8737},
+  {name:'Серый', color:0x79818d},
+];
+
 // Radii relative to the white of the round-eye preset.
 export const ROUND_EYES = { index: 2, iris: .64, pupil: .31 };
 
@@ -31,12 +40,20 @@ export const PALETTES = [
   { name: 'Розовый кварц', colors: [0xc18d9a, 0xf1bec3, 0x845f77] },
   { name: 'Лунный синий', colors: [0x617ca8, 0xa7b9d8, 0x3e496d] },
 ];
-export const DEFAULT_APPEARANCE = Object.freeze({ eyes: 0, nose: 0, mouth: 1, ears: 0, hair: 1, palette: 0 });
+export const DEFAULT_APPEARANCE = Object.freeze({ eyes: 0, eyeColor: 0, nose: 0, mouth: 1, ears: 0, hair: 1, palette: 0 });
 export const APPEARANCE_KEY = 'kub.appearance.v1';
 export function normalizeAppearance(value) {
   const source = value && typeof value === 'object' ? value : {};
-  return Object.fromEntries(Object.entries(DEFAULT_APPEARANCE).map(([key, fallback]) =>
-    [key, Number.isInteger(source[key]) && source[key] >= 0 && source[key] < 10 ? source[key] : fallback]));
+  const result = { ...DEFAULT_APPEARANCE };
+  for (const key of Object.keys(result)) {
+    const limit = key === 'eyeColor' ? EYE_COLORS.length : 10;
+    if (Number.isInteger(source[key]) && source[key] >= 0 && source[key] < limit) result[key] = source[key];
+  }
+  // Old saves used brown for open eyes, blue for sparkling eyes and green otherwise.
+  if (source.eyeColor === undefined && result.eyes !== 0) {
+    result.eyeColor = result.eyes === SPARKLING_EYES_INDEX ? 2 : 1;
+  }
+  return result;
 }
 export function loadAppearance() {
   try { return normalizeAppearance(JSON.parse(localStorage.getItem(APPEARANCE_KEY))); }
@@ -47,5 +64,8 @@ export function saveAppearance(value) {
   catch { return false; }
 }
 export function randomAppearance(random = Math.random) {
-  return Object.fromEntries(Object.keys(DEFAULT_APPEARANCE).map(key => [key, Math.min(9, Math.floor(random() * 10))]));
+  return Object.fromEntries(Object.keys(DEFAULT_APPEARANCE).map(key => {
+    const count = key === 'eyeColor' ? EYE_COLORS.length : 10;
+    return [key, Math.min(count - 1, Math.floor(random() * count))];
+  }));
 }
