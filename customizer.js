@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { createCharacter } from './character.js?v=5';
+import { createCharacter } from './character.js?v=6';
 import { FEATURES, PALETTES, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance, saveAppearance } from './appearance.js';
 
 export function createCustomizer({ character, onOpen, notify, canEdit = () => false }) {

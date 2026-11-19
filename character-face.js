@@ -8,6 +8,38 @@ export function makeSoftBox() {
   const geometry = new THREE.ExtrudeGeometry(shape,{depth:.8,bevelEnabled:true,bevelThickness:.1,bevelSize:.1,bevelSegments:1,steps:1});
   geometry.translate(0,0,-.4);return geometry;
 }
+// Project the edges onto a rounded cube while keeping a broad, flat face.
+function makeRoundedCube(radius) {
+  const geometry = new THREE.BoxGeometry(1, 1, 1, 10, 10, 10);
+  const position = geometry.attributes.position;
+  const normal = geometry.attributes.normal;
+  const point = new THREE.Vector3(), core = new THREE.Vector3(), outward = new THREE.Vector3();
+  for (let i = 0; i < position.count; i++) {
+    point.fromBufferAttribute(position, i);
+    core.copy(point).clampScalar(radius - .5, .5 - radius);
+    outward.subVectors(point, core).normalize();
+    point.copy(core).addScaledVector(outward, radius);
+    position.setXYZ(i, point.x, point.y, point.z);
+    normal.setXYZ(i, outward.x, outward.y, outward.z);
+  }
+  return geometry;
+}
+
+// An asymmetric swept lock with a ridge that catches the light on the fringe.
+function makeSweptLock() {
+  const outline = [[-.50,.04],[-.31,.38],[.10,.48],[.47,.23],[.51,-.10],[.38,-.46],[-.17,-.26]];
+  const positions = [];
+  const ridge = [-.08,.08,-.50], back = [0,0,.50];
+  for (let i = 0; i < outline.length; i++) {
+    const [x,y] = outline[i], [u,v] = outline[(i+1) % outline.length];
+    const a = [x,y,-.12], b = [u,v,-.12], c = [x*.86,y*.86,.34], d = [u*.86,v*.86,.34];
+    positions.push(...ridge,...a,...b, ...b,...a,...c, ...b,...c,...d, ...back,...d,...c);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position', new THREE.Float32BufferAttribute(positions, 3));
+  geometry.computeVertexNormals();
+  return geometry;
+}
 function makeHairScalp() {
   const positions=[],indices=[];
   const rings=[[.12,.226,.218,.035],[.205,.224,.207,.045],[.27,.177,.16,.055],[.292,.09,.08,.028]];
@@ -18,6 +50,19 @@ function makeHairScalp() {
   const center=positions.length/3;positions.push(0,.303,0);
   for(let i=0;i<8;i++)indices.push(center,24+(i+1)%8,24+i);
   const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setIndex(indices);geometry.computeVertexNormals();return geometry;
+}
+function makePartedScalp() {
+  const geometry = makeHairScalp();
+  const position = geometry.attributes.position;
+  // Shape the lower rim over the brow, down the temples and around the nape.
+  for (let i = 0; i < 8; i++) {
+    const x = position.getX(i), z = position.getZ(i);
+    const front = THREE.MathUtils.clamp((.18 - z) / .36, 0, 1);
+    const hairline = -.075 + front * .24 - x * .07;
+    position.setY(i, hairline);
+  }
+  geometry.computeVertexNormals();
+  return geometry;
 }
 function makeCapBrim() {
   const shape=new THREE.Shape();shape.moveTo(-.21,-.18);
@@ -43,7 +88,7 @@ function makeCapLabel() {
 }
 export function createFace(parent, initial) {
   const geometry = {
-    soft: makeSoftBox(), scalp: makeHairScalp(), head: makeSoftBox(), sphere: new THREE.SphereGeometry(1,12,8),
+    soft: makeSoftBox(), scalp: makeHairScalp(), partedScalp: makePartedScalp(), head: makeRoundedCube(.18), rounded: makeRoundedCube(.2), swept: makeSweptLock(), sphere: new THREE.SphereGeometry(1,12,8),
     facet: new THREE.IcosahedronGeometry(1,0), cone: new THREE.ConeGeometry(1,2,6),
     softEar: new THREE.SphereGeometry(1,16,12), capBrim: makeCapBrim(), capLabel: makeCapLabel(),
   };
@@ -85,11 +130,10 @@ export function createFace(parent, initial) {
   function rebuild(value) {
     appearance=normalizeAppearance(value);
     if(group)parent.remove(group);owned.forEach(g=>g.dispose());owned=[];eyes=[];
-    group=new THREE.Group();group.name='appearance';parent.add(group);
+    group=new THREE.Group();group.name='appearance';group.scale.set(1.10,1.045,1.06);parent.add(group);
     const [base,highlight,shade]=PALETTES[appearance.palette].colors;
     mesh(group,'face','head',0,-.005,0,.43,.445,.4,skin);
-    mesh(group,'chin','sphere',0,-.185,-.022,.14,.047,.155,skin);
-    for(const side of [-1,1])mesh(group,'cheek','sphere',side*.14,-.065,-.2,.035,.013,.003,0xd69d80);
+
 
     // Eyes share a blink pivot; eyebrow shape and spacing also change with the preset.
     const eyeShapes=[
@@ -100,15 +144,26 @@ export function createFace(parent, initial) {
     const [ew,eh,tilt,spacing,brow]=eyeShapes[appearance.eyes];
     for(const side of [-1,1]) {
       const pivot=new THREE.Group();pivot.name='blink-eye';pivot.position.set(side*spacing,.015,-.205);pivot.rotation.z=side*tilt;group.add(pivot);eyes.push(pivot);
-      mesh(pivot,'eye-white','sphere',0,0,0,ew,eh,.009,0xfff5e1);
-      mesh(pivot,'iris','sphere',-side*.004,-.001,-.010,ew*.43,eh*.76,.004,appearance.eyes===8?0x5e8295:0x486e62);
-      mesh(pivot,'pupil','sphere',-side*.004,-.001,-.014,ew*.20,eh*.55,.002,0x283d3e);
-      mesh(pivot,'eye-glint','sphere',-.009,.009,-.017,.006,.007,.002,0xffffff);
+      if (appearance.eyes === 0) {
+        mesh(pivot,'eye-white','rounded',0,0,0,.107,.086,.020,0xfff0da);
+        mesh(pivot,'iris','sphere',-side*.005,0,-.012,.028,.039,.005,0x62402b);
+        mesh(pivot,'pupil','sphere',-side*.005,.002,-.016,.017,.029,.003,0x34251e);
+        mesh(pivot,'eye-glint','sphere',.005,.016,-.020,.006,.007,.002,0xfffbef);
+      } else {
+        mesh(pivot,'eye-white','sphere',0,0,0,ew,eh,.009,0xfff5e1);
+        mesh(pivot,'iris','sphere',-side*.004,-.001,-.010,ew*.43,eh*.76,.004,appearance.eyes===8?0x5e8295:0x486e62);
+        mesh(pivot,'pupil','sphere',-side*.004,-.001,-.014,ew*.20,eh*.55,.002,0x283d3e);
+        mesh(pivot,'eye-glint','sphere',-.009,.009,-.017,.006,.007,.002,0xffffff);
+      }
       if(appearance.eyes===8)mesh(pivot,'second-glint','sphere',.009,-.008,-.017,.0035,.004,.002,0xffffff);
-      mesh(group,'eyebrow','soft',side*spacing,.077,-.206,ew*1.8,.016,.018,shade,side*brow);
+      if (appearance.eyes === 0) {
+        const raised = side === -1;
+        mesh(group,'eyebrow','rounded',side*spacing,raised ? .100 : .085,-.204,
+          .094,.024,.021,shade,raised ? -.18 : .05);
+      } else mesh(group,'eyebrow','soft',side*spacing,.077,-.206,ew*1.8,.016,.018,shade,side*brow);
     }
     const nose=appearance.nose;
-    if(nose===0)mesh(group,'nose-button','sphere',0,-.047,-.222,.033,.028,.036,skinShadow);
+    if(nose===0)mesh(group,'nose-button','rounded',0,-.050,-.218,.062,.044,.057,0xd79f78);
     if(nose===1){mesh(group,'nose-bridge','soft',0,-.02,-.216,.042,.085,.05,skin);mesh(group,'nose-tip','soft',0,-.061,-.242,.052,.034,.045,skinShadow)}
     if(nose===2){mesh(group,'nose-upturned','sphere',0,-.045,-.236,.038,.022,.038,skin);mesh(group,'nose-shadow','soft',0,-.065,-.238,.038,.009,.018,skinShadow)}
     if(nose===3){mesh(group,'nose-wide','sphere',0,-.05,-.229,.052,.028,.029,skin);for(const side of [-1,1])mesh(group,'nostril','sphere',side*.03,-.066,-.247,.009,.006,.005,skinShadow)}
@@ -122,7 +177,7 @@ export function createFace(parent, initial) {
     const mouth=new THREE.Group();mouth.name='mouth';mouth.position.set(0,-.126,-.207);group.add(mouth);
     const mouthShapes=[
       [[-.044,0,0],[0,0,-.002],[.044,0,0]],
-      [[-.054,.012,0],[0,-.011,-.003],[.054,.012,0]],
+      [[-.055,.008,0],[-.018,-.002,-.003],[.028,-.002,-.003],[.054,.001,0]],
       [[-.068,.012,0],[0,-.014,-.003],[.068,.012,0]],
       [[-.048,-.007,0],[0,-.008,-.003],[.06,.018,0]],
       [[-.046,0,0],[0,.005,-.004],[.046,0,0]],
@@ -168,10 +223,18 @@ export function createFace(parent, initial) {
       return m;
     };
     const style=appearance.hair;
-    if(style!==9)mesh(hair,'hair-scalp','scalp',0,0,0,1,1,1,base);
-    tuft(0,.092,.187,.413,.22,.055,2,0,'soft');
+    if(style!==9)mesh(hair,'hair-scalp',style===1?'partedScalp':'scalp',0,0,0,1,1,1,base);
+    if(style!==1)tuft(0,.092,.187,.413,.22,.055,2,0,'soft');
     if(style===0){for(let i=0;i<5;i++)tuft(-.17+i*.085,.244+(i%2)*.014,-.035,.115,.09,.32,i%3,-.12);tuft(.19,.12,.035,.06,.16,.26,2)}
-    if(style===1){for(let i=0;i<5;i++)tuft(-.16+i*.078,.22-i*.014,-.15,.11,.13,.16,i%3,-.28);tuft(.19,.15,.06,.055,.16,.26,2);tuft(-.18,.16,.07,.06,.12,.25)}
+    if (style === 1) {
+      for (const side of [-1,1]) {
+        tuft(side*.204,.10,-.116,.055,.155,.132,2,side*.12,'swept');
+      }
+      tuft(-.125,.211,-.115,.205,.130,.218,0,.17,'swept');
+      tuft(-.062,.259,-.050,.280,.132,.270,1,.05,'swept');
+      tuft(.100,.214,-.140,.237,.158,.208,0,-.25,'swept');
+      tuft(.050,.208,-.215,.339,.157,.145,0,-.32,'swept');
+    }
     if(style===2){for(let i=0;i<4;i++){const m=tuft(-.15+i*.1,.25,.035,.095,.12,.38,i%3);m.rotation.x=.25}tuft(0,.205,.22,.37,.1,.1,2)}
     if(style===3){for(let i=0;i<7;i++)tuft(-.19+i*.061,.27+(i%3)*.016,-.04+(i%2)*.07,.052,.085,.068,i%3,(i-3)*.14,'cone')}
     if(style===4){for(let row=0;row<3;row++)for(let i=0;i<5;i++)tuft(-.18+i*.09,.24+(row===1?.035:0),-.14+row*.13,.064,.066,.068,(i+row)%3,0,'sphere');for(const side of [-1,1])for(let i=0;i<3;i++)tuft(side*.21,.17-i*.055,.06,.046,.05,.065,i%3,0,'sphere')}
