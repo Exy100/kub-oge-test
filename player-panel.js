@@ -9,6 +9,11 @@ export function createPanelKeys({ switchMode, navigator, camera, inventory, equi
   return {
     down(e) {
       if (e.altKey || e.ctrlKey || e.metaKey) return false;
+      if (e.code === 'KeyL') {
+        e.preventDefault?.();
+        if (!e.repeat) switchMode();
+        return true;
+      }
       if (e.code === 'KeyH') { e.preventDefault?.(); if (!e.repeat) guide(); return true; }
       if (e.code === 'KeyB') { e.preventDefault?.(); if (!e.repeat) inventory?.(); return true; }
       if (!['KeyZ','KeyX','KeyC','KeyV'].includes(e.code)) return false;
@@ -51,7 +56,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   const dock = document.createElement('section'); dock.className='player-dock'; dock.dataset.mode='build'; dock.setAttribute('aria-label','Панель игрока');
   hotbar.before(dock);
   dock.innerHTML=`<div class="dock-caption"><span class="dock-dot"></span><span id="dock-mode" aria-live="polite">СБОРКА</span></div><div class="dock-frame"><button id="navigator-button" class="dock-end navigator" aria-label="Позвать Навигатора · Z + X / Я + Ч" title="Навигатор · Z + X / Я + Ч">${portrait}<span>Навигатор</span><kbd>Z + X</kbd></button><div class="dock-content"></div><div class="dock-tools"><button id="inventory-button" title="Инвентарь · B / И">${icon('bag')}<span>Инвентарь</span><kbd>B</kbd></button><button id="weapons-button" title="Снаряжение · C / С">${icon('shield')}<span>Снаряжение</span><kbd>C</kbd></button></div><button id="guide-button" type="button" aria-haspopup="dialog" aria-controls="controls-guide" aria-label="Управление · H / Р" title="Управление · H / Р"><span aria-hidden="true">?</span></button></div>`;
-  dock.insertAdjacentHTML('beforeend', `<button id="mode-switch" class="dock-mode-tab" type="button" aria-label="Режим Бой / Сборка" aria-pressed="false" title="Сменить режим · C + V / С + М"><span class="mode-label">Сборка</span><kbd aria-hidden="true">C + V</kbd></button>`);
+  dock.insertAdjacentHTML('beforeend', `<button id="mode-switch" class="dock-mode-tab" type="button" aria-label="Режим Бой / Сборка" aria-pressed="false" title="Сменить режим · L / Д или C + V / С + М"><span class="mode-label">Сборка</span><kbd aria-hidden="true">L / Д</kbd></button>`);
   const quest = $('#quest-panel');
   const questTab = document.createElement('button');
   questTab.id = 'quest-tab';
