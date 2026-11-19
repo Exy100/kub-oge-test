@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
-import { createCharacter } from './character.js?v=7';
-import { FEATURES, PALETTES, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance, saveAppearance } from './appearance.js';
+import { createCharacter } from './character.js?v=8';
+import { FEATURES, PALETTES, SMILING_EYES_INDEX, SMILING_LID, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance, saveAppearance } from './appearance.js?v=7';
 
 export function createCustomizer({ character, onOpen, notify, canEdit = () => false }) {
   const dialog=document.querySelector('#character-dialog');
@@ -15,7 +15,12 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
   function thumbnail(key,i) {
     const color=hex(PALETTES[draft.palette].colors[0]), light=hex(PALETTES[draft.palette].colors[1]);
     let drawing='';
-    if(key==='eyes'){
+    if(key==='eyes' && i===SMILING_EYES_INDEX){
+      const lidPath='M'+SMILING_LID.start.join(' ') + SMILING_LID.curves.map(points=>' C'+points.join(' ')).join('')+' Z';
+      for(const x of [22,58]){
+        drawing+=`<g transform="translate(${x} 33) scale(1 -1)"><path d="${lidPath}" fill="#493b38"/><path d="M-9 12 Q0 16 9 12" fill="none" stroke="${hex(PALETTES[draft.palette].colors[2])}" stroke-width="2.6" stroke-linecap="round"/></g>`;
+      }
+    } else if(key==='eyes'){
       const sizes=[[10,7],[12,5],[9,10],[11,4],[11,5],[14,7],[12,3],[10,6],[11,9],[12,8]][i];
       for(const x of [25,55])drawing+=`<ellipse cx="${x}" cy="30" rx="${sizes[0]}" ry="${sizes[1]}" fill="#faf5e8" stroke="#64857c"/><ellipse cx="${x}" cy="30" rx="4" ry="${Math.min(6,sizes[1])}" fill="#486e62"/><circle cx="${x-1}" cy="28" r="1.5" fill="white"/><path d="M${x-10} ${19+(i%3)} Q${x} ${16+(i%4)} ${x+10} ${19-(i%3)}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`;
     }

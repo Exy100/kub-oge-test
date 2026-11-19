@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { PALETTES, normalizeAppearance } from './appearance.js?v=6';
+import { PALETTES, SMILING_EYES_INDEX, SMILING_LID, normalizeAppearance } from './appearance.js?v=7';
 
 // Chamfered silhouettes instead of sharp voxel corners; the rest of the world stays cubic.
 export function makeSoftBox() {
@@ -86,9 +86,16 @@ function makeCapLabel() {
   const uv=geometry.attributes.uv;for(let i=0;i<uv.count;i++)uv.setX(i,1-uv.getX(i));
   geometry.computeVertexNormals();return geometry;
 }
+function makeSmilingLid() {
+  const shape = new THREE.Shape();
+  shape.moveTo(...SMILING_LID.start);
+  for (const points of SMILING_LID.curves) shape.bezierCurveTo(...points);
+  shape.closePath();
+  return new THREE.ExtrudeGeometry(shape, {depth:1, bevelEnabled:false, curveSegments:10});
+}
 export function createFace(parent, initial) {
   const geometry = {
-    soft: makeSoftBox(), scalp: makeHairScalp(), partedScalp: makePartedScalp(), head: makeRoundedCube(.18), rounded: makeRoundedCube(.2), swept: makeSweptLock(), sphere: new THREE.SphereGeometry(1,12,8),
+    smilingLid: makeSmilingLid(), soft: makeSoftBox(), scalp: makeHairScalp(), partedScalp: makePartedScalp(), head: makeRoundedCube(.18), rounded: makeRoundedCube(.2), swept: makeSweptLock(), sphere: new THREE.SphereGeometry(1,12,8),
     facet: new THREE.IcosahedronGeometry(1,0), cone: new THREE.ConeGeometry(1,2,6),
     softEar: new THREE.SphereGeometry(1,16,12), capBrim: makeCapBrim(), capLabel: makeCapLabel(),
   };
@@ -143,6 +150,12 @@ export function createFace(parent, initial) {
     ];
     const [ew,eh,tilt,spacing,brow]=eyeShapes[appearance.eyes];
     for(const side of [-1,1]) {
+      if (appearance.eyes === SMILING_EYES_INDEX) {
+        const x = side * spacing;
+        mesh(group,'smiling-lid','smilingLid',x,.013,-.210,.005,.005,.006,0x493b38);
+        curve(group,'eyebrow',[[x-.045,.073,-.205],[x,.083,-.207],[x+.045,.073,-.205]],.0065,shade);
+        continue;
+      }
       const pivot=new THREE.Group();pivot.name='blink-eye';pivot.position.set(side*spacing,.015,-.205);pivot.rotation.z=side*tilt;group.add(pivot);eyes.push(pivot);
       if (appearance.eyes === 0) {
         mesh(pivot,'eye-white','rounded',0,0,0,.107,.086,.020,0xfff0da);
