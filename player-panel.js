@@ -62,6 +62,11 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
     questTab.title = visible ? 'Свернуть задание' : 'Открыть задание';
     questTab.setAttribute('aria-label', questTab.title);
   }
+  $('#quest-close').onclick = () => {
+    if (blocked()) return;
+    showQuest(false);
+    questTab.focus({preventScroll:true});
+  };
   questTab.onclick = () => { if (!blocked()) showQuest(quest.hidden); };
   dock.querySelector('.dock-frame').append(questTab);
   showQuest(true);

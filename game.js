@@ -1,7 +1,7 @@
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js';
 import { equipGatheringWand } from './gathering-wand.js?v=14';
-import { createPlayerPanel } from './player-panel.js?v=18';
+import { createPlayerPanel } from './player-panel.js?v=19';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=5';
 import { createPhysicsState, movePlayer } from './physics.js?v=4';
@@ -150,16 +150,23 @@ $('#travel-prompt').onclick=travel;
 document.querySelectorAll('.slot').forEach((s,i)=>{s.setAttribute('role','button');s.tabIndex=0;s.setAttribute('aria-label',MATERIAL_NAMES[i]);s.onclick=()=>select(i);s.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();select(i)}}});function toggle(){third=!third;player.visible=third;$('#viewLabel').textContent=third?'Вид от третьего лица':'Вид от первого лица'}$('#camera').onclick=toggle;
 $('#play').onclick=()=>{ $('#welcome').classList.add('hidden');panel.start();renderer.domElement.requestPointerLock?.()};$('#sound').onclick=()=>{document.exitPointerLock?.();$('#welcome').classList.remove('hidden')};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
 let dragging=false;
+function gameplayMiddleClick(e){
+  return e.button===1 && $('#welcome').classList.contains('hidden') && !modalOpen()
+    && !(e.target instanceof Element && e.target.closest('a[href]'));
+}
+document.addEventListener('mousedown',e=>{
+  if(!gameplayMiddleClick(e))return;
+  e.preventDefault();
+  panel.toggleMode();
+},true);
+document.addEventListener('auxclick',e=>{
+  if(gameplayMiddleClick(e))e.preventDefault();
+},true);
 renderer.domElement.addEventListener('mousedown',e=>{
-  if(e.button===1){
-    e.preventDefault();
-    panel.toggleMode();
-    return;
-  }
+  if(e.button===1)return;
   dragging=true;
   if(!modalOpen()&&document.pointerLockElement)act(e.button);
 });
-renderer.domElement.addEventListener('auxclick',e=>{if(e.button===1)e.preventDefault()});
 document.addEventListener('mouseup',e=>{if(e.button!==1)dragging=false});
 renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('mousemove',e=>{if(!modalOpen()&&(document.pointerLockElement||dragging)){yaw-=e.movementX*.003;pitch=THREE.MathUtils.clamp(pitch+e.movementY*.003,-.7,1.1)}});
 addEventListener('keydown',e=>{
@@ -168,6 +175,7 @@ addEventListener('keydown',e=>{
     if(panel.storageOpen()&&['KeyB','KeyC'].includes(e.code))panel.input.down(e);
     return;
   }
+  if(e.code==='Space'&&!document.pointerLockElement&&e.target instanceof HTMLButtonElement)return;
   if(panel.input.down(e))return;
   if(e.code==='KeyE'&&!e.repeat){
     if(!travel()&&!(stage.index===2&&forge.open(player.position)))hub.openNearby();
