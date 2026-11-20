@@ -1,6 +1,6 @@
 import { catalog } from '../catalog/index.js';
 
-export function installCheatMenu({locations, currentIsland, travel, account, bag, canOpen, pause, reset}) {
+export function installCheatMenu({locations, currentIsland, getScanner, travel, account, bag, canOpen, pause, reset}) {
   const dialog = document.createElement('dialog');
   dialog.id = 'cheat-menu';
   dialog.className = 'panel-dialog';
@@ -19,11 +19,13 @@ export function installCheatMenu({locations, currentIsland, travel, account, bag
     <h3>Перейти на остров</h3><div class="cheat-actions" data-islands></div>
     <h3>Награды</h3><div class="cheat-actions"><button data-coins>+100 монет</button><button data-keys>Выдать все ключи</button></div>
     <output data-balance></output>
+    <h3>Сканирование</h3><div class="cheat-actions"><button data-scan></button></div>
     <button id="cheat-reset">Сбросить прогресс и монеты</button>
     <output aria-live="polite" data-status></output>`;
   document.body.append(dialog);
   const status = dialog.querySelector('[data-status]');
   const balance = dialog.querySelector('[data-balance]');
+  const scanButton = dialog.querySelector('[data-scan]');
   const resetButton = dialog.querySelector('#cheat-reset');
   const normalLabel = resetButton.textContent;
   let resetPending = false;
@@ -40,9 +42,25 @@ export function installCheatMenu({locations, currentIsland, travel, account, bag
     return button;
   });
   function refresh() {
+    const scanner = getScanner();
+    scanButton.disabled = !scanner;
+    scanButton.textContent = !scanner ? 'Сканирование недоступно' :
+      scanner.showingPrizes ? 'Скрыть призы' : 'Показать призы';
     balance.textContent = 'Монеты · ' + account.coins.toLocaleString('ru-RU');
     routes.forEach((button,index) => { button.disabled = index === currentIsland(); });
   }
+  scanButton.onclick = async () => {
+    clearConfirmation();
+    const scanner = getScanner();
+    if (!scanner) return;
+    scanButton.disabled = true;
+    try {
+      await scanner.setShowingPrizes(!scanner.showingPrizes);
+      if (scanner.showingPrizes) status.textContent = 'Чтобы обнаружить отмеченный приз, просканируй его клетку.';
+    } finally {
+      refresh();
+    }
+  };
   dialog.querySelector('.paths-heading button').onclick = () => dialog.close();
   dialog.querySelector('[data-coins]').onclick = () => {
     clearConfirmation();

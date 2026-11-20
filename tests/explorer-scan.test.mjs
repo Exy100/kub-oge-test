@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {moscowDay, scanCell, claimFinding} from '../skills/explorer-scan.js';
+import {moscowDay, scanCell, prepareFindingPreview, claimFinding} from '../skills/explorer-scan.js';
 
 const location = 'island.dreamers', day = 12;
 const cells = new Set(Array.from({length:40},(_,i)=>i+',0'));
@@ -44,4 +44,29 @@ test('collection and verified solutions pay once, separately from discovery', ()
     assert.equal(claimFinding(save,{...ref,key:'1,0'},'coin'),0);
     assert.equal(save.coins,reward+1);
   }
+});
+
+test('preview pins remaining daily prizes across reloads without discovering or awarding them', () => {
+  const save = fresh();
+  const args = {day, location, cells};
+  const visited = {'0,0':{kind:'coin',claimed:true},'1,0':{kind:'empty'}};
+  save.locations[location] = {cells:structuredClone(visited), coinsLeft:2, tabletsLeft:1};
+  prepareFindingPreview(save, {...args, day:day-1});
+  assert.equal(save.locations[location].hiddenPrizes, undefined);
+  prepareFindingPreview(save, args, () => .25);
+  const prizes = save.locations[location].hiddenPrizes;
+  assert.deepEqual(Object.values(prizes).map(entry=>entry.kind).sort(), ['coin','coin','tablet']);
+  assert.deepEqual(save.locations[location].cells, visited);
+  const restored = JSON.parse(JSON.stringify(save));
+  prepareFindingPreview(restored, args, () => assert.fail('re-rolled preview'));
+  for (const key of cells) {
+    if (key in visited) { assert.equal(prizes[key], undefined); continue; }
+    const kind = prizes[key]?.kind ?? 'empty';
+    assert.equal(claimFinding(restored, {...args,key}, kind, true), 0);
+    assert.equal(scanCell(restored, {...args,key}), kind);
+    if (prizes[key]) assert.deepEqual(restored.locations[location].cells[key], prizes[key]);
+  }
+  const island = restored.locations[location];
+  assert.deepEqual(island.hiddenPrizes, {});
+  assert.deepEqual([island.coinsLeft, island.tabletsLeft, restored.coins], [0,0,0]);
 });
