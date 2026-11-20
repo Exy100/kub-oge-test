@@ -20,6 +20,41 @@ export function createPlayerInventory(readResources, describeItem = itemStack) {
   const loadouts = { build: { tool: 'wand' }, battle: {} };
   const describe = item => describeItem(item.id, item.quantity);
   const items = () => [...possessions.values(), ...readResources().filter(item => item.quantity > 0)].map(describe);
+  const layoutKey = 'kub.bag-layout.v1';
+  const layout = Array(capacity).fill(null);
+  try {
+    const saved = JSON.parse(globalThis.localStorage?.getItem(layoutKey) ?? 'null');
+    if (Array.isArray(saved)) saved.slice(0, capacity).forEach((id, index) => {
+      if (typeof id === 'string' && !layout.includes(id)) layout[index] = id;
+    });
+  } catch { /* A blocked store or an old save still allows play. */ }
+
+  function saveLayout() {
+    try { globalThis.localStorage?.setItem(layoutKey, JSON.stringify(layout)); }
+    catch { /* The current session keeps its layout. */ }
+  }
+  function cells() {
+    const owned = new Map(items().map(item => [item.id, item]));
+    let changed = false;
+    for (const id of owned.keys()) {
+      if (layout.includes(id)) continue;
+      let free = layout.indexOf(null);
+      if (free === -1) free = layout.findIndex(previous => !owned.has(previous));
+      if (free === -1) break;
+      layout[free] = id;
+      changed = true;
+    }
+    if (changed) saveLayout();
+    return layout.map(id => owned.get(id) ?? null);
+  }
+  function move(id, target) {
+    if (!Number.isInteger(target) || target < 0 || target >= capacity) return false;
+    const from = cells().findIndex(item => item?.id === id);
+    if (from < 0) return false;
+    [layout[from], layout[target]] = [layout[target], layout[from]];
+    saveLayout();
+    return true;
+  }
   const canStore = id => {
     try { describeItem(id, 0); } catch { return false; }
     const current = items();
@@ -44,5 +79,5 @@ export function createPlayerInventory(readResources, describeItem = itemStack) {
     return true;
   }
   add({ id: 'wand', quantity: 1 });
-  return { capacity, items, canStore, add, loadouts, equip };
+  return { capacity, items, cells, move, canStore, add, loadouts, equip };
 }

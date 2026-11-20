@@ -381,3 +381,17 @@ body > header .brand { pointer-events:auto; }
 .eye-swatches input { appearance:none; margin:0; width:19px; height:19px; border:1px solid #43584d; border-radius:50%; background:radial-gradient(circle at 34% 30%,#fff 0 9%,transparent 11%),radial-gradient(circle,#25312f 0 27%,var(--iris) 30%); }
 .eye-swatches label:focus-within { outline:2px solid #4e6949; outline-offset:1px; }
 #eye-colors:disabled label { cursor:default; }
+
+.bag-cell { color: #365448; font: inherit; cursor: default; min-width: 0; }
+.bag-cell.occupied { cursor: grab; touch-action: none; user-select: none; }
+.bag-cell .wand-icon { width: 36px; height: 32px; object-fit: contain; pointer-events: none; }
+.bag-cell[aria-pressed="true"], .bag-cell:focus-visible { outline: 2px solid #64846b; outline-offset: -2px; }
+.bag-equipped { color: #3c6347; font-size: 9px; line-height: 1.25; max-width: 100%; overflow-wrap: anywhere; }
+.bag-cell.bag-dragging { opacity: .55; }
+.bag-cell.bag-drop-target { outline: 2px dashed #53765f; outline-offset: -3px; }
+.bag-drag-ghost { position: fixed; transform: translate(10px,10px); pointer-events: none; padding: 6px 9px; border-radius: 7px; background: #365548; color: white; font-size: 12px; }
+.bag-details:not([hidden]) { margin-top: 12px; padding: 12px 14px; background: #e6ecdf; border-radius: 10px; }
+.bag-details p { margin: 4px 0; font-size: 13px; }
+.bag-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+.bag-actions button { padding: 7px 10px; border-radius: 7px; background: #d4dfcf; color: #304d40; }
+.bag-actions button:first-child { color: white; background: #416653; }
