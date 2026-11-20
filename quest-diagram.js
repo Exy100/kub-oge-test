@@ -55,7 +55,7 @@ export function drawQuestDiagram(canvas, stage, byteCells) {
   } else {
     const garden = stage.index===3;
     const blocks = byteCells.map((filled,i)=>({x:i%2-0.5,y:.65,z:Math.floor(i/2)-.5,
-      color:garden?materials.garden:materials.byte,filled:garden||filled}));
+      color:garden?materials.garden:materials.byte,filled}));
     schematic(160,117,52,blocks,4);
   }
 }
