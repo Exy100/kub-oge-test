@@ -38,5 +38,5 @@ export function createByteFactory(bitMaterials) {
     const shell=piece(0,0,0,.62,.62,.62,glass);shell.name='byte-glass';shell.castShadow=false;shell.renderOrder=2;
     return root;
   }
-  return {create,animate(root,time){root.userData.innerBits.forEach((bit,i)=>{bit.material=Array(6).fill(bitMaterials[bitValue(time,i)]);bit.rotation.y=time*.25+i*.4})}};
+  return {resources:[soft,bitGeometry,cornerGeometry,glass,gold,plum,labelTexture,labelMaterial,labelGeometry],create,animate(root,time){root.userData.innerBits.forEach((bit,i)=>{bit.material=Array(6).fill(bitMaterials[bitValue(time,i)]);bit.rotation.y=time*.25+i*.4})}};
 }

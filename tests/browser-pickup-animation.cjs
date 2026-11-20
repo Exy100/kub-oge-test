@@ -6,7 +6,7 @@ try{await new Promise(r=>setTimeout(r,400));browser=await chromium.launch({execu
 await page.addInitScript(()=>{window.requestAnimationFrame=()=>0;localStorage.setItem('kub.navigator.v1','27')});
 await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(repo,'game.js'),'utf8')+`
 window.pickupTest={
- start(index){stage=stages[index];player.position.set(stage.center,0,3);document.querySelector('#welcome').classList.add('hidden');refreshMission()},
+ start(index){enterIsland(stages[index]);player.position.set(stage.center,0,3);document.querySelector('#welcome').classList.add('hidden');refreshMission()},
  tick(time){frame(time)},
  snapshot(){return (stage.index===2?forge.pickups:stage.pickups).map(m=>({id:m.uuid,y:m.position.y,angle:m.rotation.y}))},
  collect(index){const m=(stage.index===2?forge.pickups:stage.pickups)[index];player.position.set(m.position.x,0,m.position.z+2);camera.position.set(m.position.x,m.position.y+2,m.position.z);camera.lookAt(m.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)},

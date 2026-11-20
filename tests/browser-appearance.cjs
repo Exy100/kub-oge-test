@@ -2,7 +2,7 @@ const {chromium}=require('playwright');
 const {spawn}=require('child_process');const fs=require('fs');const path=require('path');const repo=path.resolve(__dirname,'..');
 (async()=>{const server=spawn('python3',['-m','http.server','8060','--bind','127.0.0.1'],{cwd:repo,stdio:'ignore'});let browser;
 try{await new Promise(r=>setTimeout(r,400));browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||(fs.existsSync('/usr/bin/chromium')?'/usr/bin/chromium':undefined),headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
-await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(repo,'game.js'),'utf8')+'\nwindow.avatarTest={appearance:()=>character.getAppearance(),position:()=>player.position.toArray(),stage:(i)=>{stage=stages[i];refreshMission()}};'}));
+await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(repo,'game.js'),'utf8')+'\nwindow.avatarTest={appearance:()=>character.getAppearance(),position:()=>player.position.toArray(),stage:(i)=>{enterIsland(stages[i]);refreshMission()}};'}));
 const assert=(ok,msg)=>{if(!ok)throw Error(msg)};
 await page.goto('http://127.0.0.1:8060');if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();await page.evaluate(()=>document.exitPointerLock());await page.waitForFunction(()=>!document.pointerLockElement);
 const original=await page.evaluate(()=>window.avatarTest.appearance());
