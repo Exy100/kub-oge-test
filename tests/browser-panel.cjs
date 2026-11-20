@@ -132,7 +132,7 @@ assert(!await gearWindow.isVisible(),'gear toggles closed');
 await physical('KeyB','и');assert(await bagWindow.isVisible(),'Russian B opens bag');
 await physical('KeyB','и');assert(!await bagWindow.isVisible(),'Russian B closes bag');
 await page.screenshot({path:'/tmp/kub-panel-build.png'});
-await page.locator('#navigator-button').click();assert(await page.locator('#navigator-dialog').evaluate(e=>e.open),'navigator click');assert((await page.locator('#navigator-task').innerText()).includes('7 кубов'),'contextual mission');
+await page.locator('#navigator-button').click();assert(await page.locator('#navigator-dialog').evaluate(e=>e.open),'navigator click');assert((await page.locator('#navigator-task').innerText()).includes('семь кубов'),'contextual mission');
 const pos=await page.evaluate(()=>panelTest.position());await page.keyboard.down('KeyW');await page.waitForTimeout(100);await page.keyboard.up('KeyW');assert(JSON.stringify(pos)===JSON.stringify(await page.evaluate(()=>panelTest.position())),'dialog pauses movement');await page.keyboard.press('Escape');
 for(const order of [['KeyC','KeyV'],['KeyV','KeyC']]){const camera=await page.evaluate(()=>panelTest.cameraThird());await page.keyboard.down(order[0]);await page.keyboard.down(order[1]);await page.keyboard.up(order[1]);await page.keyboard.up(order[0]);assert(await page.evaluate(()=>panelTest.cameraThird())===camera,'mode chord keeps camera');}
 const camera=await page.evaluate(()=>panelTest.cameraThird());await page.keyboard.press('KeyV');assert(await page.evaluate(()=>panelTest.cameraThird())!==camera,'single V changes camera');

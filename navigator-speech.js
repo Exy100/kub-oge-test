@@ -1,7 +1,13 @@
 const STORAGE_KEY='kub.navigator.speech.v1';
-const DEFAULTS={enabled:false,portals:true,voiceURI:'',rate:1};
+const DEFAULTS={enabled:false,arrivals:true,portals:true,voiceURI:'',rate:1};
 export function normalizeSpeechSettings(value){
-  return {enabled:value?.enabled===true,portals:typeof value?.portals==='boolean'?value.portals:value?.enabled!==false,voiceURI:typeof value?.voiceURI==='string'&&value.voiceURI!=='@male'?value.voiceURI:'',rate:typeof value?.rate==='number'&&Number.isFinite(value.rate)?Math.max(.75,Math.min(1.25,value.rate)):1};
+  return {
+    enabled: value?.enabled === true,
+    arrivals: typeof value?.arrivals === 'boolean' ? value.arrivals : value?.enabled !== false,
+    portals: typeof value?.portals === 'boolean' ? value.portals : value?.enabled !== false,
+    voiceURI: typeof value?.voiceURI === 'string' && value.voiceURI !== '@male' ? value.voiceURI : '',
+    rate: typeof value?.rate === 'number' && Number.isFinite(value.rate) ? Math.max(.75, Math.min(1.25, value.rate)) : 1,
+  };
 }
 export function splitSpeech(text){
   // Short phrases avoid the long-utterance limit of some browser engines.
@@ -34,7 +40,7 @@ export function createSpeechController({synth,Utterance,storage,onState=()=>{},o
   }
   if(supported)synth.addEventListener?.('voiceschanged',refresh);
   refresh();
-  return {supported,get settings(){return {...settings}},get voices(){return voices.slice()},configure,speak,stop,refresh,
+  return {supported,get readyToSpeak(){return supported && voices.length > 0 && current === null},get settings(){return {...settings}},get voices(){return voices.slice()},configure,speak,stop,refresh,
     autoSpeak(text){if(settings.enabled)return speak(text);return false},
     dispose(){disposed=true;stop();if(supported)synth.removeEventListener?.('voiceschanged',refresh)},
   };
@@ -42,7 +48,7 @@ export function createSpeechController({synth,Utterance,storage,onState=()=>{},o
 
 export function createNavigatorSpeech({dialog,getText}){
   const section=document.createElement('section');section.className='navigator-speech';section.setAttribute('aria-label','Голос Навигатора');
-  section.innerHTML=`<div class="speech-heading"><span>ГОЛОС НАВИГАТОРА</span><label class="speech-enable"><input id="speech-enabled" type="checkbox"> Читать ответы вслух</label></div><label class="speech-enable"><input id="portal-speech-enabled" type="checkbox"> Озвучивать подсказки у порталов</label><div class="speech-settings"><label for="speech-voice">Русский голос<select id="speech-voice"></select></label><label for="speech-rate">Скорость <output id="speech-rate-value" for="speech-rate">1×</output><input id="speech-rate" type="range" min="0.75" max="1.25" step="0.05" value="1"></label></div><div class="speech-actions"><button id="speech-preview" type="button">Прослушать голос</button><button id="speech-repeat" type="button">▶ Повторить ответ</button><button id="speech-stop" type="button" disabled>■ Остановить</button></div><p id="speech-status" role="status"></p><p id="speech-storage" hidden>Настройки действуют до перезагрузки: браузер не разрешил их сохранить.</p>`;
+  section.innerHTML=`<div class="speech-heading"><span>ГОЛОС НАВИГАТОРА</span><label class="speech-enable"><input id="speech-enabled" type="checkbox"> Читать ответы вслух</label></div><label class="speech-enable"><input id="arrival-speech-enabled" type="checkbox"> Озвучивать задание при входе на остров</label><label class="speech-enable"><input id="portal-speech-enabled" type="checkbox"> Озвучивать подсказки у порталов</label><div class="speech-settings"><label for="speech-voice">Русский голос<select id="speech-voice"></select></label><label for="speech-rate">Скорость <output id="speech-rate-value" for="speech-rate">1×</output><input id="speech-rate" type="range" min="0.75" max="1.25" step="0.05" value="1"></label></div><div class="speech-actions"><button id="speech-preview" type="button">Прослушать голос</button><button id="speech-repeat" type="button">▶ Повторить ответ</button><button id="speech-stop" type="button" disabled>■ Остановить</button></div><p id="speech-status" role="status"></p><p id="speech-storage" hidden>Настройки действуют до перезагрузки: браузер не разрешил их сохранить.</p>`;
   dialog.querySelector('.navigator-actions').before(section);
   const $=s=>section.querySelector(s);let controller,storage;try{storage=localStorage}catch{}
   const messages={idle:'Озвучивание — по вашему выбору. Текст ответа всегда остаётся на экране.',speaking:'Навигатор говорит…',unsupported:'Этот браузер не поддерживает озвучивание. Ответ можно прочитать выше.','no-voice':'Google русский пока недоступен в этом браузере. Текст ответа остаётся доступным.','not-allowed':'Браузер не разрешил воспроизведение. Нажмите «Повторить ответ».',error:'Не удалось озвучить ответ. Попробуйте повторить или выберите другой голос.'};
@@ -59,6 +65,24 @@ export function createNavigatorSpeech({dialog,getText}){
   $('#speech-enabled').checked=controller.settings.enabled;$('#speech-enabled').disabled=!controller.supported;$('#speech-rate').value=controller.settings.rate;$('#speech-rate').disabled=!controller.supported;
   const rateLabel=()=>$('#speech-rate-value').textContent=Number($('#speech-rate').value).toLocaleString('ru-RU')+'×';rateLabel();renderVoices(controller.voices);
   function save(patch){$('#speech-storage').hidden=controller.configure(patch)}
+  const arrivalToggle = $('#arrival-speech-enabled');
+  arrivalToggle.checked = controller.settings.arrivals;
+  arrivalToggle.disabled = !controller.supported;
+  let arrivalDue = null;
+  arrivalToggle.onchange = () => {
+    arrivalDue = null;
+    save({arrivals: arrivalToggle.checked});
+  };
+  function enterLocation() {
+    controller.stop('arrival');
+    controller.stop('portal');
+    arrivalDue = controller.supported && controller.settings.arrivals ? performance.now() + 3000 : null;
+  }
+  function updateArrival(now) {
+    if (arrivalDue === null || now < arrivalDue || !controller.readyToSpeak) return;
+    arrivalDue = null;
+    controller.speak(getText(), 'arrival');
+  }
   const portalToggle=$('#portal-speech-enabled');
   portalToggle.checked=controller.settings.portals;
   portalToggle.disabled=!controller.supported;
@@ -70,9 +94,9 @@ export function createNavigatorSpeech({dialog,getText}){
   $('#speech-preview').onclick=()=>controller.speak('Привет! Я твой Навигатор. Давай собирать кубы, исследовать острова и учиться вместе.');
   $('#speech-repeat').onclick=()=>controller.speak(getText());$('#speech-stop').onclick=()=>controller.stop();
   dialog.addEventListener('close',()=>controller.stop());dialog.addEventListener('cancel',()=>controller.stop());
-  document.addEventListener('visibilitychange',()=>{if(document.hidden)controller.stop()});window.addEventListener('pagehide',()=>controller.stop());
+  document.addEventListener('visibilitychange',()=>{if(document.hidden)controller.stop()});window.addEventListener('pagehide',()=>{arrivalDue=null;controller.stop()});
   const initializeStatus=()=>state(!controller.supported?'unsupported':!controller.voices.length?'no-voice':'idle');initializeStatus();
   // Voice lists may arrive after the dialog is already open; do not auto-start then.
   window.speechSynthesis?.addEventListener?.('voiceschanged',()=>{if(!section.classList.contains('is-speaking'))initializeStatus()});
-  return {portal(text){if(controller.settings.portals)controller.speak(text,'portal')},leavePortal(){controller.stop('portal')},greet(){controller.speak('Привет!')},open(){controller.refresh();initializeStatus();controller.autoSpeak(getText())},stop:()=>controller.stop()};
+  return {enterLocation,updateArrival,portal(text){if(controller.settings.portals)controller.speak(text,'portal')},leavePortal(){controller.stop('portal')},greet(){controller.speak('Привет!')},open(){arrivalDue=null;controller.refresh();initializeStatus();controller.autoSpeak(getText())},stop:()=>controller.stop()};
 }
