@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { createCharacter } from './character.js?v=17';
+import { createCharacter } from './character.js?v=18';
 import { EYE_COLORS, SPARKLING_EYES_INDEX, FEATURES, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance, saveAppearance } from './appearance.js?v=9';
 
 export function createCustomizer({ character, onOpen, notify, canEdit = () => false }) {
@@ -90,20 +90,14 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
       }
     }
     if(key==='hair'){
-      const column=[3,4,7,9,6].indexOf(i);
+      const column=[3,4,7,9,6,5,8].indexOf(i);
       if(column!==-1){
-        return `<svg viewBox="0 0 100 80" aria-hidden="true"><svg width="100" height="80" viewBox="${column*150} ${draft.palette*120} 150 120" overflow="hidden"><image href="./assets/hair-previews.webp?v=2" width="750" height="1200"/></svg></svg>`;
+        return `<svg viewBox="0 0 100 80" aria-hidden="true"><svg width="100" height="80" viewBox="${column*150} ${draft.palette*120} 150 120" overflow="hidden"><image href="./assets/hair-previews.webp?v=3" width="1050" height="1200"/></svg></svg>`;
       }
       const paths=[
         'M18 31 Q14 18 24 17 Q27 8 36 14 Q43 6 50 14 Q61 11 63 23 L61 37 L56 25 L24 26 L20 37 Z',
         'M18 38 L18 21 Q26 10 44 12 Q61 10 62 26 L61 38 L54 26 L25 21 L23 36 Z',
         'M18 36 Q14 15 30 11 L51 11 Q66 16 61 35 L56 24 L24 24 Z',
-        null,
-        null,
-        'M15 50 L16 22 Q20 9 40 11 Q61 9 64 23 L65 50 L53 50 L53 28 L26 28 L26 50 Z',
-        null,
-        null,
-        'M18 33 Q14 10 39 10 Q61 10 62 32 L57 38 L62 43 L57 48 L60 54 L51 54 L48 46 L53 40 L50 25 L26 25 L23 36 Z',
       ];
       drawing=`<ellipse cx="40" cy="37" rx="15" ry="17" fill="#dfb799"/><path d="${paths[i]}" fill="${color}"/><path d="M26 20 Q39 11 53 20" fill="none" stroke="${light}" stroke-width="3" stroke-linecap="round" opacity=".75"/>`;
     }

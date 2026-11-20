@@ -1,4 +1,4 @@
-import { createSculptedHair, createShortHairScalp } from './character-hair.js?v=3';
+import { createSculptedHair, createShortHairScalp } from './character-hair.js?v=4';
 import * as THREE from './vendor/three.module.js';
 import { EYE_COLORS, SPARKLING_EYES_INDEX, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, normalizeAppearance } from './appearance.js?v=9';
 
@@ -314,7 +314,7 @@ export function createFace(parent, initial) {
       ear.userData.variant=appearance.ears;
     }
     const style = appearance.hair;
-    if (style === 3 || style === 4 || style === 6 || style === 7 || style === 9) {
+    if (style >= 3) {
       sculptedHair ??= createSculptedHair(style === 9 ? 3 : style, PALETTES[appearance.palette].colors, style === 9);
       if (style === 9) {
         const hair = new THREE.Group();
@@ -341,7 +341,6 @@ export function createFace(parent, initial) {
       geometry[scalp] ??= createShortHairScalp(style);
       mesh(hair,'hair-scalp',scalp,0,0,0,1,1,1,base);
     } else mesh(hair,'hair-scalp',style===1?'partedScalp':'scalp',0,0,0,1,1,1,base);
-    if(!shortHair && style!==1)tuft(0,.092,.187,.413,.22,.055,2,0,'soft');
     if(style===0){for(let i=0;i<5;i++)tuft(-.17+i*.085,.244+(i%2)*.014,-.035,.115,.09,.32,i%3,-.12)}
     if (style === 1) {
       tuft(-.125,.211,-.115,.205,.130,.218,0,.17,'swept');
@@ -350,16 +349,6 @@ export function createFace(parent, initial) {
       tuft(.050,.208,-.215,.339,.157,.145,0,-.32,'swept');
     }
     if(style===2){for(let i=0;i<4;i++){const m=tuft(-.15+i*.1,.25,.035,.095,.12,.38,i%3);m.rotation.x=.25}}
-    if(style===5){tuft(0,-.025,.21,.44,.4,.085,2,0,'soft');for(const side of [-1,1])for(let i=0;i<3;i++)tuft(side*(.205+i*.008),.02,-.08+i*.11,.065,.38,.12,i%3,side*.06);for(let i=0;i<4;i++)tuft(-.15+i*.1,.15,-.204,.095,.12,.06,i%2)}
-    if(style===8){
-      // A cropped, upright brush with rounded, uneven tips instead of triangular cartoon spikes.
-      for(let row=0;row<3;row++)for(let i=0;i<5;i++){
-        const height=[.145,.175,.185,.165,.15][i]-(row===2?.025:0);
-        const strand=tuft(-.16+i*.08,.27,-.13+row*.115,.073,height,.078,(i+row)%3,(i-2)*.035);
-        strand.name='upright-hair-strand';strand.rotation.x=(row-1)*.055;
-      }
-      for(const side of [-1,1])tuft(side*.21,.14,.02,.045,.13,.27,2);
-    }
 
   }
   rebuild(initial);
