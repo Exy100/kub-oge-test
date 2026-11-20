@@ -110,7 +110,12 @@ await checkBrowserBack(heading.x+5,heading.y+5,'build');
 assert(await mode()==='build' && await bagWindow.isVisible(),'inventory blocks gameplay shortcut');
 assert(await bagWindow.locator('.bag-cell').count()===20,'twenty cells');
 assert(await bagWindow.locator('.occupied').count()===1,'coins do not consume a cell');
-assert((await bagWindow.locator('.coin-balance').innerText()).includes('17'),'player balance');
+assert(await bagWindow.locator('.balance-amount').innerText()==='17','player balance');
+const coin=bagWindow.locator('.balance-coin');
+await coin.evaluate(img=>img.decode());
+const icon=await coin.boundingBox(), firstCell=await bagWindow.locator('.bag-cell').first().boundingBox();
+assert(icon.x < firstCell.x+10 && icon.y+icon.height <= firstCell.y,'coin sits above the first inventory column');
+assert(icon.height >= firstCell.height*.65 && icon.height <= firstCell.height,'coin is almost one cell tall');
 async function physical(code,key){
   await page.evaluate(([code,key])=>{
     for(const type of ['keydown','keyup'])dispatchEvent(new KeyboardEvent(type,{code,key}));
@@ -129,7 +134,9 @@ await tool.click();
 await gearWindow.getByRole('button',{name:'Надеть · Жезл сбора'}).click();
 await physical('KeyC','с');
 assert(!await gearWindow.isVisible(),'gear toggles closed');
+await page.evaluate(()=>panelTest.playerAccount.coins=1234567);
 await physical('KeyB','и');assert(await bagWindow.isVisible(),'Russian B opens bag');
+assert((await bagWindow.locator('.balance-amount').innerText()).replace(/\s/g,'')==='1234567','reopening reads the current account balance');
 await physical('KeyB','и');assert(!await bagWindow.isVisible(),'Russian B closes bag');
 await page.screenshot({path:'/tmp/kub-panel-build.png'});
 await page.locator('#navigator-button').click();assert(await page.locator('#navigator-dialog').evaluate(e=>e.open),'navigator click');assert((await page.locator('#navigator-task').innerText()).includes('семь кубов'),'contextual mission');

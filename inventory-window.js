@@ -26,13 +26,23 @@ export function createInventoryWindows({ bag, playerAccount, open, mode, setMode
   const inventory = windowFor('inventory-dialog', 'Инвентарь');
   const equipment = windowFor('weapons-dialog', 'Снаряжение');
   const summary = element('div', 'bag-summary');
+  const wallet = element('div', 'coin-balance');
+  const coin = element('img', 'balance-coin');
+  coin.alt = '';
+  coin.src = new URL('./assets/inventory-coin.webp', import.meta.url).href;
+  const amount = element('strong', 'balance-amount');
+  const balanceText = element('div', 'balance-text');
+  balanceText.append(element('span', '', 'Монеты'), amount);
+  wallet.append(coin, balanceText);
+  const occupancy = element('span', 'bag-occupancy');
+  summary.append(wallet, occupancy);
   const grid = element('div', 'bag-grid');
   grid.setAttribute('role', 'list');
   inventory.append(summary, grid);
   function renderBag() {
     const items = bag.items();
-    summary.replaceChildren(element('span', '', 'Занято ' + items.length + ' из ' + bag.capacity),
-      element('strong', 'coin-balance', 'Монеты · ' + playerAccount.coins));
+    amount.textContent = playerAccount.coins.toLocaleString('ru-RU');
+    occupancy.textContent = 'Занято ' + items.length + ' из ' + bag.capacity;
     grid.replaceChildren();
     for (let index = 0; index < bag.capacity; index++) {
       const item = items[index];

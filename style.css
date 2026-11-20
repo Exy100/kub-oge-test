@@ -49,8 +49,16 @@
 }
 
 .bag-summary, .kit-modes { display: flex; align-items: center; gap: 8px; margin: 18px 0 12px; }
-.bag-summary { justify-content: space-between; font-size: 13px; }
-.coin-balance { background: #ede2bb; color: #695224; border-radius: 14px; padding: 5px 12px; }
+.bag-summary { justify-content: space-between; flex-wrap: wrap; font-size: 13px; }
+.coin-balance {
+  display: flex; align-items: center; gap: 10px; max-width: 100%; box-sizing: border-box;
+  padding: 3px 16px 3px 4px; border: 1px solid #c7b482; border-radius: 12px;
+  background: linear-gradient(120deg, #f6ecd0, #faf8eb); color: #59482a;
+}
+.balance-coin { width: clamp(46px, 11vw, 64px); aspect-ratio: 1; object-fit: contain; flex: none; }
+.balance-text { display: grid; min-width: 0; gap: 2px; text-align: left; }
+.balance-amount { font-size: 22px; line-height: 1.1; font-variant-numeric: tabular-nums; overflow-wrap: anywhere; }
+.bag-occupancy { margin-left: auto; }
 .bag-grid { display: grid; grid-template-columns: repeat(5,minmax(0,1fr)); gap: 6px; }
 .bag-cell, .kit-slot {
   border: 1px solid #b7c4ad;
