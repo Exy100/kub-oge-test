@@ -29,13 +29,17 @@ const {chromium} = require('playwright');
     });
     const source = file=>fs.readFileSync(path.join(repo,file),'utf8');
     await page.route('**/skills/explorer-scan.js',r=>r.fulfill({contentType:'text/javascript',
-      body:source('skills/explorer-scan.js').replace('random = Math.random','random = () => 0')}));
+      body:source('skills/explorer-scan.js').replaceAll('random = Math.random','random = () => 0')}));
     await page.route('**/game.js*',r=>r.fulfill({contentType:'text/javascript',body:source('game.js')+`
       window.scanTest={
         step(){frame(performance.now())},
         aim(x,z){
-          player.position.set(x,0,z+2);yaw=0;pitch=Math.atan(1.5/2);this.step();
+          const px = Math.max(-10,Math.min(10,x)), pz = z > 7 ? z-2 : z+2;
+          player.position.set(px,0,pz);
+          yaw=Math.atan2(px-x,pz-z);pitch=Math.atan2(1.5,Math.hypot(px-x,pz-z));this.step();
         },
+        markers:()=>island.getObjectsByProperty('isMesh',true)
+          .filter(mesh=>mesh.userData.scanKey).map(mesh=>mesh.userData.scanKey).sort(),
         saved:()=>scanStore.state,
         solve:correct=>scanner.submitVerifiedAnswer(correct),
         travel:index=>goToIsland(index,'Переход'),
@@ -111,7 +115,64 @@ const {chromium} = require('playwright');
     assert.equal(await dialog.isVisible(),false);
     assert.equal(await page.evaluate(()=>scanTest.solve(true)),0);
     assert.equal(await balance(),21);
+    const menu = page.locator('#cheat-menu');
+    async function openMenu(){
+      await page.keyboard.down('KeyQ');await press('KeyA');await page.keyboard.up('KeyQ');
+    }
+    async function toggle(label){
+      const button = menu.getByRole('button',{name:label,exact:true});
+      await button.evaluate(el=>el.click());
+      await page.waitForFunction(()=>!document.querySelector('[data-scan]').disabled,null,{polling:50});
+    }
+    const markers = () => page.evaluate(()=>scanTest.markers());
+    await openMenu();
+    await toggle('Показать призы');
+    const prizes = await page.evaluate(()=>scanTest.saved().locations['island.dreamers'].hiddenPrizes);
+    const prizeKeys = Object.keys(prizes).sort();
+    assert.equal(prizeKeys.length,2);
+    assert.deepEqual(await markers(),prizeKeys);
+    assert.deepEqual(await entries(),{});
+    await toggle('Скрыть призы');
+    assert.deepEqual(await markers(),[]);
+    await toggle('Показать призы');
+    assert.deepEqual(await markers(),prizeKeys);
+    await press('Escape');
+    const keyFor = kind => prizeKeys.find(key=>prizes[key].kind===kind);
+    const coinKey = keyFor('coin'), tabletKey = keyFor('tablet');
+    await aim(...tabletKey.split(',').map(Number));
+    await press('KeyE');assert.equal(await dialog.isVisible(),false);
+    assert.match(await page.locator('#message').textContent(),/Сначала просканируй/);
+    const coinPosition = coinKey.split(',').map(Number);
+    async function clickCoin(){
+      if (!await page.evaluate(()=>!!document.pointerLockElement)) {
+        await page.mouse.click(600,350);
+        await page.waitForFunction(()=>!!document.pointerLockElement,null,{polling:50});
+      }
+      await aim(...coinPosition);
+      await page.mouse.click(600,350);
+    }
+    await clickCoin();
+    assert.match(await page.locator('#message').textContent(),/Сначала просканируй/);
+    assert.equal(await balance(),21);
+    await scan(...coinPosition);
+    await openMenu();await toggle('Скрыть призы');await press('Escape');
+    assert.deepEqual(await markers(),[coinKey]);
+    await clickCoin();
+    await page.waitForFunction(()=>scanTest.saved().coins===22,null,{polling:50});
+    await openMenu();await toggle('Показать призы');
+    assert.deepEqual(await markers(),[tabletKey]);
+    await press('Escape');
+    await page.evaluate(()=>scanTest.travel(1));
+    await openMenu();
+    assert(await menu.getByRole('button',{name:'Сканирование недоступно'}).isDisabled());
+    await press('Escape');
+    await page.evaluate(()=>scanTest.travel(0));
+    assert.deepEqual(await markers(),[]);
+    await openMenu();await toggle('Показать призы');await press('Escape');
+    assert.deepEqual(await markers(),[tabletKey]);
+    await tick(86400000);
+    assert.deepEqual(await markers(),[]);
     assert.deepEqual(errors,[]);
-    console.log('PASS grass scan, timing, speech, pickup, tablet, travel, restart, reload and Moscow midnight');
+    console.log('PASS grass scan, timing, speech, pickup, tablet, travel, restart, reload, preview toggles and Moscow midnight');
   } finally {await browser?.close();server.kill()}
 })().catch(e=>{console.error(e);process.exitCode=1});

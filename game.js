@@ -512,7 +512,7 @@ if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}custom
 
 // Temporary cheats: remove this installation and its import to disable the menu.
 extraDialog = installCheatMenu({
-  locations: LOCATIONS, currentIsland: () => stage.index, account: playerAccount, bag,
+  locations: LOCATIONS, currentIsland: () => stage.index, getScanner: () => scanner, account: playerAccount, bag,
   canOpen: () => $('#welcome').classList.contains('hidden') && !modalOpen(),
   pause() {
     document.exitPointerLock?.();

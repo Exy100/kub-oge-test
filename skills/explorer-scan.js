@@ -5,24 +5,47 @@ export const EXCEL_REWARDS = Object.freeze({basic:20, medium:40, advanced:70});
 const levels = Object.keys(EXCEL_REWARDS);
 const emptySave = () => ({day:null, locations:{}, coins:0});
 
+function dailyFindings(save, location, random) {
+  const quota = () => 1 + Math.floor(random() * 3);
+  return save.locations[location] ??= {coinsLeft:quota(), tabletsLeft:quota(), cells:{}};
+}
+
+const tabletFinding = random => ({kind:'tablet', level:levels[Math.floor(random() * levels.length)]});
+
+// Pin only the remaining prizes when a preview is first requested for this island and day.
+export function prepareFindingPreview(save, {location, day, cells}, random = Math.random) {
+  if (save.day !== day) return;
+  const island = dailyFindings(save, location, random);
+  if (island.hiddenPrizes) return;
+  const available = [...cells].filter(key => !Object.hasOwn(island.cells, key));
+  const prizes = {};
+  const count = Math.min(available.length, island.coinsLeft + island.tabletsLeft);
+  for (let i = 0; i < count; i++) {
+    const index = Math.floor(random() * available.length);
+    const key = available[index];
+    available[index] = available[available.length - 1];
+    available.pop();
+    prizes[key] = i < island.coinsLeft ? {kind:'coin'} : tabletFinding(random);
+  }
+  island.hiddenPrizes = prizes;
+}
+
 export function scanCell(save, {location, cells, key, day}, random = Math.random) {
   if (save.day !== day || !cells.has(key)) return null;
-  let island = save.locations[location];
-  if (!island) {
-    const quota = () => 1 + Math.floor(random() * 3);
-    island = save.locations[location] = {coinsLeft:quota(), tabletsLeft:quota(), cells:{}};
-  }
+  const island = dailyFindings(save, location, random);
   if (Object.hasOwn(island.cells, key)) return 'repeat';
-  const remaining = cells.size - Object.keys(island.cells).length;
-  const draw = Math.floor(random() * remaining);
   let entry = {kind:'empty'};
-  if (draw < island.coinsLeft) {
-    island.coinsLeft--;
-    entry = {kind:'coin'};
-  } else if (draw < island.coinsLeft + island.tabletsLeft) {
-    island.tabletsLeft--;
-    entry = {kind:'tablet', level:levels[Math.floor(random() * levels.length)]};
+  if (island.hiddenPrizes) {
+    entry = island.hiddenPrizes[key] ?? entry;
+    delete island.hiddenPrizes[key];
+  } else {
+    const remaining = cells.size - Object.keys(island.cells).length;
+    const draw = Math.floor(random() * remaining);
+    if (draw < island.coinsLeft) entry = {kind:'coin'};
+    else if (draw < island.coinsLeft + island.tabletsLeft) entry = tabletFinding(random);
   }
+  if (entry.kind === 'coin') island.coinsLeft--;
+  if (entry.kind === 'tablet') island.tabletsLeft--;
   island.cells[key] = entry;
   return entry.kind;
 }
