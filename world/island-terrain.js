@@ -11,7 +11,9 @@ export function buildIslandTerrain(location, index, root, geo, box, solids, came
   if (index === 0) {
     // Floating voxel island, with a stepped rocky underside.
     box(0,-1.6,0,23,2.5,21,0x987a55);box(0,-3.4,0,20,1.5,18,0x7d8171);box(0,-4.7,0,15,1.2,14,0x8a8e7d);
-    for(let x=-11;x<=11;x++)for(let z=-10;z<=10;z++){const edge=Math.abs(x)>9&&Math.abs(z)>8;if(edge)continue;box(x,-.28,z,1,.55,1,[0x9cbb76,0x96b570,0xa0bd79,0x91b16b][Math.abs(x*13+z*7)%4]);}
+    for(let x=-11;x<=11;x++)for(let z=-10;z<=10;z++){const edge=Math.abs(x)>9&&Math.abs(z)>8;if(edge)continue;const tile=box(x,-.28,z,1,.55,1,[0x9cbb76,0x96b570,0xa0bd79,0x91b16b][Math.abs(x*13+z*7)%4]);
+      if (Math.abs(x)>3 || z < -3 || z > 1) tile.userData.scanSurface = 'grass';
+    }
     for(let x=-3;x<=3;x++)for(let z=-3;z<=1;z++)box(x,.015,z,.98,.08,.98,0xded9bb);
     const islandTrunks = location.trees.flatMap(renderTree)
       .filter(mesh => mesh.name === 'island-tree-trunk');

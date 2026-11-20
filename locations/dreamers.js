@@ -1,5 +1,5 @@
 export default {
-  id: 'island.dreamers', name: 'Остров мечтателей', center: 0,
+  id: 'island.dreamers', name: 'Остров мечтателей', center: 0, scanSurface: 'grass',
   quest: { title: 'Солнечная арка', action: 'Собери 7 кубов песчаника', goal: 'Построй арку',
     brief: 'Собери семь кубов песчаника и построй арку.',
     tip: 'У готовой арки нажми E, чтобы перейти на следующий остров.' },

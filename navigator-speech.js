@@ -98,5 +98,5 @@ export function createNavigatorSpeech({dialog,getText}){
   const initializeStatus=()=>state(!controller.supported?'unsupported':!controller.voices.length?'no-voice':'idle');initializeStatus();
   // Voice lists may arrive after the dialog is already open; do not auto-start then.
   window.speechSynthesis?.addEventListener?.('voiceschanged',()=>{if(!section.classList.contains('is-speaking'))initializeStatus()});
-  return {enterLocation,updateArrival,portal(text){if(controller.settings.portals)controller.speak(text,'portal')},leavePortal(){controller.stop('portal')},greet(){controller.speak('Привет!')},open(){arrivalDue=null;controller.refresh();initializeStatus();controller.autoSpeak(getText())},stop:()=>controller.stop()};
+  return {enterLocation,updateArrival,scanResult:text=>controller.autoSpeak(text),portal(text){if(controller.settings.portals)controller.speak(text,'portal')},leavePortal(){controller.stop('portal')},greet(){controller.speak('Привет!')},open(){arrivalDue=null;controller.refresh();initializeStatus();controller.autoSpeak(getText())},stop:()=>controller.stop()};
 }
