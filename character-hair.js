@@ -1,4 +1,4 @@
-import * as THREE from '../../../vendor/three.module.js';
+import * as THREE from './vendor/three.module.js';
 
 const TAU = 2 * Math.PI;
 const {sin, cos, abs, pow} = Math;
@@ -113,9 +113,9 @@ function lock(stations, widthAxis, flute=0) {
   });
 }
 
-export function createHairStudy(style, colors) {
+export function createSculptedHair(style, colors) {
   const hair=new THREE.Group();
-  hair.name='hair-study';
+  hair.name='hair';
   const [base,light,dark]=colors.map(c=>new THREE.Color(c));
   const tones=[base,base.clone().lerp(light,.22),base.clone().lerp(dark,.26)];
   function part(name, geometry, color=base) {

@@ -1,3 +1,4 @@
+import { createSculptedHair } from './character-hair.js';
 import * as THREE from './vendor/three.module.js';
 import { EYE_COLORS, SPARKLING_EYES_INDEX, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, normalizeAppearance } from './appearance.js?v=9';
 
@@ -163,8 +164,19 @@ export function createFace(parent, initial) {
     if(!materials.has(color))materials.set(color,new THREE.MeshStandardMaterial({color,roughness:.85}));
     const m=new THREE.Mesh(geo,materials.get(color));m.name=name;parent.add(m);return m;
   }
+  let sculptedHair;
+  function releaseSculptedHair() {
+    if (!sculptedHair) return;
+    for (const part of sculptedHair.children) {
+      part.geometry.dispose();
+      part.material.dispose();
+    }
+    sculptedHair = null;
+  }
   function rebuild(value) {
-    appearance=normalizeAppearance(value);
+    const next = normalizeAppearance(value);
+    if (appearance?.hair !== next.hair || appearance?.palette !== next.palette) releaseSculptedHair();
+    appearance = next;
     if(group)parent.remove(group);owned.forEach(g=>g.dispose());owned=[];eyes=[];
     group=new THREE.Group();group.name='appearance';group.scale.set(1.10,1.045,1.06);parent.add(group);
     const [base,highlight,shade]=PALETTES[appearance.palette].colors;
@@ -275,6 +287,12 @@ export function createFace(parent, initial) {
       if(appearance.ears===7)mesh(group,'ear-lobe','sphere',side*offset,-.082,-.005,.028,.029,.025,skin);
       ear.userData.variant=appearance.ears;
     }
+    const style = appearance.hair;
+    if (style === 3 || style === 4 || style === 7) {
+      sculptedHair ??= createSculptedHair(style, PALETTES[appearance.palette].colors);
+      group.add(sculptedHair);
+      return;
+    }
     const hair=new THREE.Group();hair.name='hair';group.add(hair);
     const tuft=(x,y,z,w,h,d,tone=0,angle=0,kind='lock')=>{
       const lock=kind==='lock';
@@ -282,7 +300,6 @@ export function createFace(parent, initial) {
       if(lock&&tone===1)mesh(hair,'hair-highlight','sphere',x-w*.12,y+h*.28,z-d*.14,w*.12,h*.12,d*.32,highlight,angle);
       return m;
     };
-    const style=appearance.hair;
     if(style!==9)mesh(hair,'hair-scalp',style===1?'partedScalp':'scalp',0,0,0,1,1,1,base);
     if(style!==1)tuft(0,.092,.187,.413,.22,.055,2,0,'soft');
     if(style===0){for(let i=0;i<5;i++)tuft(-.17+i*.085,.244+(i%2)*.014,-.035,.115,.09,.32,i%3,-.12);tuft(.19,.12,.035,.06,.16,.26,2)}
@@ -296,11 +313,8 @@ export function createFace(parent, initial) {
       tuft(.050,.208,-.215,.339,.157,.145,0,-.32,'swept');
     }
     if(style===2){for(let i=0;i<4;i++){const m=tuft(-.15+i*.1,.25,.035,.095,.12,.38,i%3);m.rotation.x=.25}tuft(0,.205,.22,.37,.1,.1,2)}
-    if(style===3){for(let i=0;i<7;i++)tuft(-.19+i*.061,.27+(i%3)*.016,-.04+(i%2)*.07,.052,.085,.068,i%3,(i-3)*.14,'cone')}
-    if(style===4){for(let row=0;row<3;row++)for(let i=0;i<5;i++)tuft(-.18+i*.09,.24+(row===1?.035:0),-.14+row*.13,.064,.066,.068,(i+row)%3,0,'sphere');for(const side of [-1,1])for(let i=0;i<3;i++)tuft(side*.21,.17-i*.055,.06,.046,.05,.065,i%3,0,'sphere')}
     if(style===5){tuft(0,-.025,.21,.44,.4,.085,2,0,'soft');for(const side of [-1,1])for(let i=0;i<3;i++)tuft(side*(.205+i*.008),.02,-.08+i*.11,.065,.38,.12,i%3,side*.06);for(let i=0;i<4;i++)tuft(-.15+i*.1,.15,-.204,.095,.12,.06,i%2)}
     if(style===6){for(let i=0;i<5;i++)tuft(-.16+i*.075,.24-i*.03,-.16,.105,.14,.13,i%3,-.42);tuft(.214,.05,-.025,.055,.2,.26,2);tuft(-.2,.15,.03,.05,.1,.26)}
-    if(style===7){for(let i=0;i<4;i++)tuft(-.145+i*.095,.245,.03,.095,.12,.36,i%3);for(let i=0;i<4;i++){const m=tuft(0,.13-i*.075,.255+i*.027,.13-i*.015,.12,.12,i%3);m.rotation.x=-.35}tuft(0,.19,.242,.15,.045,.1,2)}
     if(style===8){
       // A cropped, upright brush with rounded, uneven tips instead of triangular cartoon spikes.
       for(let row=0;row<3;row++)for(let i=0;i<5;i++){
@@ -332,6 +346,6 @@ export function createFace(parent, initial) {
       const closed=phase>4.48?Math.sin((phase-4.48)/.22*Math.PI):0;
       eyes.forEach(eye=>eye.scale.y=1-Math.max(0,closed)*.92);
     },
-    dispose(){parent.remove(group);owned.forEach(g=>g.dispose());Object.values(geometry).forEach(g=>g.dispose());materials.forEach(m=>m.dispose());capLabelMaterial?.map?.dispose();capLabelMaterial?.dispose()},
+    dispose(){releaseSculptedHair();parent.remove(group);owned.forEach(g=>g.dispose());Object.values(geometry).forEach(g=>g.dispose());materials.forEach(m=>m.dispose());capLabelMaterial?.map?.dispose();capLabelMaterial?.dispose()},
   };
 }

@@ -2,7 +2,6 @@ import * as THREE from '../../../vendor/three.module.js';
 import {createCharacter} from '../../../character.js';
 import {DEFAULT_APPEARANCE,PALETTES} from '../../../appearance.js';
 import {followCamera} from '../../../follow-camera.js';
-import {createHairStudy} from './models.js';
 
 const styleSelect=document.querySelector('#style'), paletteSelect=document.querySelector('#palette');
 for (const [i,palette] of PALETTES.entries()) paletteSelect.add(new Option(palette.name,i));
@@ -20,43 +19,34 @@ portrait.position.set(0,1.62,-3); portrait.lookAt(0,1.49,0);
 const gameCamera=new THREE.PerspectiveCamera(55,1440/900,.1,140);
 followCamera(gameCamera,new THREE.Vector3(0,1.5,0),new THREE.Vector3(0,-Math.sin(.23),-Math.cos(.23)),[]);
 
-const rows=['before','after'].map(id=>new THREE.WebGLRenderer({canvas:document.getElementById(id),antialias:true}));
+const renderer=new THREE.WebGLRenderer({canvas:document.getElementById('after'),antialias:true});
 const actor=createCharacter(DEFAULT_APPEARANCE);
 scene.add(actor.root);
-let study;
+
 function changeModel(){
   const hair=Number(styleSelect.value), palette=Number(paletteSelect.value);
-  if(study){
-    study.removeFromParent();
-    study.traverse(p=>{if(p.isMesh){p.geometry.dispose();p.material.dispose();}});
-  }
   actor.setAppearance({...DEFAULT_APPEARANCE,hair,palette});
-  study=createHairStudy(hair,PALETTES[palette].colors);
-  actor.root.getObjectByName('appearance').add(study);
+  document.querySelector('#comparison').src=({3:'tousled',4:'curls',7:'ponytail'})[hair]+'.png';
   document.querySelector('h1').textContent=styleSelect.selectedOptions[0].text;
   document.querySelector('#caption').textContent=choices[hair]+' · '+PALETTES[palette].name;
   draw();
 }
 function draw(){
-  for(const [index,renderer] of rows.entries()){
-    const canvas=renderer.domElement;
-    const w=canvas.clientWidth,h=Math.round(w/4.5);
-    renderer.setPixelRatio(Math.min(devicePixelRatio,2));
-    renderer.setSize(w,h,false);
-    renderer.setScissorTest(true);
-    actor.root.getObjectByName('hair').visible=index===0;
-    study.visible=index===1;
-    for(const [col,angle] of [0,Math.PI/2,Math.PI,0].entries()){
-      const x=Math.round(col*w/4), tile=Math.round((col+1)*w/4)-x-3;
-      renderer.setScissor(x,0,tile,h);renderer.setViewport(x,0,tile,h);
-      actor.root.rotation.y=angle;
-      actor.root.position.x=col===1 ? -.069 : 0;
-      portrait.left=-.385*tile/h;portrait.right=-portrait.left;portrait.updateProjectionMatrix();
-      // Crop the native 1440×900 follow-camera frame around the player without zooming it.
-      const cropH=300, cropW=cropH*tile/h;
-      gameCamera.setViewOffset(1440,900,(1440-cropW)/2,390,cropW,cropH);
-      renderer.render(scene,col===3?gameCamera:portrait);
-    }
+  const canvas=renderer.domElement;
+  const w=canvas.clientWidth,h=Math.round(w/4.5);
+  renderer.setPixelRatio(Math.min(devicePixelRatio,2));
+  renderer.setSize(w,h,false);
+  renderer.setScissorTest(true);
+  for(const [col,angle] of [0,Math.PI/2,Math.PI,0].entries()){
+    const x=Math.round(col*w/4), tile=Math.round((col+1)*w/4)-x-3;
+    renderer.setScissor(x,0,tile,h);renderer.setViewport(x,0,tile,h);
+    actor.root.rotation.y=angle;
+    actor.root.position.x=col===1 ? -.069 : 0;
+    portrait.left=-.385*tile/h;portrait.right=-portrait.left;portrait.updateProjectionMatrix();
+    // Crop the native 1440×900 follow-camera frame around the player without zooming it.
+    const cropH=300, cropW=cropH*tile/h;
+    gameCamera.setViewOffset(1440,900,(1440-cropW)/2,390,cropW,cropH);
+    renderer.render(scene,col===3?gameCamera:portrait);
   }
 }
 styleSelect.onchange=paletteSelect.onchange=changeModel;
