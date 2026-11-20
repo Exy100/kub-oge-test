@@ -1,5 +1,5 @@
 import * as THREE from './vendor/three.module.js';
-import { createCharacter } from './character.js?v=13';
+import { createCharacter } from './character.js?v=14';
 import { EYE_COLORS, SPARKLING_EYES_INDEX, FEATURES, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance, saveAppearance } from './appearance.js?v=9';
 
 export function createCustomizer({ character, onOpen, notify, canEdit = () => false }) {
@@ -84,15 +84,19 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
       }
     }
     if(key==='hair'){
+      const column=[3,4,7].indexOf(i);
+      if(column!==-1){
+        return `<svg viewBox="0 0 100 80" aria-hidden="true"><svg width="100" height="80" viewBox="${column*150} ${draft.palette*120} 150 120" overflow="hidden"><image href="./assets/hair-previews.webp" width="450" height="1200"/></svg></svg>`;
+      }
       const paths=[
         'M18 31 Q14 18 24 17 Q27 8 36 14 Q43 6 50 14 Q61 11 63 23 L61 37 L56 25 L24 26 L20 37 Z',
         'M18 38 L18 21 Q26 10 44 12 Q61 10 62 26 L61 38 L54 26 L25 21 L23 36 Z',
         'M18 36 Q14 15 30 11 L51 11 Q66 16 61 35 L56 24 L24 24 Z',
-        'M17 35 L17 22 L23 23 L23 9 L32 18 L37 6 L43 18 L53 8 L54 22 L65 16 L61 37 L54 28 L25 28 Z',
-        'M16 35 Q9 25 18 21 Q14 10 26 13 Q29 4 38 12 Q46 4 53 13 Q66 9 65 22 Q73 29 62 39 L56 27 L24 27 L21 39 Z',
+        null,
+        null,
         'M15 50 L16 22 Q20 9 40 11 Q61 9 64 23 L65 50 L53 50 L53 28 L26 28 L26 50 Z',
         'M18 38 L18 20 Q31 4 55 14 L63 24 L61 45 L51 31 L29 19 L24 35 Z',
-        'M16 34 Q12 12 36 10 Q58 8 63 22 Q77 22 70 53 L61 48 L64 30 L56 29 L53 23 L24 25 L22 37 Z',
+        null,
         'M18 33 Q14 10 39 10 Q61 10 62 32 L57 38 L62 43 L57 48 L60 54 L51 54 L48 46 L53 40 L50 25 L26 25 L23 36 Z',
         'M19 35 Q11 33 14 22 Q5 21 9 12 Q18 4 26 14 Q40 7 53 14 Q63 4 71 12 Q77 22 65 24 L62 37 L54 26 L26 26 Z',
       ];

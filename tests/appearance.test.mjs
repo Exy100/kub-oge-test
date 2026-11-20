@@ -14,14 +14,25 @@ test('corrupt or outdated saved appearance falls back safely',()=>{
   assert.deepEqual(normalizeAppearance({eyes:-1,nose:10,mouth:NaN,ears:'3',hair:1.5,palette:999}),DEFAULT_APPEARANCE);
   const normalized=normalizeAppearance({eyes:9,extra:'ignored'});assert.equal(normalized.eyes,9);assert.equal('extra' in normalized,false);
 });
-test('all 100 hairstyle/palette combinations produce finite, bounded geometry and apply all palette tones',()=>{
+test('all 100 hairstyle/palette combinations produce the expected hair geometry and palette',()=>{
   const character=createCharacter();
   for(let hair=0;hair<10;hair++)for(let palette=0;palette<10;palette++){
     character.setAppearance({...DEFAULT_APPEARANCE,hair,palette});
     assert.equal(character.getAppearance().hair,hair);assert.equal(character.getAppearance().palette,palette);
     const hairRoot=character.root.getObjectByName('hair'),colors=new Set();let count=0;
     hairRoot.traverse(part=>{if(part.isMesh){count++;colors.add(part.material.color.getHex());assert.ok(part.position.toArray().every(Number.isFinite));assert.ok(part.scale.toArray().every(v=>Number.isFinite(v)&&v>0))}});
-    assert.ok(count>=5&&count<35);PALETTES[palette].colors.forEach(color=>assert.ok(colors.has(color),`style ${hair} uses tone ${color}`));
+    if ([3,4,7].includes(hair)) {
+      const crown=hairRoot.getObjectByName('crown');
+      assert.equal(crown.material.color.getHex(),PALETTES[palette].colors[0]);
+      assert.ok(crown.geometry.attributes.position.array.every(Number.isFinite));
+      assert.equal(count,{3:8,4:1,7:9}[hair]);
+      if (hair===3) assert.equal(hairRoot.children.filter(m=>m.name==='swept-lock').length,3);
+      if (hair===4) assert.ok(crown.material.vertexColors && crown.geometry.attributes.color);
+      if (hair===7) assert.ok(hairRoot.getObjectByName('low-ponytail') && hairRoot.getObjectByName('hair-tie'));
+    } else {
+      assert.ok(count>=5&&count<35);
+      PALETTES[palette].colors.forEach(color=>assert.ok(colors.has(color),`style ${hair} uses tone ${color}`));
+    }
   }
   character.dispose();
 });
