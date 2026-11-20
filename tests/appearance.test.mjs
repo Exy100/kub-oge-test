@@ -22,7 +22,7 @@ test('all 100 hairstyle/palette combinations produce the expected hair geometry 
     assert.equal(character.getAppearance().hair,hair);assert.equal(character.getAppearance().palette,palette);
     const hairRoot=character.root.getObjectByName('hair'),colors=new Set();let count=0;
     hairRoot.traverse(part=>{if(part.isMesh){count++;colors.add(part.material.color.getHex());assert.ok(part.position.toArray().every(Number.isFinite));assert.ok(part.scale.toArray().every(v=>Number.isFinite(v)&&v>0))}});
-    if (hair >= 3) {
+    if (hair !== 1) {
       const crown=hairRoot.getObjectByName('crown');
       assert.equal(crown.material.color.getHex(),PALETTES[palette].colors[0]);
       assert.ok(crown.geometry.attributes.position.array.every(Number.isFinite));
@@ -32,7 +32,9 @@ test('all 100 hairstyle/palette combinations produce the expected hair geometry 
         const cap = hairRoot.getObjectByName('baseball-cap');
         assert.equal(cap.getObjectByName('cap-crown').material.color.getHex(), 0x59636b);
         assert.ok(cap.getObjectByName('cap-brim') && cap.getObjectByName('cap-lettering'));
-      } else assert.equal(count,{3:8,4:1,5:9,6:8,7:9,8:16}[hair]);
+      } else assert.equal(count,{0:5,2:7,3:8,4:1,5:9,6:8,7:9,8:16}[hair]);
+      if (hair===0) assert.equal(hairRoot.children.filter(m=>m.name==='front-wave').length,2);
+      if (hair===2) assert.equal(hairRoot.children.filter(m=>m.name==='brushed-ridge').length,4);
       if (hair===6) assert.equal(hairRoot.children.filter(m=>m.name==='pixie-fringe').length,3);
       if (hair===3) assert.equal(hairRoot.children.filter(m=>m.name==='swept-lock').length,3);
       if (hair===4) assert.ok(crown.material.vertexColors && crown.geometry.attributes.color);

@@ -1,4 +1,4 @@
-import { createSculptedHair, createShortHairScalp } from './character-hair.js?v=4';
+import { createSculptedHair } from './character-hair.js?v=5';
 import * as THREE from './vendor/three.module.js';
 import { EYE_COLORS, SPARKLING_EYES_INDEX, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, normalizeAppearance } from './appearance.js?v=9';
 
@@ -314,7 +314,7 @@ export function createFace(parent, initial) {
       ear.userData.variant=appearance.ears;
     }
     const style = appearance.hair;
-    if (style >= 3) {
+    if (style !== 1) {
       sculptedHair ??= createSculptedHair(style === 9 ? 3 : style, PALETTES[appearance.palette].colors, style === 9);
       if (style === 9) {
         const hair = new THREE.Group();
@@ -327,28 +327,11 @@ export function createFace(parent, initial) {
       return;
     }
     const hair=new THREE.Group();hair.name='hair';group.add(hair);
-    const shortHair = style === 0 || style === 2;
-    const tuft=(x,y,z,w,h,d,tone=0,angle=0,kind='lock')=>{
-      const lock=kind==='lock';
-      const lockColor = shortHair && tone === 2 ? shade : base;
-      const color = lock ? lockColor : [base,highlight,shade][tone];
-      const m=mesh(hair,'hair-lock',lock?'sphere':kind,x,y,z,lock?w/2:w,lock?h/2:h,lock?d/2:d,color,angle);
-      if(lock&&tone===1)mesh(hair,'hair-highlight','sphere',x-w*.12,y+h*.28,z-d*.14,w*.12,h*.12,d*.32,highlight,angle);
-      return m;
-    };
-    if (shortHair) {
-      const scalp = style === 0 ? 'waveScalp' : 'brushedScalp';
-      geometry[scalp] ??= createShortHairScalp(style);
-      mesh(hair,'hair-scalp',scalp,0,0,0,1,1,1,base);
-    } else mesh(hair,'hair-scalp',style===1?'partedScalp':'scalp',0,0,0,1,1,1,base);
-    if(style===0){for(let i=0;i<5;i++)tuft(-.17+i*.085,.244+(i%2)*.014,-.035,.115,.09,.32,i%3,-.12)}
-    if (style === 1) {
-      tuft(-.125,.211,-.115,.205,.130,.218,0,.17,'swept');
-      tuft(-.062,.259,-.050,.280,.132,.270,1,.05,'swept');
-      tuft(.100,.214,-.140,.237,.158,.208,2,-.25,'swept');
-      tuft(.050,.208,-.215,.339,.157,.145,0,-.32,'swept');
-    }
-    if(style===2){for(let i=0;i<4;i++){const m=tuft(-.15+i*.1,.25,.035,.095,.12,.38,i%3);m.rotation.x=.25}}
+    mesh(hair,'hair-scalp','partedScalp',0,0,0,1,1,1,base);
+    mesh(hair,'hair-lock','swept',-.125,.211,-.115,.205,.130,.218,base,.17);
+    mesh(hair,'hair-lock','swept',-.062,.259,-.050,.280,.132,.270,highlight,.05);
+    mesh(hair,'hair-lock','swept',.100,.214,-.140,.237,.158,.208,shade,-.25);
+    mesh(hair,'hair-lock','swept',.050,.208,-.215,.339,.157,.145,base,-.32);
 
   }
   rebuild(initial);
