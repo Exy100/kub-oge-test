@@ -1,3 +1,5 @@
+import { createScanStore } from './skills/explorer-scan.js';
+import { createScanInteraction } from './skills/scan-interaction.js';
 import { installCheatMenu } from './dev/cheat-menu.js';
 import { BUILD_MATERIALS } from './catalog/index.js';
 import { LOCATIONS } from './locations/index.js';
@@ -7,12 +9,12 @@ import { createForgeState } from './forge-state.js?v=5';
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js?v=3';
 import { equipGatheringWand } from './gathering-wand.js?v=16';
-import { createPlayerPanel } from './player-panel.js?v=35';
+import { createPlayerPanel } from './player-panel.js?v=36';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
 import { createForge } from './forge.js?v=18';
-import { loadAppearance } from './appearance.js?v=10';
+import { EXPLORER, loadAppearance } from './appearance.js?v=11';
 import { createCustomizer } from './customizer.js?v=20';
 import { createFollowState, followCamera } from './follow-camera.js?v=2';
 import { createStage, placeTarget, removeTarget, isLimited, MATERIAL_NAMES } from './progression.js?v=2';
@@ -42,12 +44,26 @@ const box = createBoxBuilder(island, solids);
 const cameraObstacles = [];
 let stage, forge, exitGlow, returnGlow, simpleArchEffect;
 scene.add(island);
-const character=createCharacter(loadAppearance()), player=character.root;scene.add(player);
+const character=createCharacter(loadAppearance(EXPLORER), EXPLORER), player=character.root;scene.add(player);
 const reducedHandMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const gathering=equipGatheringWand({character,camera,scene,renderer});
 player.position.set(0,0,6);let yaw=0,pitch=.23,third=true,selected=0;const physics=createPhysicsState();let jumpRequested=false;const keys={},ray=new THREE.Raycaster();let last=performance.now();
 const customizer=createCustomizer({character,canEdit:()=>stage.index===0,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},notify});
-const playerAccount={coins:0};
+let scanner = null;
+const scanDialog = $('#scan-dialog');
+const scanStore = createScanStore(save => scanner?.sync(save));
+let sessionCoins = 0;
+const playerAccount = {
+  get coins(){return scanStore.state.coins + sessionCoins},
+  set coins(value){sessionCoins = value - scanStore.state.coins},
+};
+scanDialog.querySelector('button').onclick = () => scanDialog.close();
+function pauseForTablet(){
+  document.exitPointerLock?.();
+  Object.keys(keys).forEach(key => {keys[key]=false});
+  panel.input.clear();
+  dragging = jumpRequested = false;
+}
 const bag=createPlayerInventory(()=>[
   ...BUILD_MATERIALS.map((item,i)=>({id:item.id,quantity:stages.reduce((sum,island)=>sum+island.inventory[i],0)})),
   {id:'bit',quantity:forgeState.bits},
@@ -78,7 +94,7 @@ function onCollect(mesh){
 const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:currentQuestBrief(),progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
 const restartDialog=$('#restart-dialog');
 let restartStage=null, extraDialog=null;
-function modalOpen(){return extraDialog?.open||restartDialog.open||forge?.isOpen()||customizer.isOpen()||panel.isOpen()}
+function modalOpen(){return scanDialog.open||extraDialog?.open||restartDialog.open||forge?.isOpen()||customizer.isOpen()||panel.isOpen()}
 
 const messageBox=$('#message');
 let messageTimer;
@@ -102,6 +118,8 @@ function spawnPickups(state){
   });
 }
 function unloadIsland() {
+  scanner?.dispose();
+  scanner = null;
   gathering.clear();
   stage.freeBlocks = stage.placed.filter(m => m.userData.target === undefined)
     .map(m => ({x:m.position.x, y:m.position.y, z:m.position.z, material:m.userData.material}));
@@ -142,6 +160,14 @@ function enterIsland(next) {
   stage = next;
   island.name = stage.locationId;
   buildIslandTerrain(LOCATIONS[stage.index], stage.index, island, geo, box, solids, cameraObstacles);
+  if (LOCATIONS[stage.index].scanSurface && character.profile.specialSkill === 'scan') {
+    scanStore.refresh();
+    scanner = createScanInteraction({
+      location:LOCATIONS[stage.index], island, solids, obstacles:cameraObstacles, stage, camera, player,
+      store:scanStore, dialog:scanDialog, progress:$('#scan-progress'), say:panel.scanResult, notify,
+      pause:pauseForTablet, onCoin(){playPickup();character.react();notify('Золото +1')},
+    });
+  }
   stage.placed = [];
   stage.pickups = [];
   stage.collected ??= new Set();
@@ -217,6 +243,7 @@ function refreshMission(){
   $('.progress-label > span').textContent=quest.goal;
   $('.tip').textContent=quest.tip;
   document.body.classList.toggle('forge-mode',stage.index>=2);
+  controlStrip.querySelector('.scan-hint').hidden=!scanner;
   controlStrip.querySelector('.forge-hint').hidden=stage.index!==2;
   const interact=controlStrip.querySelector('.interact-hint');
   interact.hidden=stage.index<2;
@@ -325,8 +352,19 @@ addEventListener('keydown',e=>{
     act(2);
     return;
   }
+  if (e.code==='Digit0' || e.code==='Numpad0') {
+    if (e.repeat || e.isComposing || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey ||
+        e.target?.closest?.('input,textarea,select,[contenteditable]')) return;
+    e.preventDefault();
+    if (character.profile.specialSkill !== 'scan') notify('У этого героя пока нет особого навыка.');
+    else if (!scanner) notify('Скан доступен на Острове мечтателей.');
+    else if (third || panel.isBattle()) notify('Для скана включи вид от первого лица (V) и режим сборки (L).');
+    else scanner.start();
+    return;
+  }
   if(panel.input.down(e))return;
   if(e.code==='KeyE'&&!e.repeat){
+    if (!panel.isBattle() && scanner?.interact('open')) return;
     if(!travel()&&stage.index===2)forge.open(player.position);
     return;
   }
@@ -343,9 +381,11 @@ addEventListener('keyup',e=>{
   if((!modalOpen()||panel.storageOpen())&&$('#welcome').classList.contains('hidden'))panel.input.up(e);
   else panel.input.clear();
 });
-addEventListener('blur',()=>{resetBackPress();dragging=false;panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
+document.addEventListener('visibilitychange',()=>{if(document.hidden)scanner?.cancel()});
+addEventListener('blur',()=>{scanner?.cancel();resetBackPress();dragging=false;panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
 function act(button){
   if(panel.isBattle()){notify('Для строительства нажми L / Д или C + V.');return}
+  if (button===0 && scanner?.interact('collect')) return;
   ray.setFromCamera(new THREE.Vector2(),camera);
   if(stage.index>=2){if(stage.index===2&&button===0&&forge.collect(ray,player.position))character.react();return}
   const {pickups,ghosts,placed,targets}=stage;
@@ -418,6 +458,7 @@ $('#restart-confirm').onclick=e=>{
   restartStage=null;
   restartDialog.close();
   if(target!==stage)return;
+  scanner?.cancel();
   gathering.clear();
   if(stage.index===2)forge.reset();
   for(const block of stage.placed){
@@ -460,6 +501,7 @@ if (!third) {
   camera.lookAt(eye.clone().add(look));
 }
 stage.pickups.forEach(m=>{const phase=m.userData.animationPhase;m.rotation.y=now*.0008+phase;m.position.y=.65+Math.sin(now*.002+phase)*.12});
+scanner?.update(now,active && !document.hidden && !third && !panel.isBattle(),reducedHandMotion.matches);
 panel.updatePortal(nearbyRoute(),active&&!document.hidden,now);
 simpleArchEffect?.update(now, reducedHandMotion.matches);
 if (returnGlow) returnGlow.material.opacity=.4+Math.sin(now*.002)*.12;
@@ -479,7 +521,8 @@ extraDialog = installCheatMenu({
     dragging = jumpRequested = false;
   },
   travel: index => goToIsland(index, LOCATIONS[index].name),
-  reset() {
+  async reset() {
+    await scanStore.change(save => {save.coins=0});
     stages = LOCATIONS.map((_, index) => createStage(index));
     Object.assign(forgeState, createForgeState());
     playerAccount.coins = 0;

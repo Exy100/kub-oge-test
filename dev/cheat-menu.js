@@ -57,7 +57,7 @@ export function installCheatMenu({locations, currentIsland, travel, account, bag
     status.textContent = added < missing.length ? 'В рюкзаке не хватило места для всех ключей.'
       : added ? 'Ключи добавлены в рюкзак.' : 'Все ключи уже в рюкзаке.';
   };
-  resetButton.onclick = event => {
+  resetButton.onclick = async event => {
     if (event.detail > 1) return;
     if (!resetPending) {
       resetPending = true;
@@ -66,7 +66,7 @@ export function installCheatMenu({locations, currentIsland, travel, account, bag
       return;
     }
     clearConfirmation();
-    reset();
+    await reset();
     refresh();
     status.textContent = 'Прогресс и монеты обнулены.';
   };

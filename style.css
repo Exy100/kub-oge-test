@@ -397,3 +397,8 @@ body > header .brand { pointer-events:auto; }
 .bag-actions button:first-child { color: white; background: #416653; }
 
 .native-hair-note{display:block;margin-top:2px;color:#4e6752;font-size:9px;font-weight:500;line-height:1.2}
+
+#scan-progress{position:fixed;top:calc(50% + 18px);left:50%;transform:translateX(-50%);width:76px;height:7px;accent-color:#59cbb1;pointer-events:none}
+#scan-dialog{width:min(390px,calc(100vw - 32px))}
+#navigator-greeting{width:max-content;max-width:min(260px,58vw);white-space:normal}
+@media(max-width:1000px){#navigator-greeting{left:0;transform:none}#navigator-greeting:after{left:32px}}

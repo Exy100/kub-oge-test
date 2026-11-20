@@ -1,6 +1,6 @@
 import { createInventoryWindows } from './inventory-window.js?v=4';
 import { createLiveNavigator } from './navigator-live.js?v=11';
-import { createNavigatorSpeech } from './navigator-speech.js?v=15';
+import { createNavigatorSpeech } from './navigator-speech.js?v=16';
 import { createNavigatorChoice } from './navigator-choice.js?v=12';
 import { NAVIGATORS } from './navigator-model.js?v=11';
 // Physical codes keep chords identical on Russian and English layouts.
@@ -190,13 +190,22 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   dialog.addEventListener('close',()=>input.clear());
   $('#navigator-resume').onclick=()=>dialog.close();
   const input=createPanelKeys({switchMode,navigator:showNavigator,camera,inventory,equipment,guide:toggleGuide,quest:toggleQuest});
-  let greeted=false;
+  let greeted=false, bubbleTimer;
+  function showBubble(text, duration){
+    clearTimeout(bubbleTimer);
+    bubble.textContent=text;
+    bubble.hidden=false;
+    bubbleTimer=setTimeout(()=>bubble.hidden=true,duration);
+  }
+  function scanResult(text){
+    showBubble(text,3000);
+    speech.scanResult(text);
+  }
   function start() {
     if (greeted) return;
     greeted=true;
     live.greet();
-    bubble.hidden=false;
-    setTimeout(()=>bubble.hidden=true,6500);
+    showBubble('Привет!',6500);
     if ($('#greeting-enabled').checked) speech.greet();
   }
   function update(dt,time,active) {
@@ -204,7 +213,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
     if (active && !document.hidden && portal.hidden) speech.updateArrival(time*1000);
   }
   return {
-    updatePortal, enterLocation:speech.enterLocation, start, update,
+    scanResult, updatePortal, enterLocation:speech.enterLocation, start, update,
     storageOpen:storage.isOpen, guideOpen:()=>guideDialog.open,
     isOpen:()=>guideDialog.open || dialog.open || storage.isOpen() || choice.isOpen(),
     isBattle:()=>mode==='battle', toggleMode, input,

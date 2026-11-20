@@ -12,7 +12,7 @@ export const HAIRSTYLES = [
   {id:'baseball-cap', name:'Бейсболка', model:9},
 ];
 export const EXPLORER = {
-  id:'explorer', nativeHair:'explorer-waves',
+  id:'explorer', specialSkill:'scan', nativeHair:'explorer-waves',
   sharedHair:HAIRSTYLES.filter(style => !style.owner).map(style => style.id),
 };
 
