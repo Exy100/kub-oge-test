@@ -238,6 +238,13 @@ addEventListener('keydown',e=>{
     return;
   }
   if(e.code==='Space'&&!document.pointerLockElement&&e.target instanceof HTMLButtonElement)return;
+  if(e.code==='KeyN'){
+    if(e.repeat || e.defaultPrevented || e.isComposing || e.ctrlKey || e.altKey || e.metaKey ||
+        e.target?.closest?.('input,textarea,select,[contenteditable]'))return;
+    e.preventDefault();
+    act(2);
+    return;
+  }
   if(panel.input.down(e))return;
   if(e.code==='KeyE'&&!e.repeat){
     if(!travel()&&stage.index===2)forge.open(player.position);
