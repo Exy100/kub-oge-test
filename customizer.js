@@ -64,7 +64,10 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
           const leftOffset = x < 40 ? outerOffset : -outerOffset;
           browPath = `M${x-10} ${17+leftOffset} l20 ${-2*leftOffset}`;
         }
-        drawing+=`<ellipse cx="${x}" cy="30" rx="${sizes[0]}" ry="${sizes[1]}" fill="#faf5e8" stroke="#64857c"/>
+        const eyeWhite = i === 0
+          ? `<rect x="${x-10}" y="22" width="20" height="16" rx="4" ry="3.2" fill="#fff0da" stroke="#64857c"/>`
+          : `<ellipse cx="${x}" cy="30" rx="${sizes[0]}" ry="${sizes[1]}" fill="#faf5e8" stroke="#64857c"/>`;
+        drawing+=`${eyeWhite}
           <ellipse cx="${x}" cy="30" rx="4" ry="${Math.min(6,sizes[1])}" fill="${iris}"/>${glint}
           <path d="${browPath}" fill="none" stroke="${color}" stroke-width="3" stroke-linecap="round"/>`;
       }
