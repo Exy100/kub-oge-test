@@ -32,11 +32,32 @@ export function createGatheringWand(){
   const energyGeometry=new THREE.BufferGeometry();const vertices=new Float32Array(25*3);energyGeometry.setAttribute('position',new THREE.BufferAttribute(vertices,3));geometries.push(energyGeometry);
   const energyMaterial=new THREE.LineBasicMaterial({color:0xffd98e,transparent:true,opacity:.35});materials.push(energyMaterial);const energy=new THREE.Line(energyGeometry,energyMaterial);energy.name='capture-arc';root.add(energy);
   const tip=new THREE.Object3D();tip.name='capture-tip';tip.position.set(0,.65,0);root.add(tip);
-  const halo=mesh('capture-halo',new THREE.TorusGeometry(.07,.003,6,40),gold,0,.65,0);halo.rotation.x=Math.PI/2;halo.visible=false;
+  const idleArcColor = energyMaterial.color.clone();
+  const chargedArcColor = new THREE.Color(0x90b8e5);
+  const haloGeometry = new THREE.TorusGeometry(.07, .0038, 6, 40);
+  const haloBase = new THREE.Color(0x426da7);
+  const haloHighlight = new THREE.Color(0x99c3e9);
+  const shade = new THREE.Color();
+  const uv = haloGeometry.getAttribute('uv');
+  const shades = new Float32Array(uv.count * 3);
+  // Bake a single soft glint around the loop; its motion only rotates the mesh.
+  for (let i = 0; i < uv.count; i++) {
+    const angle = uv.getX(i) * Math.PI * 2;
+    const glint = Math.max(0, Math.cos(angle - Math.PI / 4)) ** 2;
+    shade.lerpColors(haloBase, haloHighlight, glint).toArray(shades, i * 3);
+  }
+  haloGeometry.setAttribute('color', new THREE.BufferAttribute(shades, 3));
+  const haloMaterial = new THREE.MeshBasicMaterial({ vertexColors: true });
+  materials.push(haloMaterial);
+  const halo = mesh('capture-halo', haloGeometry, haloMaterial, 0, .65, 0);
+  halo.rotation.x = Math.PI / 2;
+  halo.castShadow = false;
+  halo.visible = false;
   function animate(time,power=0){
     gold.emissiveIntensity=.35+power*2;energyMaterial.opacity=.22+power*.78;
+    energyMaterial.color.lerpColors(idleArcColor, chargedArcColor, power);
     for(let i=0;i<25;i++){const t=i/24;vertices[i*3]=-.145+t*.29;vertices[i*3+1]=.659+Math.sin(t*Math.PI)*(.012+power*.018)*Math.sin(time*24+t*10);vertices[i*3+2]=-.023}
-    energyGeometry.attributes.position.needsUpdate=true;energyGeometry.computeBoundingSphere();halo.visible=power>.03;halo.scale.setScalar(.6+power*1.8);halo.rotation.z=time*4;
+    energyGeometry.attributes.position.needsUpdate=true;energyGeometry.computeBoundingSphere();halo.visible=power>.03;halo.scale.setScalar(.6+power*1.8);halo.rotation.z=power*.85;
   }
   animate(0);
   return {root,tip,animate,dispose(){geometries.forEach(g=>g.dispose());materials.forEach(m=>m.dispose())}};
