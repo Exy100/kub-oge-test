@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
-import { createCharacter } from './character.js?v=19';
-import { EYE_COLORS, SPARKLING_EYES_INDEX, FEATURES, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance, saveAppearance } from './appearance.js?v=9';
+import { createCharacter } from './character.js?v=20';
+import { EYE_COLORS, SPARKLING_EYES_INDEX, FEATURES, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, hairstylesFor, normalizeAppearance, randomAppearance, saveAppearance } from './appearance.js?v=10';
 
 export function createCustomizer({ character, onOpen, notify, canEdit = () => false }) {
   const dialog=document.querySelector('#character-dialog');
@@ -10,7 +10,10 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
   let draft=character.getAppearance(), category='eyes', renderer, scene, camera, preview, angle=0, portrait=true, dragX=null;
   let editable=false;
   const canChange=()=>editable&&canEdit();
-  const categories=[...Object.keys(FEATURES),'palette'];
+  const profile = character.profile;
+  const hairChoices = hairstylesFor(profile);
+  const categories = [...Object.keys(FEATURES),'palette'].filter(key =>
+    hairChoices.length || (key !== 'hair' && key !== 'palette'));
   const hex=color=>'#'+color.toString(16).padStart(6,'0');
   const colorPicker=document.querySelector('#eye-colors');
   const swatches=colorPicker.querySelector('.eye-swatches');
@@ -103,13 +106,14 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
     });
     options.setAttribute('aria-labelledby','tab-'+category);
     document.querySelector('#appearance-category').textContent=category==='palette'?'Палитры волос':FEATURES[category].label;
-    document.querySelector('#appearance-note').textContent=!editable?'Только просмотр · выбран текущий вариант':category==='palette'?'Любая палитра подходит ко всем 10 причёскам.':'10 вариантов · нажми, чтобы примерить';
+    document.querySelector('#appearance-note').textContent=!editable?'Только просмотр · выбран текущий вариант':category==='palette'?'Любая палитра подходит ко всем доступным причёскам.':category==='hair'?'Нажми, чтобы примерить':'10 вариантов · нажми, чтобы примерить';
     colorPicker.hidden=category!=='eyes';
     colorPicker.disabled=!editable;
     for (const radio of swatches.querySelectorAll('input')) radio.checked=Number(radio.value)===draft.eyeColor;
     options.replaceChildren();
-    const labels=category==='palette'?PALETTES.map(p=>p.name):FEATURES[category].options;
-    labels.forEach((label,i)=>{
+    const choices = category === 'hair' ? hairChoices : (category === 'palette'
+      ? PALETTES.map(p=>p.name) : FEATURES[category].options).map((name,index)=>({name,model:index}));
+    choices.forEach(({name:label, model:i, id})=>{
       const button=document.createElement('button');button.type='button';button.className='appearance-choice';
       button.disabled=!editable;button.dataset.option=i;button.setAttribute('aria-pressed',String(draft[category]===i));
       if(category==='palette'){
@@ -117,10 +121,16 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
         PALETTES[i].colors.forEach(color=>{const span=document.createElement('span');span.style.background=hex(color);swatches.append(span)});button.append(swatches);
       }else button.innerHTML=thumbnail(category,i);
       const name=document.createElement('span');name.textContent=label;button.append(name);
+      if(category==='hair' && id===profile.nativeHair){
+        const note=document.createElement('small');
+        note.className='native-hair-note';note.textContent='Родная причёска';
+        name.append(note);
+      }
       button.onclick=()=>{if(!canChange())return;draft[category]=i;preview.setAppearance(draft);renderOptions();options.querySelector(`[data-option="${i}"]`).focus()};
       options.append(button);
     });
-    document.querySelector('#appearance-summary').textContent=`${FEATURES.hair.options[draft.hair]} · ${PALETTES[draft.palette].name}`;
+    const selectedHair=hairChoices.find(style=>style.model===draft.hair);
+    document.querySelector('#appearance-summary').textContent=selectedHair ? `${selectedHair.name} · ${PALETTES[draft.palette].name}` : '';
   }
   categories.forEach((key,index)=>{
     const button=document.createElement('button');button.type='button';button.role='tab';button.id='tab-'+key;button.dataset.category=key;
@@ -140,7 +150,7 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
     const key=new THREE.DirectionalLight(0xffedcf,2.7);key.position.set(-3,5,-4);scene.add(key);
     const rim=new THREE.DirectionalLight(0xb0cbe0,1.6);rim.position.set(3,2,3);scene.add(rim);
     camera=new THREE.PerspectiveCamera(32,1,.01,20);
-    preview=createCharacter(draft);scene.add(preview.root);
+    preview=createCharacter(draft,profile);scene.add(preview.root);
     const plinth=new THREE.Mesh(new THREE.CylinderGeometry(.48,.53,.08,32),new THREE.MeshStandardMaterial({color:0xc3d0c5,roughness:1}));plinth.position.y=-.045;scene.add(plinth);
     renderer.domElement.onpointerdown=e=>{dragX=e.clientX;renderer.domElement.setPointerCapture(e.pointerId)};
     renderer.domElement.onpointermove=e=>{if(dragX!==null){angle+=(e.clientX-dragX)*.012;dragX=e.clientX}};
@@ -169,11 +179,11 @@ export function createCustomizer({ character, onOpen, notify, canEdit = () => fa
   document.querySelector('#character-close').onclick=document.querySelector('#character-cancel').onclick=()=>dialog.close();
   document.querySelector('#character-save').onclick=()=>{
     if(!canChange())return;
-    character.setAppearance(draft);const saved=saveAppearance(draft);dialog.close();
+    character.setAppearance(draft);const saved=saveAppearance(draft,profile);dialog.close();
     notify(saved?'Внешность сохранена. Твой исследователь готов к путешествию.':'Внешность применена. Браузер не разрешил сохранить её между запусками.');
   };
-  document.querySelector('#appearance-random').onclick=()=>{if(!canChange())return;draft=randomAppearance();preview.setAppearance(draft);renderOptions()};
-  document.querySelector('#appearance-default').onclick=()=>{if(!canChange())return;draft={...DEFAULT_APPEARANCE};preview.setAppearance(draft);renderOptions()};
+  document.querySelector('#appearance-random').onclick=()=>{if(!canChange())return;draft=randomAppearance(Math.random,profile);preview.setAppearance(draft);renderOptions()};
+  document.querySelector('#appearance-default').onclick=()=>{if(!canChange())return;draft=normalizeAppearance(null,profile);preview.setAppearance(draft);renderOptions()};
   document.querySelector('#preview-left').onclick=()=>angle-=Math.PI/4;
   document.querySelector('#preview-right').onclick=()=>angle+=Math.PI/4;
   document.querySelector('#preview-face').onclick=()=>setView(true);

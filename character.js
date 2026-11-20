@@ -1,8 +1,9 @@
 import * as THREE from './vendor/three.module.js';
-import { createFace, makeSoftBox } from './character-face.js?v=18';
+import { EXPLORER } from './appearance.js?v=10';
+import { createFace, makeSoftBox } from './character-face.js?v=19';
 
 // Local forward is -Z. All animation is driven by actual, post-collision motion.
-export function createCharacter(appearance) {
+export function createCharacter(appearance, profile = EXPLORER) {
   const root = new THREE.Group();
   root.name = 'Explorer';
   const geometry = makeSoftBox();
@@ -51,7 +52,7 @@ export function createCharacter(appearance) {
   block(body, 'neck', 0, 1.32, 0, .17, .13, .18, 0xe2b58a);
   block(body, 'scarf', 0, 1.28, -.04, .32, .09, .31, 0xcf9278);
   const head = joint(body, 'head', 0, 1.43, 0);
-  const face = createFace(head, appearance);
+  const face = createFace(head, appearance, profile);
 
   const arms = [-1, 1].map(side => {
     const shoulder = joint(body, 'shoulder', side * .36, 1.23, 0);
@@ -146,7 +147,7 @@ export function createCharacter(appearance) {
     });
   }
   animate(0);
-  return { root, animate,
+  return { root, animate, profile,
     setAppearance(value){face.setAppearance(value)},
     getAppearance(){return face.getAppearance()},
     react(){reaction=.45},

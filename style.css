@@ -395,3 +395,5 @@ body > header .brand { pointer-events:auto; }
 .bag-actions { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
 .bag-actions button { padding: 7px 10px; border-radius: 7px; background: #d4dfcf; color: #304d40; }
 .bag-actions button:first-child { color: white; background: #416653; }
+
+.native-hair-note{display:block;margin-top:2px;color:#4e6752;font-size:9px;font-weight:500;line-height:1.2}

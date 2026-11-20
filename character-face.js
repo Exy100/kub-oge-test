@@ -1,6 +1,6 @@
 import { createSculptedHair } from './character-hair.js?v=5';
 import * as THREE from './vendor/three.module.js';
-import { EYE_COLORS, SPARKLING_EYES_INDEX, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, normalizeAppearance } from './appearance.js?v=9';
+import { EYE_COLORS, SPARKLING_EYES_INDEX, PALETTES, ROUND_EYES, SMILING_EYES_INDEX, SMILING_LID, normalizeAppearance } from './appearance.js?v=10';
 
 // Chamfered silhouettes instead of sharp voxel corners; the rest of the world stays cubic.
 export function makeSoftBox() {
@@ -138,7 +138,7 @@ function makeWideNose() {
   return geometry;
 }
 
-export function createFace(parent, initial) {
+export function createFace(parent, initial, profile) {
   const geometry = {
     spark: makeEyeSpark(), smilingLid: makeSmilingLid(), soft: makeSoftBox(), scalp: makeHairScalp(), partedScalp: makeHairScalp(true), head: makeRoundedCube(.18), rounded: makeRoundedCube(.2), swept: makeSweptLock(), sphere: new THREE.SphereGeometry(1,12,8),
     facet: new THREE.IcosahedronGeometry(1,0), cone: new THREE.ConeGeometry(1,2,6),
@@ -200,7 +200,7 @@ export function createFace(parent, initial) {
     sculptedHair = null;
   }
   function rebuild(value) {
-    const next = normalizeAppearance(value);
+    const next = normalizeAppearance(value, profile);
     if (appearance?.hair !== next.hair || appearance?.palette !== next.palette) releaseSculptedHair();
     appearance = next;
     if(group)parent.remove(group);owned.forEach(g=>g.dispose());owned=[];eyes=[];
@@ -314,6 +314,7 @@ export function createFace(parent, initial) {
       ear.userData.variant=appearance.ears;
     }
     const style = appearance.hair;
+    if (style === null) return;
     if (style !== 1) {
       sculptedHair ??= createSculptedHair(style === 9 ? 3 : style, PALETTES[appearance.palette].colors, style === 9);
       if (style === 9) {

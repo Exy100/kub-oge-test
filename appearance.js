@@ -1,9 +1,33 @@
+// Model numbers also identify hairstyles in older saved appearances.
+export const HAIRSTYLES = [
+  {id:'explorer-waves', name:'Короткие волны', model:0, owner:'explorer'},
+  {id:'side-part', name:'Боковой пробор', model:1},
+  {id:'brushed-back', name:'Зачёс назад', model:2},
+  {id:'tousled', name:'Взъерошенные', model:3},
+  {id:'curls', name:'Кудри', model:4},
+  {id:'bob', name:'Каре', model:5},
+  {id:'pixie', name:'Пикси', model:6},
+  {id:'ponytail', name:'Хвост', model:7},
+  {id:'upright', name:'Вертикальная стрижка', model:8},
+  {id:'baseball-cap', name:'Бейсболка', model:9},
+];
+export const EXPLORER = {
+  id:'explorer', nativeHair:'explorer-waves',
+  sharedHair:HAIRSTYLES.filter(style => !style.owner).map(style => style.id),
+};
+
+export function hairstylesFor(profile) {
+  const native = HAIRSTYLES.find(style => style.id === profile.nativeHair && (!style.owner || style.owner === profile.id));
+  const shared = HAIRSTYLES.filter(style => !style.owner && style !== native && profile.sharedHair.includes(style.id));
+  return native ? [native, ...shared] : shared;
+}
+
 export const FEATURES = {
   eyes: { label: 'Глаза', options: ['Открытые', 'Миндальные', 'Круглые', 'Спокойные', 'Улыбчивые', 'Широкие', 'Узкие', 'Задумчивые', 'Искристые', 'Добрые'] },
   nose: { label: 'Нос', options: ['Пуговка', 'Прямой', 'Курносый', 'Широкий', 'Тонкий', 'С горбинкой', 'Плоский', 'Капля', 'Гранёный', 'Мягкий'] },
   mouth: { label: 'Рот', options: ['Нейтральный', 'Улыбка', 'Широкая улыбка', 'Полуулыбка', 'Мягкий', 'Спокойные губы', 'Решительный', 'Озорной', 'Сдержанный', 'Открытая улыбка'] },
   ears: { label: 'Уши', options: ['Компактные', 'Округлые', 'Овальные', 'Узкие', 'Широкие', 'Прижатые', 'Оттопыренные', 'С мочкой', 'Мягкий кончик', 'Гранёные'] },
-  hair: { label: 'Причёска', options: ['Короткие волны', 'Боковой пробор', 'Зачёс назад', 'Взъерошенные', 'Кудри', 'Каре', 'Пикси', 'Хвост', 'Вертикальная стрижка', 'Бейсболка'] },
+  hair: { label: 'Причёска', options: HAIRSTYLES.map(style => style.name) },
 };
 export const SPARKLING_EYES_INDEX = 8;
 export const EYE_COLORS = [
@@ -40,32 +64,45 @@ export const PALETTES = [
   { name: 'Розовый кварц', colors: [0xc18d9a, 0xf1bec3, 0x845f77] },
   { name: 'Лунный синий', colors: [0x617ca8, 0xa7b9d8, 0x3e496d] },
 ];
-export const DEFAULT_APPEARANCE = Object.freeze({ eyes: 0, eyeColor: 0, nose: 0, mouth: 1, ears: 0, hair: 1, palette: 0 });
+export const DEFAULT_APPEARANCE = Object.freeze({ eyes: 0, eyeColor: 0, nose: 0, mouth: 1, ears: 0, hair: hairstylesFor(EXPLORER)[0].model, palette: 0 });
 export const APPEARANCE_KEY = 'kub.appearance.v1';
-export function normalizeAppearance(value) {
+export function normalizeAppearance(value, profile = EXPLORER) {
   const source = value && typeof value === 'object' ? value : {};
   const result = { ...DEFAULT_APPEARANCE };
   for (const key of Object.keys(result)) {
+    if (key === 'hair') continue;
     const limit = key === 'eyeColor' ? EYE_COLORS.length : 10;
     if (Number.isInteger(source[key]) && source[key] >= 0 && source[key] < limit) result[key] = source[key];
   }
+  const styles = hairstylesFor(profile);
+  const chosen = styles.find(style => style.id === source.hair || style.model === source.hair);
+  result.hair = (chosen ?? styles[0])?.model ?? null;
   // Old saves used brown for open eyes, blue for sparkling eyes and green otherwise.
   if (source.eyeColor === undefined && result.eyes !== 0) {
     result.eyeColor = result.eyes === SPARKLING_EYES_INDEX ? 2 : 1;
   }
   return result;
 }
-export function loadAppearance() {
-  try { return normalizeAppearance(JSON.parse(localStorage.getItem(APPEARANCE_KEY))); }
-  catch { return { ...DEFAULT_APPEARANCE }; }
+function appearanceKey(profile) {
+  return profile.id === EXPLORER.id ? APPEARANCE_KEY : APPEARANCE_KEY + '.' + profile.id;
 }
-export function saveAppearance(value) {
-  try { localStorage.setItem(APPEARANCE_KEY, JSON.stringify(normalizeAppearance(value))); return true; }
-  catch { return false; }
+export function loadAppearance(profile = EXPLORER) {
+  try { return normalizeAppearance(JSON.parse(localStorage.getItem(appearanceKey(profile))), profile); }
+  catch { return normalizeAppearance(null, profile); }
 }
-export function randomAppearance(random = Math.random) {
+export function saveAppearance(value, profile = EXPLORER) {
+  const look = normalizeAppearance(value, profile);
+  const style = HAIRSTYLES.find(item => item.model === look.hair);
+  try {
+    localStorage.setItem(appearanceKey(profile), JSON.stringify({...look, hair:style?.id ?? null}));
+    return true;
+  } catch { return false; }
+}
+export function randomAppearance(random = Math.random, profile = EXPLORER) {
+  const styles = hairstylesFor(profile);
   return Object.fromEntries(Object.keys(DEFAULT_APPEARANCE).map(key => {
-    const count = key === 'eyeColor' ? EYE_COLORS.length : 10;
-    return [key, Math.min(count - 1, Math.floor(random() * count))];
+    const count = key === 'hair' ? styles.length : key === 'eyeColor' ? EYE_COLORS.length : 10;
+    const index = Math.min(count - 1, Math.floor(random() * count));
+    return [key, key === 'hair' ? styles[index]?.model ?? null : index];
   }));
 }
