@@ -1,0 +1,30 @@
+<!doctype html>
+<html lang="ru">
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>КУБ · Сравнение причёсок</title>
+<style>
+*{box-sizing:border-box}body{margin:0;padding:24px;background:#e9ede4;color:#263e36;font:15px/1.4 system-ui,sans-serif}
+main{margin:auto;max-width:1310px}.toolbar,header{display:flex;align-items:center;justify-content:space-between;gap:14px}
+.toolbar{justify-content:flex-start;flex-wrap:wrap;margin-bottom:18px}select{font:inherit;padding:5px;border:1px solid #899e8c;border-radius:5px;background:#fffef6;color:inherit}
+article{background:#fffdf5;padding:22px 25px;border:1px solid #c8d1bf;border-radius:18px}
+h1{font:600 34px/1.1 Georgia,serif;margin:0}header{margin:1px 0 15px}header p{font-size:13px;color:#4b6456;margin:0}
+.angles{display:grid;grid-template-columns:repeat(4,1fr);gap:3px;margin:8px 0 5px;font-size:12px;color:#576a5c}
+canvas{display:block;width:100%;aspect-ratio:4.5/1;background:#e5e8df;border-radius:10px}h2{font-size:13px;margin:12px 0 2px}
+@media(max-width:780px){body{padding:8px}article{padding:12px}.angles{font-size:10px}header{align-items:start;flex-direction:column}h1{font-size:26px}}
+</style>
+<main>
+<div class="toolbar">
+<label>Причёска <select id="style"><option value="3">Взъерошенные</option><option value="4">Кудри</option><option value="7">Хвост</option></select></label>
+<label>Цвет волос <select id="palette"></select></label>
+</div>
+<article>
+<header><h1></h1><p id="caption"></p></header>
+<h2>Сейчас</h2><div class="angles"><span>Спереди</span><span>Сбоку</span><span>Сзади</span><span>Игровая дистанция</span></div>
+<canvas id="before" aria-label="Текущая модель в четырёх ракурсах"></canvas>
+<h2>Новый вариант</h2><div class="angles" aria-hidden="true"><span>Спереди</span><span>Сбоку</span><span>Сзади</span><span>Игровая дистанция</span></div>
+<canvas id="after" aria-label="Пробная модель в четырёх ракурсах"></canvas>
+</article>
+</main>
+<script type="module" src="./review.js"></script>
+</html>
