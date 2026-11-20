@@ -1,6 +1,6 @@
 import { createInventoryWindows } from './inventory-window.js?v=2';
 import { createLiveNavigator } from './navigator-live.js?v=11';
-import { createNavigatorSpeech } from './navigator-speech.js?v=14';
+import { createNavigatorSpeech } from './navigator-speech.js?v=15';
 import { createNavigatorChoice } from './navigator-choice.js?v=11';
 import { NAVIGATORS } from './navigator-model.js?v=11';
 // Physical codes keep chords identical on Russian and English layouts.
@@ -103,7 +103,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   document.body.append(dialog);
   if(choice.selected())$('#navigator-title').textContent='Навигатор · '+NAVIGATORS.find(n=>n.id===choice.selected()).name;
   $('#navigator-change').onclick=()=>{dialog.close();choice.open()};
-  const speech=createNavigatorSpeech({dialog,getText:()=>$('#navigator-task').textContent});
+  const speech=createNavigatorSpeech({dialog,getText:()=>mission().text});
   // Keep the bubble in the dock layout so wrapped controls stay above it.
   const portal=document.createElement('div');
   portal.id='travel-prompt';
@@ -191,5 +191,22 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   $('#navigator-resume').onclick=()=>dialog.close();
   const input=createPanelKeys({switchMode,navigator:showNavigator,camera,inventory,equipment,guide:toggleGuide,quest:toggleQuest});
   let greeted=false;
-  return {updatePortal,start(){if(greeted)return;greeted=true;live.greet();bubble.hidden=false;setTimeout(()=>bubble.hidden=true,6500);if($('#greeting-enabled').checked)speech.greet()},update(dt,time,active){live.update(dt,time,active)},storageOpen:storage.isOpen,guideOpen:()=>guideDialog.open,isOpen:()=>guideDialog.open||dialog.open||storage.isOpen()||choice.isOpen(),isBattle:()=>mode==='battle',toggleMode,input};
+  function start() {
+    if (greeted) return;
+    greeted=true;
+    live.greet();
+    bubble.hidden=false;
+    setTimeout(()=>bubble.hidden=true,6500);
+    if ($('#greeting-enabled').checked) speech.greet();
+  }
+  function update(dt,time,active) {
+    live.update(dt,time,active);
+    if (active && !document.hidden && portal.hidden) speech.updateArrival(time*1000);
+  }
+  return {
+    updatePortal, enterLocation:speech.enterLocation, start, update,
+    storageOpen:storage.isOpen, guideOpen:()=>guideDialog.open,
+    isOpen:()=>guideDialog.open || dialog.open || storage.isOpen() || choice.isOpen(),
+    isBattle:()=>mode==='battle', toggleMode, input,
+  };
 }

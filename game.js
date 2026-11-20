@@ -4,7 +4,7 @@ import { createTreeRenderer } from './world/trees.js';
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js?v=2';
 import { equipGatheringWand } from './gathering-wand.js?v=15';
-import { createPlayerPanel } from './player-panel.js?v=31';
+import { createPlayerPanel } from './player-panel.js?v=32';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=14';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
@@ -89,7 +89,7 @@ function hasBagRoom(id){
 function animateCollection(mesh){
   if(bag.loadouts.build.tool==='wand')gathering.collect(mesh);
 }
-const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:questNarration(),progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
+const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:currentQuestBrief(),progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
 const restartDialog=$('#restart-dialog');
 let restartStage=null;
 function modalOpen(){return restartDialog.open||forge.isOpen()||customizer.isOpen()||panel.isOpen()}
@@ -109,17 +109,17 @@ function spawnPickups(state){
   entries.forEach(([x,z,material],phase)=>{const m=box(x,.55,z,.65,.65,.65,mats[material]);m.userData.material=material;m.userData.objectId=BUILD_MATERIALS[material].id;m.userData.animationPhase=phase;state.pickups.push(m)});
 }
 stages.forEach(spawnPickups);
-// Only instruction fields opt into narration. Counters and statistics stay visual.
-function questNarration(){
-  return [...document.querySelectorAll('#quest-panel [data-quest-instruction]')]
-    .map(el=>el.textContent.trim()).filter(Boolean)
-    .map(text=>/[.!?…]$/.test(text)?text:text+'.').join(' ');
+function currentQuestBrief() {
+  const complete = stage.index === 2 ? forge.state.unlocked : stage.unlocked;
+  if (complete) return 'Пройди через открытый портал на следующий остров.';
+  return LOCATIONS[stage.index].quest.brief;
 }
 const locationBanner=$('#location-banner');
 const controlStrip=$('.bottom .controls');
 let controlStripTimer;
 let locationTimer;
 function announceLocation(message){
+  panel.enterLocation();
   notify(message,10000);
   clearTimeout(controlStripTimer);
   controlStrip.hidden=false;

@@ -7,7 +7,7 @@ async function enter(){await page.locator('#play').click();await page.evaluate((
 async function voices(){await page.evaluate(()=>{speechMock.voices=[{name:'English',lang:'en-US',voiceURI:'en'},{name:'Microsoft Pavel',lang:'ru-RU',voiceURI:'ru-a',localService:true},{name:'Google русский',lang:'ru-RU',voiceURI:'ru-b',localService:false}];speechMock.dispatchEvent(new Event('voiceschanged'))})}
 await page.goto('http://127.0.0.1:8066');await enter();assert(await page.locator('#speech-repeat').isDisabled(),'no Russian voice');assert((await page.locator('#speech-status').innerText()).includes('Google русский'),'no voice explanation');await voices();assert(await page.locator('#speech-voice option').count()===2,'only automatic and Google Russian');assert(await page.evaluate(()=>speechMock.calls.length)===0,'opt-in default');await page.locator('#speech-enabled').check();assert(await page.evaluate(()=>speechMock.calls.length)===1,'enabling reads current response');
 assert(await page.locator('#speech-male').count()===0,'male preset removed');await page.locator('#speech-voice').selectOption('ru-b');await page.locator('#speech-rate').fill('1.2');await page.locator('#speech-preview').click();assert(await page.evaluate(()=>speechMock.calls.at(-1).voice.voiceURI==='ru-b'&&speechMock.calls.at(-1).rate===1.2),'preview settings');await page.locator('#speech-repeat').click();assert(await page.evaluate(()=>speechMock.calls.at(-1).text===document.querySelector('#navigator-task').textContent.replace(/\bE\b/g,'клавишу Е') && document.querySelector('#navigator-progress').textContent.includes('0 / 7')),'only mission instructions spoken while progress remains visible');await page.locator('#speech-stop').click();assert(await page.locator('#speech-stop').isDisabled(),'stop state');await page.screenshot({path:'/tmp/kub-speech.png'});
-// Every island reads the sidebar instructions, including when the sidebar is collapsed.
+// Manual answers use only the short objective, including with a collapsed sidebar.
 for(let island=0;island<4;island++){
  await page.keyboard.press('Escape');
  await page.evaluate(i=>{speechQuestTest.stage(i);document.querySelector('#quest-panel').hidden=true;
@@ -20,11 +20,11 @@ for(let island=0;island<4;island++){
    for(let i=start;i<speechMock.calls.length;i++)speechMock.calls[i].onend?.();
    return speechMock.calls.slice(start).map(call=>call.text).join(' ');
  },start);
- const expected=await page.locator('#quest-panel [data-quest-instruction]').allTextContents();
- assert(expected.every(text=>spoken.includes(text.trim().replaceAll('ЛКМ','левой кнопкой мыши').replaceAll('ПКМ','правой кнопкой мыши').replace(/\bE\b/g,'клавишу Е'))),`sidebar instructions spoken on island ${island}`);
+ const expected=await page.evaluate(async i=>(await import('/locations/index.js')).LOCATIONS[i].quest.brief,island);
+ assert(spoken===expected,`only the brief spoken on island ${island}`);
  assert(!/91|97|88|99|Статистика/.test(spoken),`statistics omitted on island ${island}`);
  assert((await page.locator('#navigator-progress').innerText()).includes('91 / 97'),'progress remains in navigator');
- if(island===0)assert(spoken.includes('7 кубов'),'instruction quantity remains spoken');
+ if(island===0)assert(spoken.includes('семь кубов'),'instruction quantity remains spoken');
 }
 await page.keyboard.press('Escape');
 await page.evaluate(()=>{speechQuestTest.stage(0);document.querySelector('#quest-panel').hidden=false});
