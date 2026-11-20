@@ -41,27 +41,42 @@ function makeSweptLock() {
   geometry.computeVertexNormals();
   return geometry;
 }
-function makeHairScalp() {
-  const positions=[],indices=[];
-  const rings=[[.12,.226,.218,.035],[.205,.224,.207,.045],[.27,.177,.16,.055],[.292,.09,.08,.028]];
-  for(const [y,x,z,c] of rings){for(const [px,pz] of [[-x+c,-z],[x-c,-z],[x,-z+c],[x,z-c],[x-c,z],[-x+c,z],[-x,z-c],[-x,-z+c]])positions.push(px,y,pz)}
-  for(let row=0;row<rings.length-1;row++)for(let i=0;i<8;i++){
-    const a=row*8+i,b=row*8+(i+1)%8,c=b+8,d=a+8;indices.push(a,d,c,a,c,b);
+function makeHairScalp(parted = false) {
+  const positions = [], indices = [];
+  const rings = [[.12,.226,.218,.035],[.205,.224,.207,.045],[.27,.177,.16,.055],[.292,.09,.08,.028]];
+  const sides = parted ? 12 : 8;
+  function addRing([y,x,z,c], hairline = false, inset = 1) {
+    const outline = [[-x+c,-z],[x-c,-z],[x,-z+c]];
+    if (parted) outline.push([x,-.48*z],[x,0]);
+    outline.push([x,z-c],[x-c,z],[-x+c,z],[-x,z-c]);
+    if (parted) outline.push([-x,0],[-x,-.48*z]);
+    outline.push([-x,-z+c]);
+    for (const [px,pz] of outline) {
+      let height = y;
+      if (hairline) {
+        if (pz === -z) height = .164 - px * .07;
+        else if (pz < 0) height = .035 + .035 * Math.max(0, -pz / z - .48);
+        else height = .035 - .11 * pz / z;
+      }
+      positions.push(px * inset, height, pz * inset);
+    }
   }
-  const center=positions.length/3;positions.push(0,.303,0);
-  for(let i=0;i<8;i++)indices.push(center,24+(i+1)%8,24+i);
-  const geometry=new THREE.BufferGeometry();geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));geometry.setIndex(indices);geometry.computeVertexNormals();return geometry;
-}
-function makePartedScalp() {
-  const geometry = makeHairScalp();
-  const position = geometry.attributes.position;
-  // Shape the lower rim over the brow, down the temples and around the nape.
-  for (let i = 0; i < 8; i++) {
-    const x = position.getX(i), z = position.getZ(i);
-    const front = THREE.MathUtils.clamp((.18 - z) / .36, 0, 1);
-    const hairline = -.075 + front * .24 - x * .07;
-    position.setY(i, hairline);
+  // Turn the edge into the head so the hairline stays closed when seen from below.
+  if (parted) addRing(rings[0], true, .85);
+  rings.forEach((ring,i) => addRing(ring, parted && i === 0));
+  const top = positions.length / 3 - sides;
+  for (let row = 0; row < top; row += sides) {
+    for (let i = 0; i < sides; i++) {
+      const a = row + i, b = row + (i+1) % sides;
+      indices.push(a,a+sides,b+sides, a,b+sides,b);
+    }
   }
+  const center = positions.length / 3;
+  positions.push(0,.303,0);
+  for (let i=0; i<sides; i++) indices.push(center,top+(i+1)%sides,top+i);
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setIndex(indices);
   geometry.computeVertexNormals();
   return geometry;
 }
@@ -125,7 +140,7 @@ function makeWideNose() {
 
 export function createFace(parent, initial) {
   const geometry = {
-    spark: makeEyeSpark(), smilingLid: makeSmilingLid(), soft: makeSoftBox(), scalp: makeHairScalp(), partedScalp: makePartedScalp(), head: makeRoundedCube(.18), rounded: makeRoundedCube(.2), swept: makeSweptLock(), sphere: new THREE.SphereGeometry(1,12,8),
+    spark: makeEyeSpark(), smilingLid: makeSmilingLid(), soft: makeSoftBox(), scalp: makeHairScalp(), partedScalp: makeHairScalp(true), head: makeRoundedCube(.18), rounded: makeRoundedCube(.2), swept: makeSweptLock(), sphere: new THREE.SphereGeometry(1,12,8),
     facet: new THREE.IcosahedronGeometry(1,0), cone: new THREE.ConeGeometry(1,2,6),
     softEar: new THREE.SphereGeometry(1,16,12), capBrim: makeCapBrim(), capLabel: makeCapLabel(),
   };
@@ -304,12 +319,9 @@ export function createFace(parent, initial) {
     if(style!==1)tuft(0,.092,.187,.413,.22,.055,2,0,'soft');
     if(style===0){for(let i=0;i<5;i++)tuft(-.17+i*.085,.244+(i%2)*.014,-.035,.115,.09,.32,i%3,-.12);tuft(.19,.12,.035,.06,.16,.26,2)}
     if (style === 1) {
-      for (const side of [-1,1]) {
-        tuft(side*.204,.10,-.116,.055,.155,.132,2,side*.12,'swept');
-      }
       tuft(-.125,.211,-.115,.205,.130,.218,0,.17,'swept');
       tuft(-.062,.259,-.050,.280,.132,.270,1,.05,'swept');
-      tuft(.100,.214,-.140,.237,.158,.208,0,-.25,'swept');
+      tuft(.100,.214,-.140,.237,.158,.208,2,-.25,'swept');
       tuft(.050,.208,-.215,.339,.157,.145,0,-.32,'swept');
     }
     if(style===2){for(let i=0;i<4;i++){const m=tuft(-.15+i*.1,.25,.035,.095,.12,.38,i%3);m.rotation.x=.25}tuft(0,.205,.22,.37,.1,.1,2)}
