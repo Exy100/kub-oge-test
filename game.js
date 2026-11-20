@@ -10,7 +10,7 @@ import { createPlayerPanel } from './player-panel.js?v=33';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=18';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
-import { createForge } from './forge.js?v=17';
+import { createForge } from './forge.js?v=18';
 import { loadAppearance } from './appearance.js?v=9';
 import { createCustomizer } from './customizer.js?v=18';
 import { createFollowState, followCamera } from './follow-camera.js?v=2';
@@ -57,7 +57,21 @@ function hasBagRoom(id){
   notify('Инвентарь заполнен.');
   return false;
 }
-function animateCollection(mesh){
+function buildSound(filename) {
+  const clip = new Audio(new URL('./assets/audio/' + filename, import.meta.url).href);
+  clip.preload = 'auto';
+  clip.volume = 0.7;
+  return () => {
+    clip.currentTime = 0;
+    // Audio may be blocked by browser settings. Gameplay can still proceed.
+    clip.play().catch(() => {});
+  };
+}
+const playPickup = buildSound('pickup.wav');
+const playPlacement = buildSound('place.wav');
+
+function onCollect(mesh){
+  playPickup();
   if(bag.loadouts.build.tool==='wand')gathering.collect(mesh);
 }
 const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:currentQuestBrief(),progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
@@ -164,7 +178,7 @@ function enterIsland(next) {
   }
   if (stage.index === 2) {
     forge = createForge({scene:island, box, solids, state:forgeState, remainingBits:stage.remainingBits,
-      canStore:hasBagRoom, onCollect:animateCollection, notify, onChange:update,
+      canStore:hasBagRoom, onCollect, onPlace:playPlacement, notify, onChange:update,
       onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;}});
     cameraObstacles.push(...forge.cameraObstacles);
   }
@@ -334,7 +348,7 @@ function act(button){
   const hits=ray.intersectObjects(objects,false).filter(h=>h.object.position.distanceTo(player.position)<6);
   if(hits.length){
     const m=hits[0].object,pi=pickups.indexOf(m),gi=ghosts.indexOf(m);
-    if(pi>=0&&button===0){if(!hasBagRoom(m.userData.objectId))return;stage.collected.add(m.userData.animationPhase);island.remove(m);animateCollection(m);pickups.splice(pi,1);stage.inventory[m.userData.material]++;character.react();notify(`${MATERIAL_NAMES[m.userData.material]}: +1`);update();return}
+    if(pi>=0&&button===0){if(!hasBagRoom(m.userData.objectId))return;stage.collected.add(m.userData.animationPhase);island.remove(m);onCollect(m);pickups.splice(pi,1);stage.inventory[m.userData.material]++;character.react();notify(`${MATERIAL_NAMES[m.userData.material]}: +1`);update();return}
     if(gi>=0&&button===0){
       const t=targets[gi];
       if(selected!==t.material){notify(`Для этой арки нужен материал «${MATERIAL_NAMES[t.material]}» — клавиша ${t.material+1}.`);return}
@@ -342,7 +356,7 @@ function act(button){
       if(Math.abs(player.position.x-t.x)<.79&&Math.abs(player.position.z-t.z)<.79&&player.position.y<t.y+.49&&player.position.y+1.7>t.y-.49){notify('Отойди немного, чтобы поставить куб.');return}
       const wasUnlocked=stage.unlocked;
       if(!placeTarget(stage,gi,selected))return;character.react();
-      m.visible=false;addBlock(t.x,t.y,t.z,selected,gi);update();
+      m.visible=false;addBlock(t.x,t.y,t.z,selected,gi);playPlacement();update();
       if(stage.unlocked&&!wasUnlocked)notify(stage.index===0?'✦ Портал открыт! Подойди к арке и нажми E.':'✦ Три арки готовы! Средняя арка открыла портал в кузницу — нажми E рядом с ней.');
       return;
     }
@@ -351,6 +365,7 @@ function act(button){
       if(isLimited(stage,material)&&!hasBagRoom(BUILD_MATERIALS[material].id))return;
       if(m.userData.target!==undefined){removeTarget(stage,m.userData.target);ghosts[m.userData.target].visible=true}
       else if(isLimited(stage,m.userData.material))stage.inventory[m.userData.material]++;
+      if(isLimited(stage,material))playPickup();
       island.remove(m);placed.splice(placed.indexOf(m),1);solids.splice(solids.indexOf(m),1);update();return;
     }
   }
@@ -365,7 +380,7 @@ function act(button){
   const y=.5+column.length;
   if(solids.some(m=>Math.abs(x-m.position.x)<.49+m.scale.x/2&&Math.abs(z-m.position.z)<.49+m.scale.z/2&&Math.abs(y-m.position.y)<.49+m.scale.y/2))return;
   if(isLimited(stage,selected)){if(!stage.inventory[selected]){notify('Сначала собери кубы выбранного материала.');return}stage.inventory[selected]--}
-  addBlock(x,y,z,selected);update();
+  addBlock(x,y,z,selected);playPlacement();update();
 }
 function restartWarning(){
   if(stage.index===3)return 'Вы вернётесь к началу сада. Врата кузницы останутся открыты.';
