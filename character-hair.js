@@ -38,7 +38,17 @@ function crownPoint(style,row,a) {
   const lower = Math.floor(row), fraction = row-lower;
   let radius = lerp(crownProfile[lower],crownProfile[Math.min(lower+1,crownProfile.length-1)],fraction), top=.306;
   const taper = sin(Math.PI*(.12+.88*t));
-  if (style===4) {
+  if (style === 0) {
+    // Carry the front wave through the hairline into one slightly lower temple.
+    edge += front * (.014 * sin(4*a-.35) - .009);
+    top += .012 * cos(3*a+.5) * taper;
+    radius *= 1 + .022 * taper * cos(6*a + 2*sin(4*t));
+  } else if (style === 2) {
+    // Lift the brushed-back hair at the forehead and taper it behind the crown.
+    edge += .012 * front * cos(2*a);
+    top += .018 * front * taper;
+    radius *= 1 + .018 * taper * cos(8*a + 2*t*sin(a));
+  } else if (style===4) {
     // Scalloped hairline and interlocking waves across the whole surface.
     const wave = cos(8*a+2*sin(3*a+.7)+7*t) + .53*cos(13*a-8*t+.4);
     edge += .024*cos(8*a+1.1*sin(3*a)) - .013;
@@ -178,7 +188,7 @@ export function createSculptedHair(style, colors, underCap = false) {
     return mesh;
   }
   // The bob has an open face and a folded lower edge; a flat base would cross the eyes.
-  part('crown',style===4 ? curlyCrown() : loft(crownProfile.length-1,72,(row,a)=>crownPoint(style,row,a),style!==5));
+  part('crown',style === 0 || style === 2 ? createShortHairScalp(style) : style===4 ? curlyCrown() : loft(crownProfile.length-1,72,(row,a)=>crownPoint(style,row,a),style!==5));
   // Low-relief sweeps are laid directly onto the crown surface, with tapered edges.
   function sweep(name, coordinates, breadth, relief, tone) {
     const path = new THREE.CatmullRomCurve3(coordinates.map(([angle,row])=>V(angle,row,0)));
@@ -199,7 +209,28 @@ export function createSculptedHair(style, colors, underCap = false) {
     part(name,surface,tone);
   }
   const xAxis=V(1,0,0);
-  if (style===3) {
+  if (style === 0) {
+    // Two broad S-curves break the straight fringe; their roots turn toward the temple.
+    sweep('front-wave',[[-1.42,6.9],[-.91,7.8],[-.40,6.3],[.12,5.2],[.62,5.7],[1.01,3.1]],.039,.026,tones[1]);
+    sweep('front-wave',[[-1.40,9.6],[-.82,10],[-.22,8.7],[.31,7.9],[.82,8.5],[1.47,5.4]],.041,.021,tones[0]);
+    for (const side of [-1,1]) {
+      sweep('temple-wave',[[side*1.18,8.7],[side*1.62,7.2],[side*2.04,7.5],[side*2.58,4]],.034,.013,tones[0]);
+    }
+  } else if (style === 2) {
+    // Wide ridges turn back from the forehead, then sink into the existing nape.
+    for (const [x,width,lift,tone] of [[-.132,.044,.004,0],[-.057,.054,.012,0],[.034,.059,.016,1],[.122,.047,.006,0]]) {
+      const ridge = [
+        [x-.021,.199,-.191,.006,.006],[x-.022,.253,-.179,width*.8,.024],
+        [x-.018,.293+lift,-.111,width,.031],[x,.295+lift,.012,width,.031],
+        [x+.015,.275,.115,width*.85,.029],[x+.023,.221,.192,width*.65,.022],
+        [x+.021,.150,.221,.004,.004]
+      ];
+      part('brushed-ridge',lock(ridge,xAxis),tones[tone]);
+    }
+    for (const side of [-1,1]) {
+      sweep('temple-sweep',[[side*.86,4.4],[side*1.27,6.2],[side*1.83,7.2],[side*2.64,4.5]],.031,.014,tones[0]);
+    }
+  } else if (style===3) {
     // Broad roots cross the crown; only the tips separate from the main mass.
     const bangs=[
       [[-.14,.237,.15,.014,.010],[-.147,.287,.04,.061,.026],[-.15,.267,-.094,.074,.051],[-.16,.216,-.185,.064,.044],[-.179,.133,-.221,.009,.006]],

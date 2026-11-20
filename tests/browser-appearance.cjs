@@ -25,6 +25,20 @@ assert(await colors.count()===5,'five iris colors');
 await page.locator('[data-option="8"]').click();
 await page.getByLabel('Серый',{exact:true}).check();
 await page.screenshot({path:'/tmp/kub-eye-color-editor.png'});
+// The first three cards must select the matching model and palette row.
+for (const palette of [0, 9]) {
+  await page.locator('#tab-palette').click();
+  await page.locator(`[data-option="${palette}"]`).click();
+  await page.locator('#tab-hair').click();
+  for (const [hair, name] of ['Короткие волны','Боковой пробор','Зачёс назад'].entries()) {
+    const card = page.getByRole('button', {name, exact:true});
+    const crop = card.locator('svg svg');
+    assert(await crop.getAttribute('viewBox') === `${hair*150} ${palette*120} 150 120`, 'correct portrait crop');
+    assert(await crop.locator('image').getAttribute('href') === './assets/short-hair-previews.webp', '3D portrait asset');
+    await card.click();
+    assert((await page.locator('#appearance-summary').innerText()).includes(name), 'correct hairstyle selected');
+  }
+}
 for(const category of ['eyes','nose','mouth','ears','hair','palette']){
  await page.locator('#tab-'+category).click();assert(await page.locator('#appearance-options button').count()===10,'ten '+category+' options');await page.locator('[data-option="9"]').click();
 }
