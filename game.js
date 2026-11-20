@@ -1,3 +1,4 @@
+import { installCheatMenu } from './dev/cheat-menu.js';
 import { BUILD_MATERIALS } from './catalog/index.js';
 import { LOCATIONS } from './locations/index.js';
 import { createSimpleArchEffect } from './world/simple-arch.js';
@@ -34,7 +35,7 @@ function createBoxBuilder(parent, colliders) {
 const skyBox = createBoxBuilder(scene, []);
 // Distant drifting block clouds.
 for(let i=0;i<12;i++){const x=Math.sin(i*3)*42,z=Math.cos(i*3)*42;skyBox(x,13+i%3*2,z,7,1.2,3,0xeaf0e5);skyBox(x+1,14+i%3*2,z,4,1,2,0xeaf0e5)}
-const stages = LOCATIONS.map((_, i) => createStage(i));
+let stages = LOCATIONS.map((_, i) => createStage(i));
 const forgeState = createForgeState();
 const island = new THREE.Group();
 const box = createBoxBuilder(island, solids);
@@ -76,8 +77,8 @@ function onCollect(mesh){
 }
 const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:currentQuestBrief(),progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
 const restartDialog=$('#restart-dialog');
-let restartStage=null;
-function modalOpen(){return restartDialog.open||forge?.isOpen()||customizer.isOpen()||panel.isOpen()}
+let restartStage=null, extraDialog=null;
+function modalOpen(){return extraDialog?.open||restartDialog.open||forge?.isOpen()||customizer.isOpen()||panel.isOpen()}
 
 const messageBox=$('#message');
 let messageTimer;
@@ -223,13 +224,13 @@ function refreshMission(){
   select(selected);update();
 }
 function update(){
-  const n=stage.index<2?stage.built.size:stage.index===2?forgeState.cells.filter(Boolean).length:4;
+  const n=stage.index<2?stage.built.size:forgeState.cells.filter(Boolean).length;
   const total=stage.index<2?stage.targets.length:4;
   $('#count').textContent=`${n} / ${total}`;
   drawQuestDiagram($('#quest-diagram'),stage,forgeState.cells);
   document.querySelectorAll('.slot b').forEach((el,i)=>el.textContent=isLimited(stage,i)?stage.inventory[i]:'∞');
   if (exitGlow) exitGlow.visible = stage.unlocked;
-  $('#arch-status').textContent=stage.index===2?`Биты: ${forgeState.bits} · Байты: ${forgeState.bytes} · Создано: ${forgeState.crafted}/4`:stage.index===1?stage.arches.map((arch,i)=>`${MATERIAL_NAMES[arch.material]}: ${Array.from(stage.built).filter(t=>Math.floor(t/7)===i).length}/7`).join(' · '):stage.index===0&&stage.unlocked?'Портал открыт · подойди к арке и нажми E':stage.index===3?'Путь к саду открыт · 32 бита · 4 байта':'';
+  $('#arch-status').textContent=stage.index===2?`Биты: ${forgeState.bits} · Байты: ${forgeState.bytes} · Создано: ${forgeState.crafted}/4`:stage.index===1?stage.arches.map((arch,i)=>`${MATERIAL_NAMES[arch.material]}: ${Array.from(stage.built).filter(t=>Math.floor(t/7)===i).length}/7`).join(' · '):stage.index===0&&stage.unlocked?'Портал открыт · подойди к арке и нажми E':stage.index===3&&forgeState.unlocked?'Путь к саду открыт · 32 бита · 4 байта':'';
 }
 function select(i){
   selected=i;
@@ -250,10 +251,14 @@ function nearbyRoute(){
 function travel(){
   const route=nearbyRoute();if(!route)return false;
   if(!route.ready)return true;
-  enterIsland(stages[route.to]);followState=createFollowState();player.position.set(stage.center,0,stage.index===0?2:stage.index===2?4:3);
+  goToIsland(route.to, ['Ты вернулся на первый остров.','Собери три арки из трёх материалов.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][route.to]);
+  return true;
+}
+function goToIsland(index, message){
+  enterIsland(stages[index]);followState=createFollowState();player.position.set(stage.center,0,stage.index===0?2:stage.index===2?4:3);
   Object.assign(physics,createPhysicsState());Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;selected=0;yaw=0;
   sun.position.set(stage.center-10,25,10);sun.target.position.set(stage.center,0,0);sun.target.updateMatrixWorld();
-  refreshMission();announceLocation(['Ты вернулся на первый остров.','Собери три арки из трёх материалов.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][stage.index]);return true;
+  refreshMission();announceLocation(message);
 }
 $('#portal-go').onclick=()=>{if(!modalOpen())travel()};
 document.querySelectorAll('.slot').forEach((s,i)=>{s.setAttribute('role','button');s.tabIndex=0;s.setAttribute('aria-label',MATERIAL_NAMES[i]);s.title=MATERIAL_NAMES[i]+' · '+BUILD_MATERIALS[i].description;s.onclick=()=>select(i);s.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();select(i)}}});function toggle(){third=!third;followState=createFollowState()}
@@ -458,7 +463,26 @@ stage.pickups.forEach(m=>{const phase=m.userData.animationPhase;m.rotation.y=now
 panel.updatePortal(nearbyRoute(),active&&!document.hidden,now);
 simpleArchEffect?.update(now, reducedHandMotion.matches);
 if (returnGlow) returnGlow.material.opacity=.4+Math.sin(now*.002)*.12;
-forge?.update(player.position,now/1000,$('#welcome').classList.contains('hidden')&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
+forge?.update(player.position,now/1000,$('#welcome').classList.contains('hidden')&&!extraDialog?.open&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);
 gathering.update(dt,now/1000,{active,third:player.visible,visible:!panel.isBattle()&&bag.loadouts.build.tool==='wand',dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
 if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
+
+// Temporary cheats: remove this installation and its import to disable the menu.
+extraDialog = installCheatMenu({
+  locations: LOCATIONS, currentIsland: () => stage.index, account: playerAccount, bag,
+  canOpen: () => $('#welcome').classList.contains('hidden') && !modalOpen(),
+  pause() {
+    document.exitPointerLock?.();
+    Object.keys(keys).forEach(key => { keys[key] = false; });
+    panel.input.clear();
+    dragging = jumpRequested = false;
+  },
+  travel: index => goToIsland(index, LOCATIONS[index].name),
+  reset() {
+    stages = LOCATIONS.map((_, index) => createStage(index));
+    Object.assign(forgeState, createForgeState());
+    playerAccount.coins = 0;
+    goToIsland(0, 'Прогресс всех островов сброшен.');
+  },
+});
