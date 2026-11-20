@@ -11,17 +11,20 @@ const messages = {
 
 export function createScanInteraction({location, island, solids, obstacles, stage, camera, player, store,
   dialog, progress, say, notify, pause, onCoin}) {
-  const cells = new Set();
+  const cells = new Set(), trunks = new Map();
+  const treeLocation = location.id + '/trees';
   // Capture the permanent terrain before player buildings and loose pickups are restored.
   for (const tile of island.children) {
-    if (tile.userData.scanSurface !== location.scanSurface) continue;
+    if (tile.userData.treeKey && tile.name.endsWith('-trunk')) trunks.set(tile.userData.treeKey, tile);
+    if (!location.scanSurface || tile.userData.scanSurface !== location.scanSurface) continue;
     const {x,z} = tile.position;
     if (!solids.some(m => Math.abs(x-m.position.x) < .32+m.scale.x/2 &&
         Math.abs(z-m.position.z) < .32+m.scale.z/2)) cells.add(x+','+z);
   }
-  const view = createScanFindings(island);
+  const view = createScanFindings(island,trunks);
   const ray = new THREE.Raycaster(), center = new THREE.Vector2(), point = new THREE.Vector3();
   const floor = new THREE.Plane(new THREE.Vector3(0,1,0),0);
+  let disposed = false;
   let pending = null, opened = null, day = store.state.day;
   let showingPrizes = false;
   function cancel() {
@@ -35,32 +38,44 @@ export function createScanInteraction({location, island, solids, obstacles, stag
       showingPrizes = false;
     }
     day = save.day;
-    const findings = save.locations[location.id];
-    view.sync(showingPrizes ? {...findings?.hiddenPrizes, ...findings?.cells} : findings?.cells ?? {});
+    const grass = save.locations[location.id], trees = save.locations[treeLocation];
+    const preview = showingPrizes ? {...grass?.hiddenPrizes,...trees?.hiddenPrizes} : {};
+    view.sync({...preview,...grass?.cells,...trees?.cells});
     if (opened && (opened.day !== day || !view.markers.has(opened.key))) dialog.close();
   }
-  function target() {
+  function target(allowTreeHit) {
     camera.updateMatrixWorld();
     ray.setFromCamera(center,camera);
-    const obstruction = ray.intersectObjects([...solids,...obstacles.filter(m=>m.visible),...stage.pickups],false)[0];
+    const obstruction = ray.intersectObjects([...solids,...obstacles.filter(m=>m.visible),...stage.pickups,...stage.ghosts.filter(m=>m.visible)],false)[0];
     const marker = ray.intersectObjects([...view.markers.values()], false)[0];
     if (marker && marker.distance < (obstruction?.distance ?? Infinity) && marker.point.distanceTo(player.position)<6) {
       return marker.object.userData.scanKey;
     }
+    if (allowTreeHit && obstruction?.object.userData.treeKey && obstruction.point.distanceTo(player.position)<6)
+      return obstruction.object.userData.treeKey;
     if (!ray.ray.intersectPlane(floor,point) || point.distanceTo(player.position)>=6 ||
         (obstruction && obstruction.distance < ray.ray.origin.distanceTo(point))) return null;
     const key = Math.round(point.x)+','+Math.round(point.z);
     return cells.has(key) ? key : null;
   }
-  const ref = key => ({location:location.id, day:moscowDay(), key});
-  function start() {
+  const ref = key => ({location:trunks.has(key) ? treeLocation : location.id, day:moscowDay(), key});
+  function start(skill) {
     if (pending) return;
     if (day !== moscowDay()) store.refresh();
-    const key = target();
-    if (!key) {notify('Наведи прицел на свободную клетку травы поблизости.');return}
-    if (store.state.locations[location.id]?.cells[key]) {say(messages.repeat);return}
-    const [x,z] = key.split(',').map(Number);
-    pending = {...ref(key), x,z,start:performance.now()};
+    const key = target(true), tree = skill === 'tree';
+    if (!(tree ? trunks : cells).has(key)) {
+      notify(tree ? 'Наведи прицел на дерево поблизости.' : 'Наведи прицел на свободную клетку травы поблизости.');
+      return;
+    }
+    const finding = ref(key);
+    if (store.state.locations[finding.location]?.cells[key]) {
+      say(tree ? 'Это дерево уже просканировано.' : messages.repeat);
+      return;
+    }
+    const trunk = trunks.get(key);
+    const [x,z] = tree ? [trunk.position.x,trunk.position.z] : key.split(',').map(Number);
+    const face = tree ? Math.round(Math.atan2(player.position.x-x,player.position.z-z)/(Math.PI/2)) : undefined;
+    pending = {...finding, skill, face, x,z,start:performance.now()};
     progress.hidden = false;
     progress.value = 0;
   }
@@ -70,12 +85,16 @@ export function createScanInteraction({location, island, solids, obstacles, stag
     if (!active || Math.hypot(player.position.x-pending.x,player.position.z-pending.z)>=6) {cancel();return}
     const fraction = Math.min(1,(now-pending.start)/3000);
     progress.value = fraction;
-    view.pulse(pending.x,pending.z,fraction,reduced);
+    if (pending.skill === 'tree') view.pulseTree(trunks.get(pending.key),fraction,reduced);
+    else view.pulse(pending.x,pending.z,fraction,reduced);
     if (fraction < 1) return;
     const scan = pending;
     cancel();
-    store.change(save => scanCell(save,{...scan,cells})).then(result => {
-      if (result && island.name===location.id && scan.day===moscowDay()) say(messages[result]);
+    store.change(save => scanCell(save,{...scan,cells:scan.skill === 'tree' ? trunks : cells})).then(result => {
+      if (!result || disposed || scan.day!==moscowDay()) return;
+      if (scan.skill === 'tree' && result === 'empty') say('В этом дереве находок нет.');
+      else if (scan.skill === 'tree' && result === 'repeat') say('Это дерево уже просканировано.');
+      else say(messages[result]);
     });
   }
   function interact(action) {
@@ -83,8 +102,8 @@ export function createScanInteraction({location, island, solids, obstacles, stag
     if (!marker) return false;
     const finding = ref(key);
     if (day !== finding.day) {store.refresh();return true}
-    if (!store.state.locations[location.id]?.cells[key]) {
-      notify('Сначала просканируй клетку с призом.');
+    if (!store.state.locations[finding.location]?.cells[key]) {
+      notify(trunks.has(key) ? 'Сначала просканируй дерево с призом.' : 'Сначала просканируй клетку с призом.');
       return true;
     }
     if (marker.userData.kind === 'coin' && action === 'collect') {
@@ -110,7 +129,10 @@ export function createScanInteraction({location, island, solids, obstacles, stag
     async setShowingPrizes(visible) {
       store.refresh();
       showingPrizes = visible;
-      if (visible) await store.change(save => prepareFindingPreview(save, {location:location.id, day, cells}));
+      if (visible) await store.change(save => {
+        prepareFindingPreview(save, {location:location.id, day, cells});
+        prepareFindingPreview(save, {location:treeLocation, day, cells:trunks, skill:'tree'});
+      });
       else sync(store.state);
     },
     // The future Excel answer checker calls this only with its verification result.
@@ -120,6 +142,7 @@ export function createScanInteraction({location, island, solids, obstacles, stag
       return store.change(save => claimFinding(save,finding,'tablet',correct));
     },
     dispose(){
+      disposed = true;
       cancel();
       if (dialog.open) dialog.close();
       dialog.removeEventListener('close',close);

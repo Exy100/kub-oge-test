@@ -14,6 +14,7 @@ export function createTreeRenderer(box) {
         w * scale, h * scale, d * scale, palette[material], collide);
       mesh.name = name;
       mesh.userData.objectId = objectId;
+      mesh.userData.treeKey = 'tree:' + x + ',' + z;
       return mesh;
     });
   };

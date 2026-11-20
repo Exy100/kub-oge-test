@@ -70,3 +70,30 @@ test('preview pins remaining daily prizes across reloads without discovering or 
   assert.deepEqual(island.hiddenPrizes, {});
   assert.deepEqual([island.coinsLeft, island.tabletsLeft, restored.coins], [0,0,0]);
 });
+
+test('one prize-bearing tree per island per day, for small and large forests', () => {
+  for (const size of [1,2,6,75]) for (const roll of [0,.6,.99]) {
+    const trees = new Set(Array.from({length:size},(_,i)=>'tree:'+i+',0'));
+    let save = fresh();
+    scanCell(save,{location,day,key:'0,0',cells},()=>0);
+    for (const island of ['garden/trees','forge/trees']) {
+      const results = [];
+      for (const key of trees) {
+        const args = {location:island,skill:'tree',face:-1,day,cells:trees,key};
+        const kind = scanCell(save,args,()=>roll);
+        save = JSON.parse(JSON.stringify(save));
+        assert.equal(scanCell(save,args,()=>0),'repeat');
+        if (kind==='empty') continue;
+        const entry = save.locations[island].cells[key];
+        assert.equal(entry.face,-1);
+        if (kind==='tablet') assert.ok(['basic','medium'].includes(entry.level));
+        const amount = claimFinding(save,args,kind,true);
+        assert.ok([1,20,40].includes(amount));
+        assert.equal(claimFinding(save,args,kind,true),0);
+        results.push(kind);
+      }
+      assert.deepEqual(results,[roll<.5?'coin':'tablet']);
+    }
+    assert.equal(save.locations[location].cells['0,0'].kind,'coin');
+  }
+});

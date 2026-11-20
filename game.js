@@ -14,7 +14,7 @@ import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
 import { createForge } from './forge.js?v=18';
-import { EXPLORER, loadAppearance } from './appearance.js?v=11';
+import { EXPLORER, loadAppearance } from './appearance.js?v=12';
 import { createCustomizer } from './customizer.js?v=20';
 import { createFollowState, followCamera } from './follow-camera.js?v=2';
 import { createStage, placeTarget, removeTarget, isLimited, MATERIAL_NAMES } from './progression.js?v=2';
@@ -58,12 +58,66 @@ const playerAccount = {
   set coins(value){sessionCoins = value - scanStore.state.coins},
 };
 scanDialog.querySelector('button').onclick = () => scanDialog.close();
-function pauseForTablet(){
+function pauseForScanMenu(){
   document.exitPointerLock?.();
   Object.keys(keys).forEach(key => {keys[key]=false});
   panel.input.clear();
   dragging = jumpRequested = false;
 }
+const skillList = $('#skill-list');
+const skillChoices = [...skillList.querySelectorAll('[data-skill]')];
+let lastSkill = 'grass', restoreSkillPointer = false;
+function openSkillList(){
+  const skills = character.profile.specialSkills;
+  if (!skills?.length) {notify('У этого героя пока нет особых навыков.');return}
+  scanner?.cancel();
+  restoreSkillPointer = document.pointerLockElement === renderer.domElement;
+  pauseForScanMenu();
+  for (const button of skillChoices) {
+    const skill = button.dataset.skill;
+    button.hidden = !skills.includes(skill);
+    button.disabled = skill === 'grass' ? !LOCATIONS[stage.index].scanSurface : !LOCATIONS[stage.index].trees.length;
+  }
+  skillList.showModal();
+  const available = skillChoices.filter(b=>!b.hidden && !b.disabled);
+  (available.find(b=>b.dataset.skill===lastSkill) ?? available[0])?.focus();
+  if (!reducedHandMotion.matches) {
+    for (const button of available) button.querySelector('video').play().catch(()=>{});
+  }
+}
+function closeSkillList(resume=false){
+  skillList.close();
+  if (restoreSkillPointer || resume) renderer.domElement.requestPointerLock?.()?.catch(()=>{});
+  restoreSkillPointer = false;
+}
+skillList.querySelector('.paths-heading button').onclick = () => closeSkillList();
+skillList.addEventListener('cancel',event=>{event.preventDefault();closeSkillList()});
+skillList.addEventListener('close',()=>{
+  for (const video of skillList.querySelectorAll('video')) video.pause();
+});
+for (const button of skillChoices) button.onclick = () => {
+  lastSkill = button.dataset.skill;
+  closeSkillList(!third && !panel.isBattle());
+  if (third || panel.isBattle()) notify('Для скана включи вид от первого лица (V) и режим сборки (L).');
+  else scanner?.start(lastSkill);
+};
+skillList.addEventListener('keydown',e=>{
+  if (!skillList.open || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing) return;
+  const shortcuts = {Digit1:0,Numpad1:0,Digit2:1,Numpad2:1};
+  if (e.code in shortcuts || ['Digit0','Numpad0','ArrowUp','ArrowDown'].includes(e.code)) {
+    e.preventDefault();e.stopPropagation();
+    if (e.repeat) return;
+    if (e.code in shortcuts) {
+      const button = skillChoices[shortcuts[e.code]];
+      if (!button.hidden && !button.disabled) button.click();
+    } else if (e.code.endsWith('0')) closeSkillList();
+    else {
+      const available = skillChoices.filter(b=>!b.hidden && !b.disabled);
+      const offset = e.code === 'ArrowDown' ? 1 : -1;
+      available[(available.indexOf(document.activeElement)+available.length+offset)%available.length]?.focus();
+    }
+  }
+});
 const bag=createPlayerInventory(()=>[
   ...BUILD_MATERIALS.map((item,i)=>({id:item.id,quantity:stages.reduce((sum,island)=>sum+island.inventory[i],0)})),
   {id:'bit',quantity:forgeState.bits},
@@ -94,7 +148,7 @@ function onCollect(mesh){
 const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:currentQuestBrief(),progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
 const restartDialog=$('#restart-dialog');
 let restartStage=null, extraDialog=null;
-function modalOpen(){return scanDialog.open||extraDialog?.open||restartDialog.open||forge?.isOpen()||customizer.isOpen()||panel.isOpen()}
+function modalOpen(){return skillList.open||scanDialog.open||extraDialog?.open||restartDialog.open||forge?.isOpen()||customizer.isOpen()||panel.isOpen()}
 
 const messageBox=$('#message');
 let messageTimer;
@@ -160,12 +214,12 @@ function enterIsland(next) {
   stage = next;
   island.name = stage.locationId;
   buildIslandTerrain(LOCATIONS[stage.index], stage.index, island, geo, box, solids, cameraObstacles);
-  if (LOCATIONS[stage.index].scanSurface && character.profile.specialSkill === 'scan') {
+  if (character.profile.specialSkills?.length) {
     scanStore.refresh();
     scanner = createScanInteraction({
       location:LOCATIONS[stage.index], island, solids, obstacles:cameraObstacles, stage, camera, player,
       store:scanStore, dialog:scanDialog, progress:$('#scan-progress'), say:panel.scanResult, notify,
-      pause:pauseForTablet, onCoin(){playPickup();character.react();notify('Золото +1')},
+      pause:pauseForScanMenu, onCoin(){playPickup();character.react();notify('Золото +1')},
     });
   }
   stage.placed = [];
@@ -356,10 +410,7 @@ addEventListener('keydown',e=>{
     if (e.repeat || e.isComposing || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey ||
         e.target?.closest?.('input,textarea,select,[contenteditable]')) return;
     e.preventDefault();
-    if (character.profile.specialSkill !== 'scan') notify('У этого героя пока нет особого навыка.');
-    else if (!scanner) notify('Скан доступен на Острове мечтателей.');
-    else if (third || panel.isBattle()) notify('Для скана включи вид от первого лица (V) и режим сборки (L).');
-    else scanner.start();
+    openSkillList();
     return;
   }
   if(panel.input.down(e))return;
@@ -505,7 +556,7 @@ scanner?.update(now,active && !document.hidden && !third && !panel.isBattle(),re
 panel.updatePortal(nearbyRoute(),active&&!document.hidden,now);
 simpleArchEffect?.update(now, reducedHandMotion.matches);
 if (returnGlow) returnGlow.material.opacity=.4+Math.sin(now*.002)*.12;
-forge?.update(player.position,now/1000,$('#welcome').classList.contains('hidden')&&!extraDialog?.open&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
+forge?.update(player.position,now/1000,$('#welcome').classList.contains('hidden')&&!skillList.open&&!scanDialog.open&&!extraDialog?.open&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);
 gathering.update(dt,now/1000,{active,third:player.visible,visible:!panel.isBattle()&&bag.loadouts.build.tool==='wand',dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
 if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
