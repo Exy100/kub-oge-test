@@ -2,7 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import { createForgeState, toggleBit, craftByte, collectByte, insertByte, bitValue } from './forge-state.js?v=5';
 import { createByteFactory } from './byte-model.js?v=3';
 
-export function createForge({ scene, box, solids, state=createForgeState(), remainingBits, onOpen, onChange, notify, canStore=()=>true, onCollect=()=>{} }) {
+export function createForge({ scene, box, solids, state=createForgeState(), remainingBits, onOpen, onChange, notify, canStore=()=>true, onCollect=()=>{}, onPlace=()=>{} }) {
   const pickups=[],bytePickups=[],cells=[],deposited=[],slotMeshes=[];
   const dialog=document.querySelector('#forge-dialog'),prompt=document.querySelector('#forge-prompt');
   const bag=document.querySelector('#forge-bag');
@@ -127,7 +127,7 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
       if(root.userData.cell!==undefined){
         const i=root.userData.cell;if(state.cells[i])return false;
         if(!insertByte(state,i)){notify('Сначала забери готовый байт с подставки у верстака.');return false}
-        showDeposit(i);refresh();
+        showDeposit(i);onPlace();refresh();
         notify(state.unlocked?'✦ Четыре байта на площадке! Врата в арке открылись — нажми E рядом с ними.':`Байт установлен · ${state.cells.filter(Boolean).length} из 4`);return true;
       }
       return false;
