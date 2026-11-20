@@ -56,7 +56,7 @@ export function installCheatMenu({locations, currentIsland, getScanner, travel, 
     scanButton.disabled = true;
     try {
       await scanner.setShowingPrizes(!scanner.showingPrizes);
-      if (scanner.showingPrizes) status.textContent = 'Чтобы обнаружить отмеченный приз, просканируй его клетку.';
+      if (scanner.showingPrizes) status.textContent = 'Чтобы обнаружить отмеченный приз, просканируй клетку или дерево.';
     } finally {
       refresh();
     }

@@ -402,3 +402,13 @@ body > header .brand { pointer-events:auto; }
 #scan-dialog{width:min(390px,calc(100vw - 32px))}
 #navigator-greeting{width:max-content;max-width:min(260px,58vw);white-space:normal}
 @media(max-width:1000px){#navigator-greeting{left:0;transform:none}#navigator-greeting:after{left:32px}}
+
+#skill-list{width:min(385px,calc(100vw - 28px));max-height:90dvh;overflow:auto}
+#skill-list-help{margin:.6rem 0 1rem;color:#516452;font-size:.88rem}
+#skill-list .scan-choice{display:flex;align-items:center;width:100%;gap:12px;margin-top:8px;padding:7px 12px 7px 7px;border:1px solid #b5c3ad;border-radius:12px;text-align:left;background:#f0f2e6;color:#263f33}
+#skill-list .scan-choice[hidden]{display:none}
+#skill-list .scan-choice:focus-visible{outline:3px solid #456b50;outline-offset:1px}
+#skill-list .scan-choice:hover:enabled{background:#e3ebd9}
+#skill-list .scan-choice:disabled{opacity:.55}
+.scan-choice video{width:74px;height:66px;object-fit:cover;border-radius:7px;background:#263f33;pointer-events:none}
+.scan-choice span{flex:1}.scan-choice strong,.scan-choice small{display:block}.scan-choice small{margin-top:3px;font-weight:400}

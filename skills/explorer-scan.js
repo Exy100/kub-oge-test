@@ -5,19 +5,27 @@ export const EXCEL_REWARDS = Object.freeze({basic:20, medium:40, advanced:70});
 const levels = Object.keys(EXCEL_REWARDS);
 const emptySave = () => ({day:null, locations:{}, coins:0});
 
-function dailyFindings(save, location, random) {
+function dailyFindings(save, location, random, skill) {
+  if (save.locations[location]) return save.locations[location];
+  if (skill === 'tree') {
+    const coinsLeft = random() < .5 ? 1 : 0;
+    return save.locations[location] = {coinsLeft, tabletsLeft:1-coinsLeft, cells:{}};
+  }
   const quota = () => 1 + Math.floor(random() * 3);
-  return save.locations[location] ??= {coinsLeft:quota(), tabletsLeft:quota(), cells:{}};
+  return save.locations[location] = {coinsLeft:quota(), tabletsLeft:quota(), cells:{}};
 }
 
-const tabletFinding = random => ({kind:'tablet', level:levels[Math.floor(random() * levels.length)]});
+function tabletFinding(random, skill) {
+  const choices = skill === 'tree' ? ['basic','medium'] : levels;
+  return {kind:'tablet', level:choices[Math.floor(random() * choices.length)]};
+}
 
 // Pin only the remaining prizes when a preview is first requested for this island and day.
-export function prepareFindingPreview(save, {location, day, cells}, random = Math.random) {
-  if (save.day !== day) return;
-  const island = dailyFindings(save, location, random);
+export function prepareFindingPreview(save, {location, day, cells, skill = 'grass'}, random = Math.random) {
+  if (save.day !== day || !cells.size) return;
+  const island = dailyFindings(save, location, random, skill);
   if (island.hiddenPrizes) return;
-  const available = [...cells].filter(key => !Object.hasOwn(island.cells, key));
+  const available = [...cells.keys()].filter(key => !Object.hasOwn(island.cells, key));
   const prizes = {};
   const count = Math.min(available.length, island.coinsLeft + island.tabletsLeft);
   for (let i = 0; i < count; i++) {
@@ -25,14 +33,14 @@ export function prepareFindingPreview(save, {location, day, cells}, random = Mat
     const key = available[index];
     available[index] = available[available.length - 1];
     available.pop();
-    prizes[key] = i < island.coinsLeft ? {kind:'coin'} : tabletFinding(random);
+    prizes[key] = i < island.coinsLeft ? {kind:'coin'} : tabletFinding(random, skill);
   }
   island.hiddenPrizes = prizes;
 }
 
-export function scanCell(save, {location, cells, key, day}, random = Math.random) {
+export function scanCell(save, {location, cells, key, day, skill = 'grass', face}, random = Math.random) {
   if (save.day !== day || !cells.has(key)) return null;
-  const island = dailyFindings(save, location, random);
+  const island = dailyFindings(save, location, random, skill);
   if (Object.hasOwn(island.cells, key)) return 'repeat';
   let entry = {kind:'empty'};
   if (island.hiddenPrizes) {
@@ -42,10 +50,11 @@ export function scanCell(save, {location, cells, key, day}, random = Math.random
     const remaining = cells.size - Object.keys(island.cells).length;
     const draw = Math.floor(random() * remaining);
     if (draw < island.coinsLeft) entry = {kind:'coin'};
-    else if (draw < island.coinsLeft + island.tabletsLeft) entry = tabletFinding(random);
+    else if (draw < island.coinsLeft + island.tabletsLeft) entry = tabletFinding(random, skill);
   }
   if (entry.kind === 'coin') island.coinsLeft--;
   if (entry.kind === 'tablet') island.tabletsLeft--;
+  if (skill === 'tree' && entry.kind !== 'empty') entry.face = face;
   island.cells[key] = entry;
   return entry.kind;
 }

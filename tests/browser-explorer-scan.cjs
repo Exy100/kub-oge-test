@@ -29,7 +29,7 @@ const {chromium} = require('playwright');
     });
     const source = file=>fs.readFileSync(path.join(repo,file),'utf8');
     await page.route('**/skills/explorer-scan.js',r=>r.fulfill({contentType:'text/javascript',
-      body:source('skills/explorer-scan.js').replaceAll('random = Math.random','random = () => 0')}));
+      body:source('skills/explorer-scan.js').replaceAll('random = Math.random','random = window.scanRandom ?? (() => 0)')}));
     await page.route('**/game.js*',r=>r.fulfill({contentType:'text/javascript',body:source('game.js')+`
       window.scanTest={
         step(){frame(performance.now())},
@@ -40,6 +40,14 @@ const {chromium} = require('playwright');
         },
         markers:()=>island.getObjectsByProperty('isMesh',true)
           .filter(mesh=>mesh.userData.scanKey).map(mesh=>mesh.userData.scanKey).sort(),
+        aimTree(x,z){
+          player.position.set(x,0,z+2);yaw=pitch=0;this.step();
+        },
+        marker(key){
+          let result;
+          island.traverse(m=>{if(m.userData.scanKey===key)result=m.position.toArray()});
+          return result;
+        },
         saved:()=>scanStore.state,
         solve:correct=>scanner.submitVerifiedAnswer(correct),
         travel:index=>goToIsland(index,'Переход'),
@@ -48,24 +56,31 @@ const {chromium} = require('playwright');
     const aim = (x,z) => page.evaluate(([x,z])=>scanTest.aim(x,z),[x,z]);
     const press = key => page.keyboard.press(key);
     const click = sel => page.locator(sel).evaluate(el=>el.click());
+    const menu = page.locator('#skill-list');
+    async function choose(tree=false, key='Digit0'){
+      await press(key);
+      assert(await menu.isVisible());
+      await press(tree?'Digit2':'Digit1');
+      assert.equal(await menu.isVisible(),false);
+    }
     const entries = () => page.evaluate(()=>scanTest.saved().locations['island.dreamers']?.cells ?? {});
     const balance = () => page.evaluate(()=>scanTest.saved().coins);
     async function scan(x,z,key='Digit0'){
-      await aim(x,z);await press(key);await tick(3001);
+      await aim(x,z);await choose(false,key);await tick(3001);
       await page.waitForFunction(k=>scanTest.saved().locations['island.dreamers']?.cells[k],x+','+z,{polling:50});
     }
     const dialog = page.locator('#scan-dialog');
     await page.goto('http://127.0.0.1:8151');
     await click('#play');
-    await press('Digit0');
+    await choose();
     assert.match(await page.locator('#message').textContent(),/первого лица/);
-    await press('KeyV');await press('KeyL');await press('Digit0');
+    await press('KeyV');await press('KeyL');await choose();
     assert.match(await page.locator('#message').textContent(),/режим сборки/);
-    await press('KeyL');await aim(0,3);await press('Digit0');
+    await press('KeyL');await aim(0,3);await choose();
     await tick(1200);await press('KeyV');await tick(2200);
     assert.deepEqual(await entries(),{});
     assert.equal(await page.locator('#scan-progress').isVisible(),false);
-    await press('KeyV');await aim(0,3);await press('Digit0');
+    await press('KeyV');await aim(0,3);await choose();
     await tick(2900);
     assert(await page.locator('#scan-progress').isVisible());
     assert.deepEqual(await entries(),{});
@@ -73,9 +88,10 @@ const {chromium} = require('playwright');
     await page.waitForFunction(()=>scanTest.saved().locations['island.dreamers'],null,{polling:50});
     assert.equal((await entries())['0,3'].kind,'coin');
     assert.equal(await balance(),0);
-    await press('Digit0');
+    await choose();
     assert.match(await page.locator('#navigator-greeting').innerText(),/уже просканирована/);
     assert.match(await page.evaluate(()=>speechSynthesis.lines.at(-1)),/уже просканирована/);
+    await page.waitForFunction(()=>document.pointerLockElement?.id==='world',null,{polling:50});
     await page.mouse.click(600,350);
     await page.waitForFunction(()=>scanTest.saved().coins===1,null,{polling:50});
     await scan(1,3,'Numpad0');
@@ -86,13 +102,15 @@ const {chromium} = require('playwright');
     await click('#scan-dialog button');
     await page.evaluate(()=>scanTest.travel(1));
     await press('Digit0');
-    assert.match(await page.locator('#message').textContent(),/Острове мечтателей/);
+    assert(await menu.locator('[data-skill="grass"]').isDisabled());
+    assert(await menu.locator('[data-skill="tree"]').isEnabled());
+    await press('Escape');
     await page.evaluate(()=>scanTest.travel(0));
     await aim(1,3);await press('KeyE');assert(await dialog.isVisible());
     await press('Escape');
     await page.locator('#reset').evaluate(el=>el.dispatchEvent(new MouseEvent('click',{detail:1,button:0})));
     await page.locator('#restart-confirm').evaluate(el=>el.dispatchEvent(new MouseEvent('click',{detail:1,button:0})));
-    await aim(0,3);await press('Digit0');
+    await aim(0,3);await choose();
     assert.match(await page.locator('#navigator-greeting').innerText(),/уже просканирована/);
     await page.reload();
     await click('#play');await press('KeyV');await aim(1,3);
@@ -115,12 +133,68 @@ const {chromium} = require('playwright');
     assert.equal(await dialog.isVisible(),false);
     assert.equal(await page.evaluate(()=>scanTest.solve(true)),0);
     assert.equal(await balance(),21);
-    const menu = page.locator('#cheat-menu');
+    await aim(0,3);
+    await press('Digit0');
+    await page.waitForFunction(()=>[...document.querySelectorAll('#skill-list video')].every(v=>v.readyState>=2 && v.videoWidth>0),null,{polling:50});
+    await press('ArrowDown');
+    await press('Enter');
+    assert.equal(await menu.isVisible(),false);
+    assert.match(await page.locator('#message').innerText(),/на дерево/);
+    const aimTree = (x,z)=>page.evaluate(([x,z])=>scanTest.aimTree(x,z),[x,z]);
+    async function treeScan(x,z) {
+      await aimTree(x,z);
+      await choose(true);
+      await tick(3001);
+      await page.waitForFunction(key=>Object.values(scanTest.saved().locations).some(bucket=>bucket.cells[key]),'tree:'+x+','+z,{polling:50});
+    }
+    const treeKey='tree:-8,-6';
+    await aimTree(-8,-6);
+    await choose();
+    assert.match(await page.locator('#message').innerText(),/клетку травы/);
+    await treeScan(-8,-6);
+    const marker = await page.evaluate(key=>scanTest.marker(key),treeKey);
+    assert.equal(marker[0],-8);
+    assert.equal(marker[1],1.5);
+    assert.ok(marker[2]>-6);
+    await choose(true);
+    assert.match(await page.locator('#navigator-greeting').innerText(),/дерево уже просканировано/);
+    await page.waitForFunction(()=>document.pointerLockElement?.id==='world',null,{polling:50});
+    await page.mouse.click(600,350);
+    await page.waitForFunction(()=>scanTest.saved().coins===22,null,{polling:50});
+    assert.equal(await page.evaluate(key=>scanTest.marker(key),treeKey),undefined);
+    await treeScan(9,1);
+    assert.match(await page.locator('#navigator-greeting').innerText(),/находок нет/);
+    await page.evaluate(()=>{
+      scanTest.travel(2);
+      const rolls=[.9,0,.8];
+      window.scanRandom=()=>rolls.shift() ?? 0;
+    });
+    await treeScan(72,-7);
+    await press('KeyE');
+    assert(await dialog.isVisible());
+    assert.equal(await page.evaluate(()=>scanTest.solve(false)),0);
+    await click('#scan-dialog button');
+    await page.reload();
+    await click('#play');await press('KeyV');
+    await page.evaluate(()=>scanTest.travel(2));
+    await aimTree(72,-7);await press('KeyE');
+    assert(await dialog.isVisible());
+    assert.equal(await page.evaluate(()=>scanTest.solve(true)),40);
+    assert.equal(await dialog.isVisible(),false);
+    await treeScan(88,-7);
+    assert.match(await page.locator('#navigator-greeting').innerText(),/находок нет/);
+    await tick(86400000);
+    await treeScan(88,-7);
+    assert.equal(await page.evaluate(()=>scanTest.marker('tree:88,-7')[1]),1.5);
+    assert.equal(await balance(),62);
+    await page.evaluate(()=>scanTest.travel(0));
+    await tick(86400000);
+    const cheatMenu = page.locator('#cheat-menu');
     async function openMenu(){
       await page.keyboard.down('KeyQ');await press('KeyA');await page.keyboard.up('KeyQ');
     }
     async function toggle(label){
-      const button = menu.getByRole('button',{name:label,exact:true});
+      const button = cheatMenu.getByRole('button',{name:label,exact:true});
       await button.evaluate(el=>el.click());
       await page.waitForFunction(()=>!document.querySelector('[data-scan]').disabled,null,{polling:50});
     }
@@ -130,12 +204,15 @@ const {chromium} = require('playwright');
     const prizes = await page.evaluate(()=>scanTest.saved().locations['island.dreamers'].hiddenPrizes);
     const prizeKeys = Object.keys(prizes).sort();
     assert.equal(prizeKeys.length,2);
-    assert.deepEqual(await markers(),prizeKeys);
+    const hiddenTrees = await page.evaluate(()=>Object.keys(scanTest.saved().locations['island.dreamers/trees'].hiddenPrizes));
+    assert.equal(hiddenTrees.length,1);
+    const [treePrize] = hiddenTrees;
+    assert.deepEqual(await markers(),[...prizeKeys,treePrize].sort());
     assert.deepEqual(await entries(),{});
     await toggle('Скрыть призы');
     assert.deepEqual(await markers(),[]);
     await toggle('Показать призы');
-    assert.deepEqual(await markers(),prizeKeys);
+    assert.deepEqual(await markers(),[...prizeKeys,treePrize].sort());
     await press('Escape');
     const keyFor = kind => prizeKeys.find(key=>prizes[key].kind===kind);
     const coinKey = keyFor('coin'), tabletKey = keyFor('tablet');
@@ -153,26 +230,28 @@ const {chromium} = require('playwright');
     }
     await clickCoin();
     assert.match(await page.locator('#message').textContent(),/Сначала просканируй/);
-    assert.equal(await balance(),21);
+    assert.equal(await balance(),62);
     await scan(...coinPosition);
     await openMenu();await toggle('Скрыть призы');await press('Escape');
     assert.deepEqual(await markers(),[coinKey]);
     await clickCoin();
-    await page.waitForFunction(()=>scanTest.saved().coins===22,null,{polling:50});
+    await page.waitForFunction(()=>scanTest.saved().coins===63,null,{polling:50});
     await openMenu();await toggle('Показать призы');
-    assert.deepEqual(await markers(),[tabletKey]);
+    assert.deepEqual(await markers(),[tabletKey,treePrize].sort());
     await press('Escape');
     await page.evaluate(()=>scanTest.travel(1));
     await openMenu();
-    assert(await menu.getByRole('button',{name:'Сканирование недоступно'}).isDisabled());
+    await toggle('Показать призы');
+    assert.equal((await markers()).length,1);
+    assert.ok((await markers())[0].startsWith('tree:'));
     await press('Escape');
     await page.evaluate(()=>scanTest.travel(0));
     assert.deepEqual(await markers(),[]);
     await openMenu();await toggle('Показать призы');await press('Escape');
-    assert.deepEqual(await markers(),[tabletKey]);
+    assert.deepEqual(await markers(),[tabletKey,treePrize].sort());
     await tick(86400000);
     assert.deepEqual(await markers(),[]);
     assert.deepEqual(errors,[]);
-    console.log('PASS grass scan, timing, speech, pickup, tablet, travel, restart, reload, preview toggles and Moscow midnight');
+    console.log('PASS skill menu, videos, grass and tree targets, one prize tree, pickup, Excel, travel, reload and midnight');
   } finally {await browser?.close();server.kill()}
 })().catch(e=>{console.error(e);process.exitCode=1});
