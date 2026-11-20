@@ -1,7 +1,7 @@
 import { createInventoryWindows } from './inventory-window.js?v=4';
 import { createLiveNavigator } from './navigator-live.js?v=11';
 import { createNavigatorSpeech } from './navigator-speech.js?v=15';
-import { createNavigatorChoice } from './navigator-choice.js?v=11';
+import { createNavigatorChoice } from './navigator-choice.js?v=12';
 import { NAVIGATORS } from './navigator-model.js?v=11';
 // Physical codes keep chords identical on Russian and English layouts.
 export function createPanelKeys({ switchMode, navigator, camera, inventory, equipment, guide, quest }) {

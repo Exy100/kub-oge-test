@@ -5,15 +5,9 @@ export function createNavigatorChoice({onChange,onOpen}){
   let selected=loadNavigator(storage);
   const images=renderNavigatorPortraits();
   const welcome=document.querySelector('#welcome .modal');
-  welcome.classList.add('navigator-welcome');
-  welcome.querySelector('.eyebrow').textContent='ВЫБЕРИ СВОЕГО СПУТНИКА';
-  welcome.querySelector('h2').textContent='Вместе интереснее.';
-  const paragraphs=welcome.querySelectorAll(':scope > p');
-  paragraphs[0].textContent='Кто отправится с тобой на остров? Все четыре Навигатора помогут с заданиями — выбирай того, кто нравится. Позже выбор можно изменить.';
-  const controls=document.createElement('details');controls.className='start-controls';controls.innerHTML='<summary>Управление и маршрут</summary>';
-  paragraphs[1].before(controls);controls.append(paragraphs[1]);
-  const choices=document.createElement('div');choices.className='navigator-choices';choices.setAttribute('role','group');choices.setAttribute('aria-label','Выбор Навигатора');controls.before(choices);
-  const status=document.createElement('p');status.className='navigator-choice-status';status.setAttribute('aria-live','polite');controls.before(status);
+  const choices=document.createElement('div');choices.className='navigator-choices';choices.setAttribute('role','group');choices.setAttribute('aria-label','Выбор Навигатора');
+  const status=document.createElement('p');status.className='navigator-choice-status';status.setAttribute('aria-live','polite');
+  welcome.querySelector('#play').before(choices,status);
   const dialog=document.createElement('dialog');dialog.id='navigator-choice-dialog';dialog.className='panel-dialog';dialog.setAttribute('aria-labelledby','navigator-choice-title');
   dialog.innerHTML='<div class="paths-heading"><div><div class="eyebrow">ТВОЯ КОМАНДА</div><h2 id="navigator-choice-title">Выбери Навигатора</h2></div><button aria-label="Закрыть выбор Навигатора">×</button></div><p>Меняется только помощник. Прогресс островов останется с тобой.</p><div class="navigator-choices" role="group" aria-label="Выбор Навигатора"></div><p class="navigator-choice-status" aria-live="polite"></p>';
   document.body.append(dialog);dialog.querySelector('.paths-heading button').onclick=()=>dialog.close();
