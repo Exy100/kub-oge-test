@@ -1,6 +1,7 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
 import { EYE_COLORS, FEATURES, PALETTES, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance } from '../appearance.js';
+import { Raycaster, Vector3 } from '../vendor/three.module.js';
 import { createCharacter } from '../character.js';
 
 test('catalog has ten distinct options per feature and ten three-tone palettes',()=>{
@@ -21,7 +22,7 @@ test('all 100 hairstyle/palette combinations produce the expected hair geometry 
     assert.equal(character.getAppearance().hair,hair);assert.equal(character.getAppearance().palette,palette);
     const hairRoot=character.root.getObjectByName('hair'),colors=new Set();let count=0;
     hairRoot.traverse(part=>{if(part.isMesh){count++;colors.add(part.material.color.getHex());assert.ok(part.position.toArray().every(Number.isFinite));assert.ok(part.scale.toArray().every(v=>Number.isFinite(v)&&v>0))}});
-    if ([3,4,6,7,9].includes(hair)) {
+    if (hair >= 3) {
       const crown=hairRoot.getObjectByName('crown');
       assert.equal(crown.material.color.getHex(),PALETTES[palette].colors[0]);
       assert.ok(crown.geometry.attributes.position.array.every(Number.isFinite));
@@ -31,7 +32,7 @@ test('all 100 hairstyle/palette combinations produce the expected hair geometry 
         const cap = hairRoot.getObjectByName('baseball-cap');
         assert.equal(cap.getObjectByName('cap-crown').material.color.getHex(), 0x59636b);
         assert.ok(cap.getObjectByName('cap-brim') && cap.getObjectByName('cap-lettering'));
-      } else assert.equal(count,{3:8,4:1,6:8,7:9}[hair]);
+      } else assert.equal(count,{3:8,4:1,5:9,6:8,7:9,8:16}[hair]);
       if (hair===6) assert.equal(hairRoot.children.filter(m=>m.name==='pixie-fringe').length,3);
       if (hair===3) assert.equal(hairRoot.children.filter(m=>m.name==='swept-lock').length,3);
       if (hair===4) assert.ok(crown.material.vertexColors && crown.geometry.attributes.color);
@@ -39,6 +40,25 @@ test('all 100 hairstyle/palette combinations produce the expected hair geometry 
     } else {
       assert.ok(count>=5&&count<35);
       PALETTES[palette].colors.forEach(color=>assert.ok(colors.has(color),`style ${hair} uses tone ${color}`));
+    }
+  }
+  character.dispose();
+});
+test('hair covers both temples just below the baseball cap brim', () => {
+  const character = createCharacter({...DEFAULT_APPEARANCE, hair:9});
+  const head = character.root.getObjectByName('appearance');
+  const hair = head.getObjectByName('tousled-hair');
+  const face = head.getObjectByName('face');
+  character.root.updateMatrixWorld(true);
+  for (const side of [-1, 1]) {
+    for (const degrees of [52, 54, 56]) {
+      const angle = side * degrees * Math.PI / 180;
+      for (const y of [.172, .178, .184]) {
+        const origin = head.localToWorld(new Vector3(Math.sin(angle), y, -Math.cos(angle)));
+        const direction = head.localToWorld(new Vector3(0, y, 0)).sub(origin).normalize();
+        const hit = new Raycaster(origin, direction).intersectObjects([face, hair], true)[0];
+        assert.ok(hit && hit.object !== face, 'temple skin shows through the hair');
+      }
     }
   }
   character.dispose();

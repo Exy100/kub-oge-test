@@ -6,7 +6,7 @@ const V = (x,y,z) => new THREE.Vector3(x,y,z);
 const {lerp, clamp} = THREE.MathUtils;
 
 // A ring loft keeps every section attached to the next, including the underside.
-function loft(rows, sides, sample) {
+function loft(rows, sides, sample, closeBase = true) {
   const points = [], indices = [];
   for (let row = 0; row <= rows; row++) {
     for (let side = 0; side < sides; side++) {
@@ -18,7 +18,8 @@ function loft(rows, sides, sample) {
   }
   // Cap the two small end rings.
   for (let i=1; i<sides-1; i++) {
-    indices.push(0,i,i+1, rows*sides,rows*sides+i+1,rows*sides+i);
+    if (closeBase) indices.push(0,i,i+1);
+    indices.push(rows*sides,rows*sides+i+1,rows*sides+i);
   }
   const geo = new THREE.BufferGeometry();
   geo.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
@@ -43,6 +44,17 @@ function crownPoint(style,row,a) {
     edge += .024*cos(8*a+1.1*sin(3*a)) - .013;
     radius *= 1.07 + (.022+.018*t)*wave;
     top = .31 + .05*t*t + .012*wave*taper;
+  } else if (style === 5) {
+    // A blunt fringe opens into longer cheek-length panels and a tucked-under nape.
+    const fringe = THREE.MathUtils.smoothstep(cos(a), .62, .84);
+    edge = -.185 - .021 * abs(sin(a)) + .321 * fringe + .006 * cos(9*a);
+    radius *= 1 + .18 * (1-t) + .016 * taper * cos(11*a + t);
+    radius *= 1 - .066 * (1 - THREE.MathUtils.smoothstep(row, 1, 4)) * (1-fringe);
+    top += .008;
+  } else if (style === 8) {
+    edge += .054 * (1-front);
+    top += .014;
+    radius *= 1 + .014 * taper * cos(13*a);
   } else if (style === 6) {
     const side = sin(a);
     edge += .034 * (1 - front) + front * (.014 - .054 * side);
@@ -148,10 +160,12 @@ export function createSculptedHair(style, colors, underCap = false) {
   function part(name, geometry, color=base) {
     if (underCap) {
       // Compress only the hair under the fabric, keeping the fringe and nape full.
+      // Keep the continuous crown outside the temples up to the cap rim.
+      const compressionStart = name === 'crown' ? .185 : .13;
       const vertices = geometry.attributes.position;
       for (let i = 0; i < vertices.count; i++) {
         const y = vertices.getY(i);
-        const pressure = THREE.MathUtils.smoothstep(y, .13, .245);
+        const pressure = THREE.MathUtils.smoothstep(y, compressionStart, .245);
         const width = 1 - .13 * pressure;
         vertices.setXYZ(i, vertices.getX(i) * width, y - .034 * pressure, vertices.getZ(i) * width);
       }
@@ -163,7 +177,8 @@ export function createSculptedHair(style, colors, underCap = false) {
     hair.add(mesh);
     return mesh;
   }
-  part('crown',style===4 ? curlyCrown() : loft(crownProfile.length-1,72,(row,a)=>crownPoint(style,row,a)));
+  // The bob has an open face and a folded lower edge; a flat base would cross the eyes.
+  part('crown',style===4 ? curlyCrown() : loft(crownProfile.length-1,72,(row,a)=>crownPoint(style,row,a),style!==5));
   // Low-relief sweeps are laid directly onto the crown surface, with tapered edges.
   function sweep(name, coordinates, breadth, relief, tone) {
     const path = new THREE.CatmullRomCurve3(coordinates.map(([angle,row])=>V(angle,row,0)));
@@ -196,6 +211,29 @@ export function createSculptedHair(style, colors, underCap = false) {
       sweep('nape-sweep',[[side*1.65,10],[side*2.0,8],[side*2.65,6],[side*3.05,3]],.047,.015,tones[1]);
     }
     bangs.forEach((s,i)=>part('swept-lock',lock(s,xAxis),tones[[0,1,0][i]]));
+  } else if (style === 5) {
+    for (const side of [-1,1]) {
+      for (const angle of [1.02,1.70,2.42,2.91]) {
+        sweep('bob-layer',[[side*(angle-.19),10],[side*(angle-.10),8],
+          [side*angle,5],[side*(angle+.05),1.15]],.036,.009,tones[angle < 2 ? 1 : 0]);
+      }
+    }
+  } else if (style === 8) {
+    // Keep the raised tips rooted together along the rounded top.
+    for (let row=0; row<3; row++) {
+      for (let i=0; i<5; i++) {
+        const x = (i-2)*.073 + (row%2)*.014;
+        const z = (row-1)*.103;
+        const tip = .382 - .021 * (i-2)**2 / 4 - .012 * row + .005 * sin(3*i+row);
+        const strand = loft(12,16,(ring,a) => {
+          const t = ring / 12;
+          const radius = sin(Math.PI*t) ** .51 * (1.16 - .30*t);
+          return V(x + .009*t + .046*radius*cos(a), lerp(.217,tip,t),
+            z + .019*t*t + .057*radius*sin(a));
+        });
+        part('upright-hair-strand',strand,tones[(row+i)%3]);
+      }
+    }
   } else if (style === 6) {
     // A diagonal fringe flows from the short side into one longer temple.
     sweep('pixie-fringe',[[-1.25,9],[-.75,7.4],[-.2,5.5],[.45,3.5],[.83,1.2]],.043,.024,tones[1]);
