@@ -10,7 +10,8 @@ window.storyTest={
  portalSolids(){return solids.filter(b=>Math.abs(Math.abs(b.position.x)-5)<1.6&&Math.abs(b.position.z)<.4&&b.position.y>.1).length},
  collect(){for(const m of [...stage.pickups]){player.position.set(m.position.x,0,m.position.z+2);camera.position.set(m.position.x,2.5,m.position.z);camera.lookAt(m.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)}},
  build(i,material){const t=stage.targets[i];select(material??t.material);player.position.set(t.x,0,t.z+2);camera.position.set(t.x,t.y,t.z+2);camera.lookAt(t.x,t.y,t.z);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)},
- remove(i){const t=stage.targets[i];player.position.set(t.x,0,t.z+2);camera.position.set(t.x,t.y,t.z+2);camera.lookAt(t.x,t.y,t.z);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(2)},
+ aimAtBlock(i){const t=stage.targets[i];player.position.set(t.x,0,t.z+2);camera.position.set(t.x,t.y,t.z+2);camera.lookAt(t.x,t.y,t.z);camera.updateMatrixWorld();scene.updateMatrixWorld(true)},
+ remove(i){this.aimAtBlock(i);act(2)},
  getPosition(){return player.position.toArray()},
  worldCounts(){return {colliders:solids.length,blocks:stage.placed.length,tray:forge.bytePickups.length,platform:forge.deposited.length}},
  playerState(){return {coins:playerAccount.coins,kits:bag.loadouts,mode:panel.isBattle(),third}},
@@ -51,9 +52,26 @@ await page.locator('#quest-tab').click();
 assert(!await restart.isVisible(),'collapsed quest hides restart');
 await page.locator('#quest-tab').click();
 await page.evaluate(()=>storyTest.build(0));
+// Aim and send the native keyboard event within the same frame.
+async function reclaim(key, init={}){
+  await page.evaluate(([key,init])=>{
+    storyTest.aimAtBlock(0);
+    document.dispatchEvent(new KeyboardEvent('keydown',{bubbles:true,cancelable:true,code:'KeyN',key,...init}));
+  },[key,init]);
+}
+await reclaim('n',{repeat:true});
+await reclaim('n',{ctrlKey:true});
+assert((await page.evaluate(()=>storyTest.snapshot())).built===1,'repeat and browser shortcuts preserve the block');
+for(const key of ['n','т']){
+  await reclaim(key);
+  const refund=await page.evaluate(()=>storyTest.snapshot());
+  assert(refund.built===0 && refund.inventory[0]===7,'reclaim once on layout '+key);
+  await page.evaluate(()=>storyTest.build(0));
+}
 const beforeCancel=await page.evaluate(()=>storyTest.snapshot());
 await restart.dblclick();
 assert(await confirmation.isVisible(),'double-click only opens confirmation');
+await reclaim('т');
 await page.keyboard.press('e');await page.keyboard.press('KeyB');
 assert(await page.locator('dialog[open]').count()===1,'game input suspended');
 await confirm.focus();await page.keyboard.press('Enter');await page.keyboard.press('Space');
