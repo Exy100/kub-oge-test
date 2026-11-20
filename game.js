@@ -1,5 +1,6 @@
 import { BUILD_MATERIALS } from './catalog/index.js';
 import { LOCATIONS } from './locations/index.js';
+import { createSimpleArchEffect } from './world/simple-arch.js';
 import { createTreeRenderer } from './world/trees.js';
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js?v=2';
@@ -72,8 +73,10 @@ for(const state of stages){
 }
 let stage=stages[0];
 function glow(x,y,z,w,h,color){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.38,side:THREE.DoubleSide,depthWrite:false}));m.position.set(x,y,z);scene.add(m);return m}
-const exitGlow=glow(0,1.05,-1,.98,2,0x74e8d4);exitGlow.visible=false;
-const secondGlow=glow(40,1.05,-2,.98,2,0x91b9ef);secondGlow.visible=false;
+const simpleArchEffect = createSimpleArchEffect();
+const exitGlow = simpleArchEffect.createSurface(stages[0].arches[0]);
+const secondGlow = simpleArchEffect.createSurface(stages[1].arches[1]);
+scene.add(exitGlow, secondGlow);
 const returnGlows=[];
 for(const center of [46,86,126]){
   for(const x of [center-1.15,center+1.15])box(x,1.5,6,.6,3,.6,0x8bada5,true);
@@ -381,7 +384,8 @@ player.rotation.y=yaw;
 character.animate(dt,{dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,grounded:physics.grounded,velocity:physics.velocity,time:now/1000});
 const eye=player.position.clone().add(new THREE.Vector3(0,1.5,0));const look=new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));if(third){followCamera(camera,eye,look,[...solids,exitGlow,secondGlow,...returnGlows,...forge.cameraObstacles])}else{camera.position.copy(eye);camera.lookAt(eye.clone().add(look))}stage.pickups.forEach(m=>{const phase=m.userData.animationPhase;m.rotation.y=now*.0008+phase;m.position.y=.65+Math.sin(now*.002+phase)*.12});
 panel.updatePortal(nearbyRoute(),active&&!document.hidden,now);
-for(const portal of [exitGlow,secondGlow,...returnGlows])portal.material.opacity=.4+Math.sin(now*.002)*.12;
+simpleArchEffect.update(now, reducedHandMotion.matches);
+for(const portal of returnGlows)portal.material.opacity=.4+Math.sin(now*.002)*.12;
 forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);
 gathering.update(dt,now/1000,{active,third,visible:!panel.isBattle()&&bag.loadouts.build.tool==='wand',dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
