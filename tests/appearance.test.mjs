@@ -21,11 +21,18 @@ test('all 100 hairstyle/palette combinations produce the expected hair geometry 
     assert.equal(character.getAppearance().hair,hair);assert.equal(character.getAppearance().palette,palette);
     const hairRoot=character.root.getObjectByName('hair'),colors=new Set();let count=0;
     hairRoot.traverse(part=>{if(part.isMesh){count++;colors.add(part.material.color.getHex());assert.ok(part.position.toArray().every(Number.isFinite));assert.ok(part.scale.toArray().every(v=>Number.isFinite(v)&&v>0))}});
-    if ([3,4,7].includes(hair)) {
+    if ([3,4,6,7,9].includes(hair)) {
       const crown=hairRoot.getObjectByName('crown');
       assert.equal(crown.material.color.getHex(),PALETTES[palette].colors[0]);
       assert.ok(crown.geometry.attributes.position.array.every(Number.isFinite));
-      assert.equal(count,{3:8,4:1,7:9}[hair]);
+      if (hair === 9) {
+        const tousled = hairRoot.getObjectByName('tousled-hair');
+        assert.equal(tousled.children.filter(m => m.name === 'swept-lock').length, 3);
+        const cap = hairRoot.getObjectByName('baseball-cap');
+        assert.equal(cap.getObjectByName('cap-crown').material.color.getHex(), 0x59636b);
+        assert.ok(cap.getObjectByName('cap-brim') && cap.getObjectByName('cap-lettering'));
+      } else assert.equal(count,{3:8,4:1,6:8,7:9}[hair]);
+      if (hair===6) assert.equal(hairRoot.children.filter(m=>m.name==='pixie-fringe').length,3);
       if (hair===3) assert.equal(hairRoot.children.filter(m=>m.name==='swept-lock').length,3);
       if (hair===4) assert.ok(crown.material.vertexColors && crown.geometry.attributes.color);
       if (hair===7) assert.ok(hairRoot.getObjectByName('low-ponytail') && hairRoot.getObjectByName('hair-tie'));
