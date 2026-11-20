@@ -10,7 +10,7 @@ import { createCharacter } from './character.js?v=15';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
 import { createForge } from './forge.js?v=16';
 import { loadAppearance } from './appearance.js?v=9';
-import { createCustomizer } from './customizer.js?v=13';
+import { createCustomizer } from './customizer.js?v=14';
 import { followCamera } from './follow-camera.js';
 import { createStage, placeTarget, removeTarget, isLimited, MATERIAL_NAMES } from './progression.js?v=2';
 const $=s=>document.querySelector(s), scene=new THREE.Scene();scene.background=new THREE.Color('#c9dfda');scene.fog=new THREE.Fog('#c9dfda',35,85);
