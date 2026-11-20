@@ -23,8 +23,19 @@ box(0,-1.6,0,23,2.5,21,0x987a55);box(0,-3.4,0,20,1.5,18,0x7d8171);box(0,-4.7,0,1
 for(let x=-11;x<=11;x++)for(let z=-10;z<=10;z++){const edge=Math.abs(x)>9&&Math.abs(z)>8;if(edge)continue;box(x,-.28,z,1,.55,1,[0x9cbb76,0x96b570,0xa0bd79,0x91b16b][Math.abs(x*13+z*7)%4]);}
 for(let x=-3;x<=3;x++)for(let z=-3;z<=1;z++)box(x,.015,z,.98,.08,.98,0xded9bb);
 const renderTree=createTreeRenderer(box);
-LOCATIONS[0].trees.forEach(renderTree);
-for(let i=0;i<30;i++){const x=Math.sin(i*43)*10,z=Math.cos(i*19)*9;if(Math.abs(x)<4&&Math.abs(z)<4)continue;box(x,.15,z,.12,.3,.12,0x708d49);if(i%3===0)box(x,.35,z,.24,.15,.24,i%2?0xf3dda1:0xece8cc)}
+const islandTrunks = LOCATIONS[0].trees.flatMap(renderTree)
+  .filter(mesh => mesh.name === 'island-tree-trunk');
+for (let i = 0; i < 30; i++) {
+  const x = Math.sin(i * 43) * 10, z = Math.cos(i * 19) * 9;
+  if (Math.abs(x) < 4 && Math.abs(z) < 4) continue;
+  const flowering = i % 3 === 0;
+  const width = flowering ? .24 : .12;
+  if (islandTrunks.some(trunk =>
+    Math.abs(x - trunk.position.x) <= (trunk.scale.x + width) / 2 &&
+    Math.abs(z - trunk.position.z) <= (trunk.scale.z + width) / 2)) continue;
+  box(x,.15,z,.12,.3,.12,0x708d49);
+  if (flowering) box(x,.35,z,width,.15,width,i%2 ? 0xf3dda1 : 0xece8cc);
+}
 [[8,-3],[-7,-2],[4,8]].forEach(([x,z])=>{box(x,.35,z,1.2,.7,1,0xa9ada0,true);box(x+.6,.2,z+.6,.7,.4,.8,0xb8b9ab,true)});
 // Distant drifting block clouds.
 for(let i=0;i<12;i++){const x=Math.sin(i*3)*42,z=Math.cos(i*3)*42;box(x,13+i%3*2,z,7,1.2,3,0xeaf0e5);box(x+1,14+i%3*2,z,4,1,2,0xeaf0e5)}
