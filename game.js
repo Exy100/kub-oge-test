@@ -7,7 +7,7 @@ import { createForgeState } from './forge-state.js?v=5';
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js?v=3';
 import { equipGatheringWand } from './gathering-wand.js?v=16';
-import { createPlayerPanel } from './player-panel.js?v=34';
+import { createPlayerPanel } from './player-panel.js?v=35';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
