@@ -1,9 +1,9 @@
 import * as THREE from './vendor/three.module.js';
 import { createForgeState, toggleBit, craftByte, collectByte, insertByte, bitValue } from './forge-state.js?v=5';
-import { createByteFactory } from './byte-model.js?v=2';
+import { createByteFactory } from './byte-model.js?v=3';
 
-export function createForge({ scene, box, solids, onOpen, onChange, notify, canStore=()=>true, onCollect=()=>{} }) {
-  const state=createForgeState(),pickups=[],bytePickups=[],cells=[],deposited=[],slotMeshes=[];
+export function createForge({ scene, box, solids, state=createForgeState(), remainingBits, onOpen, onChange, notify, canStore=()=>true, onCollect=()=>{} }) {
+  const pickups=[],bytePickups=[],cells=[],deposited=[],slotMeshes=[];
   const dialog=document.querySelector('#forge-dialog'),prompt=document.querySelector('#forge-prompt');
   const bag=document.querySelector('#forge-bag');
   const geometry=new THREE.BoxGeometry(.6,.6,.6);
@@ -49,11 +49,12 @@ export function createForge({ scene, box, solids, onOpen, onChange, notify, canS
     const pad=box(x,.42,z,.74,.12,.74,padMaterial);pad.userData.cell=i;cells.push(pad);
     const rim=new THREE.LineSegments(new THREE.EdgesGeometry(new THREE.BoxGeometry(.76,.13,.76)),new THREE.LineBasicMaterial({color:0xf2ddb2}));rim.position.copy(pad.position);scene.add(rim);
   }
-  function spawnBits(){
-    if(state.crafted>=4)return;
-    [[76,2],[78,2],[80,2],[82,2],[84,2],[76,4],[80,4],[84,4]].forEach(([x,z],i)=>{
+  const bitPositions = [[76,2],[78,2],[80,2],[82,2],[84,2],[76,4],[80,4],[84,4]];
+  function spawnBits(seeds = state.crafted < 4 ? bitPositions.keys() : []) {
+    for (const i of seeds) {
+      const [x,z] = bitPositions[i];
       const m=new THREE.Mesh(geometry,Array(6).fill(digits[i%2]));m.position.set(x,.7,z);m.userData.seed=i;m.userData.objectId='bit';m.castShadow=true;scene.add(m);pickups.push(m);
-    });
+    }
   }
   function layoutBytes(){bytePickups.forEach((model,index)=>model.position.set(82.5,1.43+Math.floor(index/2)*.72,-2.4+(index%2)*.8))}
   function spawnByte(){
@@ -97,7 +98,17 @@ export function createForge({ scene, box, solids, onOpen, onChange, notify, canS
   const near=position=>Math.hypot(position.x-80,position.z+3.2)<2.8&&position.y<2;
   function open(position){if(!near(position))return false;onOpen();refresh();dialog.showModal();return true}
   prompt.onclick=()=>{onOpen();refresh();dialog.showModal()};
-  spawnBits();
+  function showDeposit(i) {
+    const model = bytes.create();
+    model.position.copy(cells[i].position);
+    model.position.y = .83;
+    scene.add(model);
+    deposited.push(model);
+  }
+  spawnBits(remainingBits);
+  for (let i = 0; i < state.pendingBytes; i++) spawnByte();
+  state.cells.forEach((filled,i) => { if (filled) showDeposit(i); });
+  refresh();
   return {state,pickups,bytePickups,cells,deposited,cameraObstacles:[gateway],open,isOpen:()=>dialog.open,
     collect(ray,position){
       const hits=ray.intersectObjects([...pickups,...bytePickups,...cells],true).filter(hit=>hit.point.distanceTo(position)<5);
@@ -116,7 +127,7 @@ export function createForge({ scene, box, solids, onOpen, onChange, notify, canS
       if(root.userData.cell!==undefined){
         const i=root.userData.cell;if(state.cells[i])return false;
         if(!insertByte(state,i)){notify('Сначала забери готовый байт с подставки у верстака.');return false}
-        const model=bytes.create();model.position.copy(cells[i].position);model.position.y=.83;scene.add(model);deposited.push(model);refresh();
+        showDeposit(i);refresh();
         notify(state.unlocked?'✦ Четыре байта на площадке! Врата в арке открылись — нажми E рядом с ними.':`Байт установлен · ${state.cells.filter(Boolean).length} из 4`);return true;
       }
       return false;
@@ -133,6 +144,15 @@ export function createForge({ scene, box, solids, onOpen, onChange, notify, canS
       pickups.forEach(m=>{const phase=m.userData.seed;m.rotation.y=time*.35+phase;m.position.y=.7+Math.sin(time*2+phase)*.08});
       bytePickups.forEach(m=>{m.rotation.y=Math.sin(time*.5)*.25;bytes.animate(m,time)});deposited.forEach(m=>bytes.animate(m,time));
       crown.rotation.y=time*.45;gateway.material.opacity=.38+Math.sin(time*2)*.1;
+    },
+    dispose(resources) {
+      // Some pickups may already have flown out of the scene.
+      for (const item of [geometry, emptyMaterial, ...digits, ...bytes.resources]) resources.add(item);
+      for (const digit of digits) resources.add(digit.map);
+      prompt.hidden = bag.hidden = true;
+      slotsContainer.replaceChildren();
+      cellsContainer.replaceChildren();
+      for (const button of [prompt, document.querySelector('#fill-bits'), document.querySelector('#craft-byte'), document.querySelector('#forge-close')]) button.onclick = null;
     },
     reset(){
       [...pickups,...bytePickups,...deposited].forEach(m=>scene.remove(m));pickups.length=bytePickups.length=deposited.length=0;

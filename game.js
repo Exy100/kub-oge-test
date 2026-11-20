@@ -1,7 +1,8 @@
 import { BUILD_MATERIALS } from './catalog/index.js';
 import { LOCATIONS } from './locations/index.js';
 import { createSimpleArchEffect } from './world/simple-arch.js';
-import { createTreeRenderer } from './world/trees.js';
+import { buildIslandTerrain } from './world/island-terrain.js';
+import { createForgeState } from './forge-state.js?v=5';
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js?v=2';
 import { equipGatheringWand } from './gathering-wand.js?v=16';
@@ -9,7 +10,7 @@ import { createPlayerPanel } from './player-panel.js?v=32';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=18';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
-import { createForge } from './forge.js?v=16';
+import { createForge } from './forge.js?v=17';
 import { loadAppearance } from './appearance.js?v=9';
 import { createCustomizer } from './customizer.js?v=18';
 import { createFollowState, followCamera } from './follow-camera.js?v=2';
@@ -18,88 +19,38 @@ const $=s=>document.querySelector(s), scene=new THREE.Scene();scene.background=n
 const renderer=new THREE.WebGLRenderer({canvas:$('#world'),antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,140);scene.add(new THREE.HemisphereLight(0xf6ffe6,0x788974,2.5));const sun=new THREE.DirectionalLight(0xffeed0,3);sun.position.set(-10,25,10);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-22,right:22,top:22,bottom:-22});sun.shadow.normalBias=.03;scene.add(sun);
 const colors=BUILD_MATERIALS.map(item=>item.color), mats=colors.map(color=>new THREE.MeshStandardMaterial({color,roughness:1}));const geo=new THREE.BoxGeometry(1,1,1), solids=[];
-function box(x,y,z,w,h,d,color,collide=false){const m=new THREE.Mesh(geo,typeof color==='number'?new THREE.MeshStandardMaterial({color,roughness:1}):color);m.position.set(x,y,z);m.scale.set(w,h,d);m.castShadow=true;m.receiveShadow=true;scene.add(m);if(collide)solids.push(m);return m}
-// Floating voxel island, with a stepped rocky underside.
-box(0,-1.6,0,23,2.5,21,0x987a55);box(0,-3.4,0,20,1.5,18,0x7d8171);box(0,-4.7,0,15,1.2,14,0x8a8e7d);
-for(let x=-11;x<=11;x++)for(let z=-10;z<=10;z++){const edge=Math.abs(x)>9&&Math.abs(z)>8;if(edge)continue;box(x,-.28,z,1,.55,1,[0x9cbb76,0x96b570,0xa0bd79,0x91b16b][Math.abs(x*13+z*7)%4]);}
-for(let x=-3;x<=3;x++)for(let z=-3;z<=1;z++)box(x,.015,z,.98,.08,.98,0xded9bb);
-const nonSolidTreeParts = [];
-const createTree = createTreeRenderer(box);
-function renderTree(tree) {
-  const parts = createTree(tree);
-  nonSolidTreeParts.push(...parts.filter(part => !solids.includes(part)));
-  return parts;
+function createBoxBuilder(parent, colliders) {
+  return (x,y,z,w,h,d,color,collide=false) => {
+    const material = typeof color === 'number' ? new THREE.MeshStandardMaterial({color,roughness:1}) : color;
+    const mesh = new THREE.Mesh(geo, material);
+    mesh.position.set(x,y,z);
+    mesh.scale.set(w,h,d);
+    mesh.castShadow = mesh.receiveShadow = true;
+    parent.add(mesh);
+    if (collide) colliders.push(mesh);
+    return mesh;
+  };
 }
-const islandTrunks = LOCATIONS[0].trees.flatMap(renderTree)
-  .filter(mesh => mesh.name === 'island-tree-trunk');
-for (let i = 0; i < 30; i++) {
-  const x = Math.sin(i * 43) * 10, z = Math.cos(i * 19) * 9;
-  if (Math.abs(x) < 4 && Math.abs(z) < 4) continue;
-  const flowering = i % 3 === 0;
-  const width = flowering ? .24 : .12;
-  if (islandTrunks.some(trunk =>
-    Math.abs(x - trunk.position.x) <= (trunk.scale.x + width) / 2 &&
-    Math.abs(z - trunk.position.z) <= (trunk.scale.z + width) / 2)) continue;
-  box(x,.15,z,.12,.3,.12,0x708d49);
-  if (flowering) box(x,.35,z,width,.15,width,i%2 ? 0xf3dda1 : 0xece8cc);
-}
-[[8,-3],[-7,-2],[4,8]].forEach(([x,z])=>{box(x,.35,z,1.2,.7,1,0xa9ada0,true);box(x+.6,.2,z+.6,.7,.4,.8,0xb8b9ab,true)});
+const skyBox = createBoxBuilder(scene, []);
 // Distant drifting block clouds.
-for(let i=0;i<12;i++){const x=Math.sin(i*3)*42,z=Math.cos(i*3)*42;box(x,13+i%3*2,z,7,1.2,3,0xeaf0e5);box(x+1,14+i%3*2,z,4,1,2,0xeaf0e5)}
-// A second, separate island. Each island keeps its own construction and inventory.
-box(40,-1.6,0,23,2.5,21,0x8d8266);box(40,-3.4,0,20,1.5,18,0x727e80);box(40,-4.7,0,15,1.2,14,0x8c9690);
-for(let x=-11;x<=11;x++)for(let z=-10;z<=10;z++){
-  if(Math.abs(x)>9&&Math.abs(z)>8)continue;
-  box(40+x,-.28,z,1,.55,1,[0x8bb59b,0x9cbea2,0x8eb4a0][Math.abs(x*13+z*7)%3]);
-}
-LOCATIONS[1].trees.forEach(renderTree);
-[[32,0],[48,1]].forEach(([x,z])=>box(x,.35,z,1.2,.7,1,0xa9ada0,true));
-for(const center of [80,120]){
-  box(center,-1.6,0,23,2.5,21,center===80?0x6e7b86:0x9c967b);
-  box(center,-3.4,0,20,1.5,18,0x727e80);box(center,-4.7,0,15,1.2,14,0x8c9690);
-  const tiles=[];
-  for(let x=-11;x<=11;x++)for(let z=-10;z<=10;z++)if(!(Math.abs(x)>9&&Math.abs(z)>8))tiles.push([center+x,z]);
-  const ground=new THREE.InstancedMesh(geo,new THREE.MeshStandardMaterial({roughness:1}),tiles.length);
-  const dummy=new THREE.Object3D();dummy.scale.set(1,.55,1);
-  tiles.forEach(([x,z],i)=>{dummy.position.set(x,-.28,z);dummy.updateMatrix();ground.setMatrixAt(i,dummy.matrix);ground.setColorAt(i,new THREE.Color(center===80?[0x9daeb5,0x91a4af,0xa6b5b9][i%3]:[0xb8c58c,0xa9bd80,0xc7cf9a][i%3]))});
-  ground.receiveShadow=true;scene.add(ground);
-}
-LOCATIONS.slice(2).forEach(location=>location.trees.forEach(renderTree));
-for(let i=0;i<10;i++)box(116+i%5*2,.15,-4+Math.floor(i/5)*3,.25,.3,.25,0xead9a1);
-const stages=LOCATIONS.map((_,i)=>createStage(i));
-for(const state of stages){
-  state.pickups=[];state.placed=[];
-  state.ghosts=state.targets.map(t=>{
-    const m=box(t.x,t.y,t.z,.96,.96,.96,new THREE.MeshStandardMaterial({color:colors[t.material],transparent:true,opacity:.28,depthWrite:false}));
-    m.userData.objectId=BUILD_MATERIALS[t.material].id;
-    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:colors[t.material]})));
-    return m;
-  });
-  if(state.index===1)for(const arch of state.arches)for(let x=-1;x<=1;x++)for(let z=-1;z<=1;z++)box(arch.x+x,.015,arch.z+z,.98,.08,.98,0xded9bb);
-}
-let stage=stages[0];
-function glow(x,y,z,w,h,color){const m=new THREE.Mesh(new THREE.PlaneGeometry(w,h),new THREE.MeshBasicMaterial({color,transparent:true,opacity:.38,side:THREE.DoubleSide,depthWrite:false}));m.position.set(x,y,z);scene.add(m);return m}
-const simpleArchEffect = createSimpleArchEffect();
-const exitGlow = simpleArchEffect.createSurface(stages[0].arches[0]);
-const secondGlow = simpleArchEffect.createSurface(stages[1].arches[1]);
-scene.add(exitGlow, secondGlow);
-const returnGlows=[];
-for(const center of [46,86,126]){
-  for(const x of [center-1.15,center+1.15])box(x,1.5,6,.6,3,.6,0x8bada5,true);
-  box(center,3.1,6,2.9,.5,.6,0x8bada5,true);
-  returnGlows.push(glow(center,1.45,6,1.7,2.9,0x74e8d4));
-}
+for(let i=0;i<12;i++){const x=Math.sin(i*3)*42,z=Math.cos(i*3)*42;skyBox(x,13+i%3*2,z,7,1.2,3,0xeaf0e5);skyBox(x+1,14+i%3*2,z,4,1,2,0xeaf0e5)}
+const stages = LOCATIONS.map((_, i) => createStage(i));
+const forgeState = createForgeState();
+const island = new THREE.Group();
+const box = createBoxBuilder(island, solids);
+const cameraObstacles = [];
+let stage, forge, exitGlow, returnGlow, simpleArchEffect;
+scene.add(island);
 const character=createCharacter(loadAppearance()), player=character.root;scene.add(player);
 const reducedHandMotion=matchMedia('(prefers-reduced-motion: reduce)');
 const gathering=equipGatheringWand({character,camera,scene,renderer});
 player.position.set(0,0,6);let yaw=0,pitch=.23,third=true,selected=0;const physics=createPhysicsState();let jumpRequested=false;const keys={},ray=new THREE.Raycaster();let last=performance.now();
-const forge=createForge({scene,box,solids,canStore:hasBagRoom,onCollect:animateCollection,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},onChange(){if(stage.index===2)update()},notify});
 const customizer=createCustomizer({character,canEdit:()=>stage.index===0,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},notify});
 const playerAccount={coins:0};
 const bag=createPlayerInventory(()=>[
   ...BUILD_MATERIALS.map((item,i)=>({id:item.id,quantity:stages.reduce((sum,island)=>sum+island.inventory[i],0)})),
-  {id:'bit',quantity:forge.state.bits},
-  {id:'byte',quantity:forge.state.bytes},
+  {id:'bit',quantity:forgeState.bits},
+  {id:'byte',quantity:forgeState.bytes},
 ]);
 function hasBagRoom(id){
   if(bag.canStore(id))return true;
@@ -112,7 +63,7 @@ function animateCollection(mesh){
 const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:currentQuestBrief(),progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
 const restartDialog=$('#restart-dialog');
 let restartStage=null;
-function modalOpen(){return restartDialog.open||forge.isOpen()||customizer.isOpen()||panel.isOpen()}
+function modalOpen(){return restartDialog.open||forge?.isOpen()||customizer.isOpen()||panel.isOpen()}
 
 const messageBox=$('#message');
 let messageTimer;
@@ -126,11 +77,101 @@ function spawnPickups(state){
   if(state.index>1)return;
   const entries=state.index===0 ? [[-4,3,0],[3,4,0],[-5,-4,0],[5,-3,0],[-7,5,0],[7,4,0],[3,-6,0]] :
     [0,2,3].flatMap((material,group)=>Array.from({length:7},(_,i)=>[33+group*6+(i%2)*1.3, [-6,-4,1,4.5][Math.floor(i/2)], material]));
-  entries.forEach(([x,z,material],phase)=>{const m=box(x,.55,z,.65,.65,.65,mats[material]);m.userData.material=material;m.userData.objectId=BUILD_MATERIALS[material].id;m.userData.animationPhase=phase;state.pickups.push(m)});
+  entries.forEach(([x,z,material], phase) => {
+    if (state.collected.has(phase)) return;
+    const pickup = box(x,.55,z,.65,.65,.65,mats[material]);
+    pickup.userData.material = material;
+    pickup.userData.objectId = BUILD_MATERIALS[material].id;
+    pickup.userData.animationPhase = phase;
+    state.pickups.push(pickup);
+  });
 }
-stages.forEach(spawnPickups);
+function unloadIsland() {
+  gathering.clear();
+  stage.freeBlocks = stage.placed.filter(m => m.userData.target === undefined)
+    .map(m => ({x:m.position.x, y:m.position.y, z:m.position.z, material:m.userData.material}));
+  const resources = new Set();
+  if (forge) {
+    stage.remainingBits = forge.pickups.map(m => m.userData.seed);
+    forge.dispose(resources);
+    forge = null;
+  }
+  island.traverse(object => {
+    if (object.isInstancedMesh) object.dispose();
+    if (object.geometry && object.geometry !== geo) resources.add(object.geometry);
+    if (!object.material) return;
+    for (const material of (Array.isArray(object.material) ? object.material : [object.material])) {
+      if (!mats.includes(material)) resources.add(material);
+      if (material.map) resources.add(material.map);
+    }
+  });
+  for (const resource of resources) resource.dispose();
+  island.clear();
+  solids.length = cameraObstacles.length = 0;
+  delete stage.placed;
+  delete stage.ghosts;
+  delete stage.pickups;
+}
+
+function addBlock(x, y, z, material, target) {
+  const block = box(x,y,z,.98,.98,.98,mats[material],true);
+  block.userData.objectId = BUILD_MATERIALS[material].id;
+  if (target === undefined) block.userData.material = material;
+  else block.userData.target = target;
+  stage.placed.push(block);
+}
+
+function enterIsland(next) {
+  if (stage === next) return;
+  if (stage) unloadIsland();
+  stage = next;
+  island.name = stage.locationId;
+  buildIslandTerrain(LOCATIONS[stage.index], stage.index, island, geo, box, solids, cameraObstacles);
+  stage.placed = [];
+  stage.pickups = [];
+  stage.collected ??= new Set();
+  stage.ghosts = stage.targets.map((t, i) => {
+    const m = box(t.x,t.y,t.z,.96,.96,.96,new THREE.MeshStandardMaterial({color:colors[t.material],transparent:true,opacity:.28,depthWrite:false}));
+    m.userData.objectId = BUILD_MATERIALS[t.material].id;
+    m.add(new THREE.LineSegments(new THREE.EdgesGeometry(geo),new THREE.LineBasicMaterial({color:colors[t.material]})));
+    if (stage.built.has(i)) {
+      m.visible = false;
+      addBlock(t.x,t.y,t.z,t.material,i);
+    }
+    return m;
+  });
+  for (const block of stage.freeBlocks || []) addBlock(block.x,block.y,block.z,block.material);
+  delete stage.freeBlocks;
+  spawnPickups(stage);
+  if (stage.index === 1) {
+    for (const arch of stage.arches) for(let x=-1;x<=1;x++) for(let z=-1;z<=1;z++) box(arch.x+x,.015,arch.z+z,.98,.08,.98,0xded9bb);
+  }
+  simpleArchEffect = exitGlow = returnGlow = null;
+  if (stage.index < 2) {
+    simpleArchEffect = createSimpleArchEffect();
+    exitGlow = simpleArchEffect.createSurface(stage.arches[stage.index]);
+    island.add(exitGlow);
+    cameraObstacles.push(exitGlow);
+  }
+  if (stage.index > 0) {
+    const center = stage.center + 6;
+    for(const x of [center-1.15,center+1.15])box(x,1.5,6,.6,3,.6,0x8bada5,true);
+    box(center,3.1,6,2.9,.5,.6,0x8bada5,true);
+    returnGlow = new THREE.Mesh(new THREE.PlaneGeometry(1.7,2.9),new THREE.MeshBasicMaterial({color:0x74e8d4,transparent:true,opacity:.38,side:THREE.DoubleSide,depthWrite:false}));
+    returnGlow.position.set(center,1.45,6);
+    island.add(returnGlow);
+    cameraObstacles.push(returnGlow);
+  }
+  if (stage.index === 2) {
+    forge = createForge({scene:island, box, solids, state:forgeState, remainingBits:stage.remainingBits,
+      canStore:hasBagRoom, onCollect:animateCollection, notify, onChange:update,
+      onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;}});
+    cameraObstacles.push(...forge.cameraObstacles);
+  }
+}
+
 function currentQuestBrief() {
-  const complete = stage.index === 2 ? forge.state.unlocked : stage.unlocked;
+  const complete = stage.index === 2 ? forgeState.unlocked : stage.unlocked;
   if (complete) return 'Пройди через открытый портал на следующий остров.';
   return LOCATIONS[stage.index].quest.brief;
 }
@@ -168,13 +209,13 @@ function refreshMission(){
   select(selected);update();
 }
 function update(){
-  const n=stage.index<2?stage.built.size:stage.index===2?forge.state.cells.filter(Boolean).length:4;
+  const n=stage.index<2?stage.built.size:stage.index===2?forgeState.cells.filter(Boolean).length:4;
   const total=stage.index<2?stage.targets.length:4;
   $('#count').textContent=`${n} / ${total}`;
-  drawQuestDiagram($('#quest-diagram'),stage,forge.state.cells);
+  drawQuestDiagram($('#quest-diagram'),stage,forgeState.cells);
   document.querySelectorAll('.slot b').forEach((el,i)=>el.textContent=isLimited(stage,i)?stage.inventory[i]:'∞');
-  exitGlow.visible=stages[0].unlocked;secondGlow.visible=stages[1].unlocked;
-  $('#arch-status').textContent=stage.index===2?`Биты: ${forge.state.bits} · Байты: ${forge.state.bytes} · Создано: ${forge.state.crafted}/4`:stage.index===1?stage.arches.map((arch,i)=>`${MATERIAL_NAMES[arch.material]}: ${Array.from(stage.built).filter(t=>Math.floor(t/7)===i).length}/7`).join(' · '):stage.index===0&&stage.unlocked?'Портал открыт · подойди к арке и нажми E':stage.index===3?'Путь к саду открыт · 32 бита · 4 байта':'';
+  if (exitGlow) exitGlow.visible = stage.unlocked;
+  $('#arch-status').textContent=stage.index===2?`Биты: ${forgeState.bits} · Байты: ${forgeState.bytes} · Создано: ${forgeState.crafted}/4`:stage.index===1?stage.arches.map((arch,i)=>`${MATERIAL_NAMES[arch.material]}: ${Array.from(stage.built).filter(t=>Math.floor(t/7)===i).length}/7`).join(' · '):stage.index===0&&stage.unlocked?'Портал открыт · подойди к арке и нажми E':stage.index===3?'Путь к саду открыт · 32 бита · 4 байта':'';
 }
 function select(i){
   selected=i;
@@ -189,13 +230,13 @@ function nearbyRoute(){
   if(stage.index>0)routes.push({x:stage.center+6,z:6,to:stage.index-1,ready:true,label:'Вернуться в локацию «'+LOCATIONS[stage.index-1].name+'»'});
   if(stage.index===0)routes.push({x:0,z:-1,to:1,ready:stage.unlocked,label:'Перейти на остров трёх арок',locked:'Дострой арку, чтобы открыть проход.'});
   if(stage.index===1)routes.push({x:40,z:-2,to:2,ready:stage.unlocked,label:'Отправиться в кузницу',locked:'Собери все три арки, чтобы открыть кузницу.'});
-  if(stage.index===2)routes.push({x:86,z:-4,to:3,ready:forge.state.unlocked,label:'Пройти сквозь врата',locked:'Выложи четыре байта на площадку у арки.'});
+  if(stage.index===2)routes.push({x:86,z:-4,to:3,ready:forgeState.unlocked,label:'Пройти сквозь врата',locked:'Выложи четыре байта на площадку у арки.'});
   return routes.find(route=>Math.hypot(player.position.x-route.x,player.position.z-route.z)<1.8);
 }
 function travel(){
   const route=nearbyRoute();if(!route)return false;
   if(!route.ready)return true;
-  gathering.clear();stage=stages[route.to];player.position.set(stage.center,0,stage.index===0?2:stage.index===2?4:3);
+  enterIsland(stages[route.to]);followState=createFollowState();player.position.set(stage.center,0,stage.index===0?2:stage.index===2?4:3);
   Object.assign(physics,createPhysicsState());Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;selected=0;yaw=0;
   sun.position.set(stage.center-10,25,10);sun.target.position.set(stage.center,0,0);sun.target.updateMatrixWorld();
   refreshMission();announceLocation(['Ты вернулся на первый остров.','Собери три арки из трёх материалов.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][stage.index]);return true;
@@ -293,7 +334,7 @@ function act(button){
   const hits=ray.intersectObjects(objects,false).filter(h=>h.object.position.distanceTo(player.position)<6);
   if(hits.length){
     const m=hits[0].object,pi=pickups.indexOf(m),gi=ghosts.indexOf(m);
-    if(pi>=0&&button===0){if(!hasBagRoom(m.userData.objectId))return;scene.remove(m);animateCollection(m);pickups.splice(pi,1);stage.inventory[m.userData.material]++;character.react();notify(`${MATERIAL_NAMES[m.userData.material]}: +1`);update();return}
+    if(pi>=0&&button===0){if(!hasBagRoom(m.userData.objectId))return;stage.collected.add(m.userData.animationPhase);island.remove(m);animateCollection(m);pickups.splice(pi,1);stage.inventory[m.userData.material]++;character.react();notify(`${MATERIAL_NAMES[m.userData.material]}: +1`);update();return}
     if(gi>=0&&button===0){
       const t=targets[gi];
       if(selected!==t.material){notify(`Для этой арки нужен материал «${MATERIAL_NAMES[t.material]}» — клавиша ${t.material+1}.`);return}
@@ -301,7 +342,7 @@ function act(button){
       if(Math.abs(player.position.x-t.x)<.79&&Math.abs(player.position.z-t.z)<.79&&player.position.y<t.y+.49&&player.position.y+1.7>t.y-.49){notify('Отойди немного, чтобы поставить куб.');return}
       const wasUnlocked=stage.unlocked;
       if(!placeTarget(stage,gi,selected))return;character.react();
-      m.visible=false;const block=box(t.x,t.y,t.z,.98,.98,.98,mats[selected],true);block.userData.target=gi;block.userData.objectId=BUILD_MATERIALS[selected].id;placed.push(block);update();
+      m.visible=false;addBlock(t.x,t.y,t.z,selected,gi);update();
       if(stage.unlocked&&!wasUnlocked)notify(stage.index===0?'✦ Портал открыт! Подойди к арке и нажми E.':'✦ Три арки готовы! Средняя арка открыла портал в кузницу — нажми E рядом с ней.');
       return;
     }
@@ -310,7 +351,7 @@ function act(button){
       if(isLimited(stage,material)&&!hasBagRoom(BUILD_MATERIALS[material].id))return;
       if(m.userData.target!==undefined){removeTarget(stage,m.userData.target);ghosts[m.userData.target].visible=true}
       else if(isLimited(stage,m.userData.material))stage.inventory[m.userData.material]++;
-      scene.remove(m);placed.splice(placed.indexOf(m),1);solids.splice(solids.indexOf(m),1);update();return;
+      island.remove(m);placed.splice(placed.indexOf(m),1);solids.splice(solids.indexOf(m),1);update();return;
     }
   }
   if(button!==0)return;
@@ -324,12 +365,12 @@ function act(button){
   const y=.5+column.length;
   if(solids.some(m=>Math.abs(x-m.position.x)<.49+m.scale.x/2&&Math.abs(z-m.position.z)<.49+m.scale.z/2&&Math.abs(y-m.position.y)<.49+m.scale.y/2))return;
   if(isLimited(stage,selected)){if(!stage.inventory[selected]){notify('Сначала собери кубы выбранного материала.');return}stage.inventory[selected]--}
-  const block=box(x,y,z,.98,.98,.98,mats[selected],true);block.userData.material=selected;block.userData.objectId=BUILD_MATERIALS[selected].id;placed.push(block);update();
+  addBlock(x,y,z,selected);update();
 }
 function restartWarning(){
   if(stage.index===3)return 'Вы вернётесь к началу сада. Врата кузницы останутся открыты.';
   if(stage.index===2){
-    if(forge.state.crafted || forge.state.bits || forge.state.slots.some(Boolean))
+    if(forgeState.crafted || forgeState.bits || forgeState.slots.some(Boolean))
       return 'Биты и байты в сумке, на верстаке и площадке будут сброшены. Врата придётся открыть заново.';
   }else if(stage.placed.length || stage.inventory.some(Boolean) || stage.unlocked){
     return 'Постройки и собранные на этом острове материалы будут сброшены. Чтобы открыть портал, нужно будет заново выполнить задание острова.';
@@ -360,16 +401,17 @@ $('#restart-confirm').onclick=e=>{
   gathering.clear();
   if(stage.index===2)forge.reset();
   for(const block of stage.placed){
-    scene.remove(block);
+    island.remove(block);
     const index=solids.indexOf(block);
     if(index>=0)solids.splice(index,1);
   }
   stage.placed.length=0;
-  stage.pickups.forEach(m=>scene.remove(m));stage.pickups.length=0;stage.ghosts.forEach(m=>m.visible=true);
-  stage.inventory.fill(0);stage.built.clear();stage.unlocked=false;spawnPickups(stage);
+  stage.pickups.forEach(m=>island.remove(m));stage.pickups.length=0;stage.ghosts.forEach(m=>m.visible=true);
+  stage.inventory.fill(0);stage.built.clear();stage.unlocked=false;stage.collected.clear();spawnPickups(stage);
   player.position.set(stage.center,0,stage.index===0?6:3);Object.assign(physics,createPhysicsState());jumpRequested=false;
   yaw=0;pitch=.23;select(0);update();announceLocation('Текущий остров начат заново.');
 };
+enterIsland(stages[0]);
 refreshMission();
 function resize(){renderer.setSize(innerWidth,innerHeight);camera.aspect=innerWidth/innerHeight;camera.updateProjectionMatrix()}addEventListener('resize',resize);resize();
 let followState = createFollowState();
@@ -392,16 +434,16 @@ character.animate(dt,{dx:player.position.x-previousX,dz:player.position.z-previo
 const eye = player.position.clone().add(new THREE.Vector3(0,1.5,0));
 const look = new THREE.Vector3(-Math.sin(yaw)*Math.cos(pitch),-Math.sin(pitch),-Math.cos(yaw)*Math.cos(pitch));
 player.visible = third && followCamera(camera, eye, look,
-  [...solids, ...nonSolidTreeParts, exitGlow, secondGlow, ...returnGlows, ...forge.cameraObstacles], followState, dt);
+  [...solids, ...cameraObstacles], followState, dt);
 if (!third) {
   camera.position.copy(eye);
   camera.lookAt(eye.clone().add(look));
 }
 stage.pickups.forEach(m=>{const phase=m.userData.animationPhase;m.rotation.y=now*.0008+phase;m.position.y=.65+Math.sin(now*.002+phase)*.12});
 panel.updatePortal(nearbyRoute(),active&&!document.hidden,now);
-simpleArchEffect.update(now, reducedHandMotion.matches);
-for(const portal of returnGlows)portal.material.opacity=.4+Math.sin(now*.002)*.12;
-forge.update(player.position,now/1000,stage.index===2&&$('#welcome').classList.contains('hidden')&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
+simpleArchEffect?.update(now, reducedHandMotion.matches);
+if (returnGlow) returnGlow.material.opacity=.4+Math.sin(now*.002)*.12;
+forge?.update(player.position,now/1000,$('#welcome').classList.contains('hidden')&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);
 gathering.update(dt,now/1000,{active,third:player.visible,visible:!panel.isBattle()&&bag.loadouts.build.tool==='wand',dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
 if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
