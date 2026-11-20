@@ -1,4 +1,4 @@
-import { equipmentSlots } from './player-inventory.js?v=2';
+import { equipmentSlots } from './player-inventory.js?v=3';
 
 function element(tag, className, value) {
   const node = document.createElement(tag);
@@ -37,26 +37,140 @@ export function createInventoryWindows({ bag, playerAccount, open, mode, setMode
   const occupancy = element('span', 'bag-occupancy');
   summary.append(wallet, occupancy);
   const grid = element('div', 'bag-grid');
-  grid.setAttribute('role', 'list');
-  inventory.append(summary, grid);
+  grid.setAttribute('role', 'group');
+  grid.setAttribute('aria-label', 'Ячейки инвентаря');
+  const details = element('section', 'bag-details');
+  inventory.append(summary, grid, details);
+  let selected = null, choosingCell = false;
   function renderBag() {
-    const items = bag.items();
+    const cells = bag.cells();
+    const item = cells.find(entry => entry && entry.id === selected);
+    if (!item) { selected = null; choosingCell = false; }
+    const wandEquipped = bag.loadouts.build.tool === 'wand';
+    const exploring = mode() === 'build';
     amount.textContent = playerAccount.coins.toLocaleString('ru-RU');
-    occupancy.textContent = 'Занято ' + items.length + ' из ' + bag.capacity;
+    occupancy.textContent = 'Занято ' + cells.filter(Boolean).length + ' из ' + bag.capacity;
     grid.replaceChildren();
-    for (let index = 0; index < bag.capacity; index++) {
-      const item = items[index];
-      const cell = element('div', 'bag-cell');
-      cell.setAttribute('role', 'listitem');
-      if (item) {
+    cells.forEach((entry, index) => {
+      const cell = element('button', 'bag-cell');
+      cell.type = 'button';
+      cell.dataset.index = index;
+      if (entry) {
+        cell.dataset.item = entry.id;
         cell.classList.add('occupied');
-        cell.title = item.category + ' · ' + item.name + (item.description ? '\n' + item.description : '');
-        cell.append(element('span', 'item-glyph', item.glyph), element('span', 'item-name', item.name),
-          element('small', 'item-count', '×' + item.quantity));
-      } else cell.setAttribute('aria-label', 'Свободная ячейка');
+        cell.setAttribute('aria-pressed', String(entry.id === selected));
+        if (entry.id === 'wand') {
+          const icon = element('img', 'wand-icon');
+          icon.src = './assets/inventory-wand.webp';
+          icon.alt = '';
+          icon.draggable = false;
+          cell.append(icon);
+        } else cell.append(element('span', 'item-glyph', entry.glyph));
+        cell.append(element('span', 'item-name', entry.name), element('small', 'item-count', '×' + entry.quantity));
+        if (entry.id === 'wand' && wandEquipped) {
+          cell.append(element('small', 'bag-equipped', exploring ? 'В руке' : 'Исследование'));
+        }
+      } else {
+        cell.tabIndex = choosingCell ? 0 : -1;
+        cell.setAttribute('aria-label', 'Свободная ячейка ' + (index+1));
+      }
       grid.append(cell);
+    });
+    details.replaceChildren();
+    details.hidden = !item;
+    if (!item) return;
+    details.append(element('strong', '', item.name), element('p', '', item.description || item.category));
+    const actions = element('div', 'bag-actions');
+    if (item.id === 'wand' && !choosingCell) {
+      const equip = element('button', '', wandEquipped ? 'Снять' : exploring ? 'Взять в руку' : 'Назначить для исследования');
+      equip.onclick = () => {
+        bag.equip('build', 'tool', wandEquipped ? null : item.id);
+        renderBag();
+        details.querySelector('button').focus();
+      };
+      actions.append(equip);
     }
+    const move = element('button', '', choosingCell ? 'Отменить перенос' : 'Переместить');
+    move.onclick = () => {
+      choosingCell = !choosingCell;
+      renderBag();
+      grid.querySelector('[aria-pressed="true"]').focus();
+    };
+    if (choosingCell) details.append(element('p', '', 'Выбери ячейку для предмета.'));
+    actions.append(move);
+    details.append(actions);
   }
+  function selectCell(index) {
+    const cell = grid.children[index];
+    if (choosingCell) bag.move(selected, index);
+    else selected = cell.dataset.item ?? null;
+    choosingCell = false;
+    renderBag();
+    grid.children[index].focus({preventScroll:true});
+  }
+  let drag = null, suppressClick = false;
+  function clearDrag() {
+    if (!drag) return;
+    drag.target?.classList.remove('bag-drop-target');
+    drag.source.classList.remove('bag-dragging');
+    drag.ghost?.remove();
+    drag = null;
+  }
+  grid.onclick = event => {
+    const cell = event.target.closest('.bag-cell');
+    if (cell && !(event.detail && suppressClick)) selectCell(Number(cell.dataset.index));
+  };
+  grid.onpointerdown = event => {
+    const source = event.target.closest('.bag-cell');
+    if (!event.isPrimary || event.button !== 0) return;
+    suppressClick = false;
+    if (!source?.dataset.item || choosingCell) return;
+    drag = {source, pointer:event.pointerId, x:event.clientX, y:event.clientY};
+    source.setPointerCapture(event.pointerId);
+  };
+  function dropTarget(event) {
+    const cell = document.elementFromPoint(event.clientX, event.clientY)?.closest('.bag-cell');
+    return cell?.parentElement === grid ? cell : null;
+  }
+  grid.onpointermove = event => {
+    if (!drag || drag.pointer !== event.pointerId) return;
+    if (!drag.ghost) {
+      if (Math.hypot(event.clientX-drag.x, event.clientY-drag.y) < 6) return;
+      suppressClick = true;
+      drag.ghost = element('div', 'bag-drag-ghost', drag.source.querySelector('.item-name').textContent);
+      drag.ghost.setAttribute('aria-hidden', 'true');
+      inventory.append(drag.ghost);
+      drag.source.classList.add('bag-dragging');
+    }
+    drag.ghost.style.left = event.clientX + 'px';
+    drag.ghost.style.top = event.clientY + 'px';
+    drag.target?.classList.remove('bag-drop-target');
+    drag.target = dropTarget(event);
+    drag.target?.classList.add('bag-drop-target');
+  };
+  grid.onpointerup = event => {
+    if (!drag || drag.pointer !== event.pointerId) return;
+    const target = drag.ghost && dropTarget(event);
+    const id = drag.source.dataset.item;
+    clearDrag();
+    if (target && bag.move(id, Number(target.dataset.index))) {
+      selected = id;
+      renderBag();
+      grid.querySelector('[aria-pressed="true"]').focus({preventScroll:true});
+    }
+  };
+  grid.onlostpointercapture = grid.onpointercancel = event => {
+    if (drag?.pointer === event.pointerId) clearDrag();
+  };
+  inventory.addEventListener('cancel', event => {
+    if (!drag && !choosingCell) return;
+    event.preventDefault();
+    clearDrag();
+    choosingCell = false;
+    renderBag();
+    grid.querySelector('[aria-pressed="true"]')?.focus();
+  });
+  inventory.addEventListener('close', () => { clearDrag(); choosingCell = false; selected = null; });
   const modes = element('div', 'kit-modes');
   const slots = element('div', 'kit-slots');
   const choices = element('div', 'kit-choices');

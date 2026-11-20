@@ -40,3 +40,29 @@ test('both wrist slots respect owned quantity within each loadout', () => {
   assert.ok(bag.equip('build', 'tool', null));
   assert.ok(bag.equip('build', 'tool', 'wand'));
 });
+
+test('moving and swapping stacks preserves quantities, equipment and empty slots', () => {
+  const materials = [{id:'bit', quantity:8}, {id:'byte', quantity:1}];
+  const bag = createPlayerInventory(() => materials);
+  assert.ok(bag.move('wand', 19));
+  assert.ok(bag.move('bit', 19));
+  assert.equal(bag.cells()[1].id, 'wand');
+  assert.equal(bag.cells()[19].quantity, 8);
+  assert.equal(bag.loadouts.build.tool, 'wand');
+  materials[0].quantity = 0;
+  assert.equal(bag.cells()[19], null);
+  assert.equal(bag.cells()[2].id, 'byte');
+  for (const index of [-1, 20, .5]) assert.equal(bag.move('wand', index), false);
+  assert.equal(bag.move('missing', 0), false);
+  assert.equal(bag.cells()[1].id, 'wand');
+});
+
+test('removing and equipping the wand needs no empty slot', () => {
+  const resources = Array.from({length:19}, (_,i) => ({id:'key-'+i, kind:'key', quantity:1}));
+  const bag = inventoryWithFixtures(() => resources, resources);
+  bag.move('wand', 19);
+  assert.ok(bag.equip('build','tool',null));
+  assert.equal(bag.cells().filter(Boolean).length,20);
+  assert.ok(bag.equip('build','tool','wand'));
+  assert.equal(bag.cells()[19].id,'wand');
+});
