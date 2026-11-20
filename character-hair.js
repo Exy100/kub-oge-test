@@ -61,6 +61,27 @@ function crownPoint(style,row,a) {
   return V(.231*radius*squared*sin(a),y+lip,-.227*radius*squared*cos(a));
 }
 
+// Extend the crown over the occiput, with the relief and neckline following
+// the same strand pattern so there is no separate piece across the back.
+export function createShortHairScalp(style) {
+  const waves = style === 0;
+  const rows = 32;
+  return loft(rows, 80, (row, angle) => {
+    const layer = row / rows * (crownProfile.length - 1);
+    const point = crownPoint(style, layer, angle);
+    const back = THREE.MathUtils.smoothstep(-cos(angle), -.15, .8);
+    const t = layer / (crownProfile.length - 1);
+    const phase = waves ? 13 * angle + 1.6 * sin(5 * t + 2 * angle)
+      : 15 * angle + 2.4 * t * sin(angle);
+    const ridge = (1 + cos(phase)) / 2;
+    const relief = back * (.003 + (waves ? .012 : .008) * ridge) * sin(Math.PI * t);
+    point.x += relief * sin(angle);
+    point.z -= relief * cos(angle);
+    point.y += back * (waves ? .019 : .010) * (1 - ridge) * (1 - t) ** 3;
+    return point;
+  });
+}
+
 // Sculpt curls into a single shell. A staggered field of soft mounds and
 // curved grooves keeps the roots joined even at the temples and nape.
 function curlyCrown() {
