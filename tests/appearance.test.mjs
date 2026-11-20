@@ -1,6 +1,6 @@
 import assert from 'node:assert/strict';
 import { test } from 'node:test';
-import { EYE_COLORS, FEATURES, PALETTES, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance } from '../appearance.js';
+import { EYE_COLORS, FEATURES, PALETTES, DEFAULT_APPEARANCE, normalizeAppearance, randomAppearance, EXPLORER, hairstylesFor } from '../appearance.js';
 import { Raycaster, Vector3 } from '../vendor/three.module.js';
 import { createCharacter } from '../character.js';
 
@@ -96,5 +96,20 @@ test('old saves keep their iris color and every new color works across eye shape
     assert.equal(Boolean(character.root.getObjectByName('eye-spark')),eyes===8);
     assert.equal(character.getAppearance().eyeColor,eyeColor);
   }
+  character.dispose();
+});
+
+test('each character can wear its native style and permitted shared styles', () => {
+  const other = {id:'guest', nativeHair:'pixie', sharedHair:['explorer-waves','bob']};
+  assert.deepEqual(hairstylesFor(other).map(s=>s.id), ['pixie','bob']);
+  assert.equal(hairstylesFor(EXPLORER)[0].id,'explorer-waves');
+  for (const hair of [0, 'explorer-waves', null]) assert.equal(normalizeAppearance({hair},other).hair,6);
+  assert.equal(normalizeAppearance({hair:'bob'},other).hair,5);
+  assert.equal(randomAppearance(()=>.99,other).hair,5);
+  const bald = {id:'robot', nativeHair:null, sharedHair:[]};
+  assert.equal(randomAppearance(()=>0,bald).hair,null);
+  const character=createCharacter({hair:0},bald);
+  assert.equal(character.getAppearance().hair,null);
+  assert.equal(character.root.getObjectByName('hair'),undefined);
   character.dispose();
 });

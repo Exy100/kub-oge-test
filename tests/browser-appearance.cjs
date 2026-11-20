@@ -25,13 +25,20 @@ assert(await colors.count()===5,'five iris colors');
 await page.locator('[data-option="8"]').click();
 await page.getByLabel('Серый',{exact:true}).check();
 await page.screenshot({path:'/tmp/kub-eye-color-editor.png'});
+await page.locator('#tab-hair').click();
+const native = page.locator('#appearance-options button').first();
+assert(original.hair === 0 && await native.getAttribute('aria-pressed') === 'true','new explorer wears native waves');
+await page.locator('[data-option="1"]').click();
+assert(await native.getAttribute('aria-pressed') === 'false' && (await native.innerText()).includes('Родная причёска'),'native label stays with the first card');
+await native.click();
+assert(await native.getAttribute('aria-pressed') === 'true','can return to native style');
 // The first three cards must select the matching model and palette row.
 for (const palette of [0, 9]) {
   await page.locator('#tab-palette').click();
   await page.locator(`[data-option="${palette}"]`).click();
   await page.locator('#tab-hair').click();
   for (const [hair, name] of ['Короткие волны','Боковой пробор','Зачёс назад'].entries()) {
-    const card = page.getByRole('button', {name, exact:true});
+    const card = page.getByRole('button', {name:hair === 0 ? name + ' Родная причёска' : name, exact:true});
     const crop = card.locator('svg svg');
     assert(await crop.getAttribute('viewBox') === `${hair*150} ${palette*120} 150 120`, 'correct portrait crop');
     assert(await crop.locator('image').getAttribute('href') === './assets/short-hair-previews.webp', '3D portrait asset');
@@ -49,6 +56,16 @@ if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-n
 await page.locator('#tab-hair').click();await page.locator('[data-option="5"]').click();await page.locator('#tab-palette').click();await page.locator('[data-option="3"]').click();await page.locator('#preview-face').click();await page.screenshot({path:'/tmp/kub-character-copper.png'});
 await page.keyboard.press('Escape');assert(JSON.stringify(await page.evaluate(()=>window.avatarTest.appearance()))===JSON.stringify(applied),'Escape cancels draft');
 await page.keyboard.press('KeyP');await page.locator('#appearance-random').click();await page.locator('#appearance-default').click();await page.locator('#character-save').click();assert(JSON.stringify(await page.evaluate(()=>window.avatarTest.appearance()))===JSON.stringify(original),'reset applies defaults');
+const storedHair = () => page.evaluate(()=>JSON.parse(localStorage.getItem('kub.appearance.v1')).hair);
+assert(await storedHair()==='explorer-waves','reset stores native style by stable ID');
+await page.evaluate(()=>localStorage.setItem('kub.appearance.v1',JSON.stringify({hair:1,palette:3,eyes:8})));
+await page.reload();await page.waitForFunction(()=>window.avatarTest);
+const legacy=await page.evaluate(()=>avatarTest.appearance());
+assert(legacy.hair===1 && legacy.palette===3 && legacy.eyeColor===2,'returning explorer retains side part and palette');
+await page.locator('#play').click();await page.evaluate(()=>document.exitPointerLock());
+await page.waitForFunction(()=>!document.pointerLockElement);await page.keyboard.press('KeyP');
+await page.locator('#character-save').click();
+assert(await storedHair()==='side-part','saving a legacy style writes its stable ID');
 await page.evaluate(()=>{localStorage.setItem('kub.appearance.v1','broken-json')});await page.reload();await page.waitForFunction(()=>window.avatarTest);assert(JSON.stringify(await page.evaluate(()=>window.avatarTest.appearance()))===JSON.stringify(original),'corrupt storage falls back');
 if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();await page.evaluate(()=>document.exitPointerLock());await page.waitForFunction(()=>!document.pointerLockElement);await page.keyboard.press('KeyP');
 await page.setViewportSize({width:600,height:900});await page.waitForTimeout(100);assert(await page.locator('#character-dialog').evaluate(el=>el.scrollWidth<=el.clientWidth+1),'narrow layout does not overflow');
