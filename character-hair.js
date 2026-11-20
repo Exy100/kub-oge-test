@@ -43,6 +43,12 @@ function crownPoint(style,row,a) {
     edge += .024*cos(8*a+1.1*sin(3*a)) - .013;
     radius *= 1.07 + (.022+.018*t)*wave;
     top = .31 + .05*t*t + .012*wave*taper;
+  } else if (style === 6) {
+    const side = sin(a);
+    edge += .034 * (1 - front) + front * (.014 - .054 * side);
+    edge -= .023 * pow(Math.max(0, side), 4);
+    radius *= 1 + .019 * taper * cos(7*a + 3*t);
+    top -= .012 + .018 * side;
   } else if (style===3) {
     edge += .016*sin(3*a+.8) + .009*sin(7*a);
     radius *= 1+.026*taper*cos(5*a-3*t);
@@ -134,12 +140,23 @@ function lock(stations, widthAxis, flute=0) {
   });
 }
 
-export function createSculptedHair(style, colors) {
+export function createSculptedHair(style, colors, underCap = false) {
   const hair=new THREE.Group();
   hair.name='hair';
   const [base,light,dark]=colors.map(c=>new THREE.Color(c));
   const tones=[base,base.clone().lerp(light,.22),base.clone().lerp(dark,.26)];
   function part(name, geometry, color=base) {
+    if (underCap) {
+      // Compress only the hair under the fabric, keeping the fringe and nape full.
+      const vertices = geometry.attributes.position;
+      for (let i = 0; i < vertices.count; i++) {
+        const y = vertices.getY(i);
+        const pressure = THREE.MathUtils.smoothstep(y, .13, .245);
+        const width = 1 - .13 * pressure;
+        vertices.setXYZ(i, vertices.getX(i) * width, y - .034 * pressure, vertices.getZ(i) * width);
+      }
+      geometry.computeVertexNormals();
+    }
     const material=new THREE.MeshStandardMaterial({color,vertexColors:!!geometry.attributes.color,roughness:.86,side:THREE.DoubleSide});
     const mesh=new THREE.Mesh(geometry,material);
     mesh.name=name; mesh.castShadow=mesh.receiveShadow=true;
@@ -179,6 +196,15 @@ export function createSculptedHair(style, colors) {
       sweep('nape-sweep',[[side*1.65,10],[side*2.0,8],[side*2.65,6],[side*3.05,3]],.047,.015,tones[1]);
     }
     bangs.forEach((s,i)=>part('swept-lock',lock(s,xAxis),tones[[0,1,0][i]]));
+  } else if (style === 6) {
+    // A diagonal fringe flows from the short side into one longer temple.
+    sweep('pixie-fringe',[[-1.25,9],[-.75,7.4],[-.2,5.5],[.45,3.5],[.83,1.2]],.043,.024,tones[1]);
+    sweep('pixie-fringe',[[-1.2,11],[-.45,9.6],[.26,7.4],[.77,4.8],[1.15,1.4]],.05,.025,tones[0]);
+    sweep('pixie-fringe',[[-.55,12],[.25,10.8],[.87,8.3],[1.24,5.8],[1.53,2]],.041,.019,tones[1]);
+    for (const side of [-1,1]) {
+      sweep('pixie-layer',[[side*1.38,9.6],[side*1.8,7],[side*2.28,4.4],[side*2.7,1.6]],.033,.014,tones[0]);
+      sweep('pixie-layer',[[side*2.02,10],[side*2.42,7],[side*2.81,4.8],[side*3.09,2.2]],.031,.012,tones[2]);
+    }
   } else if (style===7) {
     // Gather at the nape, then sweep away from the collar in one tapering volume.
     for (const side of [-1,1]) {
