@@ -4,7 +4,7 @@ import { createSimpleArchEffect } from './world/simple-arch.js';
 import { createTreeRenderer } from './world/trees.js';
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js?v=2';
-import { equipGatheringWand } from './gathering-wand.js?v=15';
+import { equipGatheringWand } from './gathering-wand.js?v=16';
 import { createPlayerPanel } from './player-panel.js?v=32';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=18';
