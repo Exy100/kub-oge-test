@@ -412,3 +412,14 @@ body > header .brand { pointer-events:auto; }
 #skill-list .scan-choice:disabled{opacity:.55}
 .scan-choice video{width:74px;height:66px;object-fit:cover;border-radius:7px;background:#263f33;pointer-events:none}
 .scan-choice span{flex:1}.scan-choice strong,.scan-choice small{display:block}.scan-choice small{margin-top:3px;font-weight:400}
+
+#skill-slot {
+  display:flex; align-items:center; gap:7px; margin:0 0 4px auto; padding:3px 9px 3px 4px;
+  border:1px solid #8b9679; border-radius:7px 4px; background:#f4f3e3; color:#304f40;
+  font-size:12px; font-weight:700; line-height:1.2;
+}
+#skill-slot kbd { padding:2px 5px; border-radius:4px; background:#3a594a; color:#fff8de; font:700 11px/1 monospace; }
+#skill-slot:hover { background:#fffbe9; }
+#skill-slot:focus-visible { outline:2px solid #3f694e; outline-offset:2px; }
+.player-dock[data-mode="battle"] #skill-slot { display:none; }
+#skill-list .scan-choice[aria-pressed="true"] { border-color:#708a62; box-shadow:inset 3px 0 #708a62; }

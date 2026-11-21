@@ -162,7 +162,18 @@ await page.evaluate(()=>panelTest.stage(2));await page.locator('#navigator-butto
 for(const width of [320,390,640,768,1440]){
   await page.setViewportSize({width,height:844});
   for(let i=0;i<2;i++){
-    const cells=page.locator('.dock-content > :visible > *');
+    const build = await mode()==='build';
+    const skillSlot = page.locator('#skill-slot');
+    assert(await skillSlot.isVisible()===build,'skill slot follows the current mode at '+width);
+    if (build) {
+      assert(await skillSlot.evaluate(slot=>{
+        const bounds=slot.getBoundingClientRect();
+        const bar=document.querySelector('.hotbar').getBoundingClientRect();
+        return bounds.left>=0 && bounds.right<=innerWidth && bounds.bottom<=bar.top+1
+          && slot.scrollWidth<=slot.clientWidth+1;
+      }),'skill name fits above materials at '+width);
+    }
+    const cells=page.locator(build ? '.hotbar > *' : '.battle-bar > *');
     assert(await cells.count()===9,'nine visible cells in either mode');
     assert(await cells.evaluateAll(items=>items.every((cell,i)=>{
       const box=cell.getBoundingClientRect();

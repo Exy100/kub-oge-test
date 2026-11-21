@@ -9,7 +9,7 @@ import { createForgeState } from './forge-state.js?v=5';
 import { drawQuestDiagram } from './quest-diagram.js';
 import { createPlayerInventory } from './player-inventory.js?v=3';
 import { equipGatheringWand } from './gathering-wand.js?v=16';
-import { createPlayerPanel } from './player-panel.js?v=36';
+import { createPlayerPanel } from './player-panel.js?v=37';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
@@ -66,28 +66,57 @@ function pauseForScanMenu(){
 }
 const skillList = $('#skill-list');
 const skillChoices = [...skillList.querySelectorAll('[data-skill]')];
-let lastSkill = 'grass', restoreSkillPointer = false;
+const skillStorageKey = 'kub.special-skill.v1.' + character.profile.id;
+let preferredSkill, restoreSkillPointer = false;
+try { preferredSkill = localStorage.getItem(skillStorageKey); } catch {}
+function availableSkill(button) {
+  const location = LOCATIONS[stage.index];
+  return character.profile.specialSkills?.includes(button.dataset.skill) &&
+    (button.dataset.skill === 'grass' ? !!location.scanSurface : location.trees.length > 0);
+}
+function equippedSkill() {
+  const available = skillChoices.filter(availableSkill);
+  return available.find(button => button.dataset.skill === preferredSkill) ?? available[0];
+}
+function refreshSkillSlot() {
+  const slot = $('#skill-slot');
+  const equipped = equippedSkill();
+  slot.hidden = !equipped;
+  if (!equipped) return;
+  const name = equipped.querySelector('strong').textContent;
+  slot.querySelector('span').textContent = name;
+  slot.title = name + ' · 0 — применить · Shift + 0 или щелчок — сменить';
+  slot.setAttribute('aria-label', 'Сменить особый навык. Сейчас выбран «' + name + '»');
+}
+function applySkill() {
+  const equipped = equippedSkill();
+  if (!equipped) notify('На этом острове нет доступного особого навыка.');
+  else if (third || panel.isBattle()) notify('Для скана включи вид от первого лица (V) и режим сборки (L).');
+  else scanner?.start(equipped.dataset.skill);
+}
 function openSkillList(){
   const skills = character.profile.specialSkills;
   if (!skills?.length) {notify('У этого героя пока нет особых навыков.');return}
   scanner?.cancel();
   restoreSkillPointer = document.pointerLockElement === renderer.domElement;
   pauseForScanMenu();
+  const equipped = equippedSkill();
   for (const button of skillChoices) {
     const skill = button.dataset.skill;
     button.hidden = !skills.includes(skill);
-    button.disabled = skill === 'grass' ? !LOCATIONS[stage.index].scanSurface : !LOCATIONS[stage.index].trees.length;
+    button.disabled = !availableSkill(button);
+    button.setAttribute('aria-pressed', String(button === equipped));
   }
   skillList.showModal();
   const available = skillChoices.filter(b=>!b.hidden && !b.disabled);
-  (available.find(b=>b.dataset.skill===lastSkill) ?? available[0])?.focus();
+  equipped?.focus();
   if (!reducedHandMotion.matches) {
     for (const button of available) button.querySelector('video').play().catch(()=>{});
   }
 }
-function closeSkillList(resume=false){
+function closeSkillList(){
   skillList.close();
-  if (restoreSkillPointer || resume) renderer.domElement.requestPointerLock?.()?.catch(()=>{});
+  if (restoreSkillPointer) renderer.domElement.requestPointerLock?.()?.catch(()=>{});
   restoreSkillPointer = false;
 }
 skillList.querySelector('.paths-heading button').onclick = () => closeSkillList();
@@ -96,10 +125,10 @@ skillList.addEventListener('close',()=>{
   for (const video of skillList.querySelectorAll('video')) video.pause();
 });
 for (const button of skillChoices) button.onclick = () => {
-  lastSkill = button.dataset.skill;
-  closeSkillList(!third && !panel.isBattle());
-  if (third || panel.isBattle()) notify('Для скана включи вид от первого лица (V) и режим сборки (L).');
-  else scanner?.start(lastSkill);
+  preferredSkill = button.dataset.skill;
+  try { localStorage.setItem(skillStorageKey, preferredSkill); } catch {}
+  refreshSkillSlot();
+  closeSkillList();
 };
 skillList.addEventListener('keydown',e=>{
   if (!skillList.open || e.altKey || e.ctrlKey || e.metaKey || e.shiftKey || e.isComposing) return;
@@ -146,6 +175,9 @@ function onCollect(mesh){
   if(bag.loadouts.build.tool==='wand')gathering.collect(mesh);
 }
 const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:currentQuestBrief(),progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
+$('#skill-slot').onclick = () => {
+  if (!modalOpen() && $('#welcome').classList.contains('hidden')) openSkillList();
+};
 const restartDialog=$('#restart-dialog');
 let restartStage=null, extraDialog=null;
 function modalOpen(){return skillList.open||scanDialog.open||extraDialog?.open||restartDialog.open||forge?.isOpen()||customizer.isOpen()||panel.isOpen()}
@@ -297,7 +329,8 @@ function refreshMission(){
   $('.progress-label > span').textContent=quest.goal;
   $('.tip').textContent=quest.tip;
   document.body.classList.toggle('forge-mode',stage.index>=2);
-  controlStrip.querySelector('.scan-hint').hidden=!scanner;
+  refreshSkillSlot();
+  controlStrip.querySelector('.scan-hint').hidden=!equippedSkill();
   controlStrip.querySelector('.forge-hint').hidden=stage.index!==2;
   const interact=controlStrip.querySelector('.interact-hint');
   interact.hidden=stage.index<2;
@@ -407,10 +440,11 @@ addEventListener('keydown',e=>{
     return;
   }
   if (e.code==='Digit0' || e.code==='Numpad0') {
-    if (e.repeat || e.isComposing || e.ctrlKey || e.altKey || e.metaKey || e.shiftKey ||
+    if (e.repeat || e.isComposing || e.ctrlKey || e.altKey || e.metaKey ||
         e.target?.closest?.('input,textarea,select,[contenteditable]')) return;
     e.preventDefault();
-    openSkillList();
+    if (e.shiftKey) openSkillList();
+    else applySkill();
     return;
   }
   if(panel.input.down(e))return;
