@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {moscowDay, scanCell, prepareFindingPreview, claimFinding} from '../skills/explorer-scan.js';
+import {moscowDay, resetDailyFindings, scanCell, prepareFindingPreview, claimFinding} from '../skills/explorer-scan.js';
 
 const location = 'island.dreamers', day = 12;
 const cells = new Set(Array.from({length:40},(_,i)=>i+',0'));
@@ -96,4 +96,21 @@ test('one prize-bearing tree per island per day, for small and large forests', (
     }
     assert.equal(save.locations[location].cells['0,0'].kind,'coin');
   }
+});
+
+test('manual reset preserves the wallet and rejects outstanding actions from the previous cycle', () => {
+  const save = fresh(), ref = {day, location, cells, key:'0,0'};
+  scanCell(save,ref,()=>0);
+  assert.equal(claimFinding(save,ref,'coin'),1);
+  resetDailyFindings(save);
+  assert.deepEqual(save.locations,{});
+  assert.equal(save.coins,1);
+  assert.equal(save.day,day);
+  prepareFindingPreview(save,ref);
+  assert.equal(scanCell(save,ref),null);
+  assert.deepEqual(save.locations,{});
+  const current = {...ref,revision:save.scanRevision};
+  assert.equal(scanCell(save,current,()=>0),'coin');
+  assert.equal(claimFinding(save,ref,'coin'),0);
+  assert.equal(claimFinding(save,current,'coin'),1);
 });
