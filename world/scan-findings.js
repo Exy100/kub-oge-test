@@ -15,15 +15,23 @@ export function createScanFindings(parent, trunks) {
   const ring = new THREE.Mesh(ringGeometry, light);
   ring.rotation.x = -Math.PI / 2;
   ring.visible = false;
-  const barkBand = new THREE.Mesh(new THREE.RingGeometry(.72,.90,4,1,Math.PI/4),
-    new THREE.MeshBasicMaterial({color:0xffc96a, side:THREE.DoubleSide}));
-  const sleeveGeometry = new THREE.CylinderGeometry(.8,.8,.16,4,1,true,Math.PI/4);
-  const sleeve = new THREE.Mesh(sleeveGeometry,barkBand.material);
-  sleeve.rotation.x = Math.PI / 2;
-  barkBand.add(sleeve);
-  barkBand.rotation.x = -Math.PI / 2;
-  barkBand.visible = false;
-  root.add(ring,barkBand);
+  // Four bars per square, all three hoops share one draw call and one pulse color.
+  const deepBlue = new THREE.Color(0x143ba8), azure = new THREE.Color(0x168fff), ice = new THREE.Color(0x9eefff);
+  const bandMaterial = new THREE.MeshBasicMaterial({color:deepBlue});
+  const treeRings = new THREE.InstancedMesh(detail,bandMaterial,12);
+  treeRings.name = 'tree-scan-rings';
+  const transform = new THREE.Matrix4();
+  let bar = 0;
+  for (const y of [-.30,-.06,.18]) {
+    for (const side of [-1,1]) {
+      transform.makeScale(1.28,.022,.08).setPosition(0,y,side*.60);
+      treeRings.setMatrixAt(bar++,transform);
+      transform.makeScale(.08,.022,1.12).setPosition(side*.60,y,0);
+      treeRings.setMatrixAt(bar++,transform);
+    }
+  }
+  treeRings.visible = false;
+  root.add(ring,treeRings);
 
   function addMark(mesh, width, height, x, y, z, material) {
     const mark = new THREE.Mesh(detail, material);
@@ -78,16 +86,17 @@ export function createScanFindings(parent, trunks) {
       ring.scale.setScalar(reduced ? 1 : .27 + .73 * ((progress * 3) % 1));
     },
     pulseTree(trunk, progress, reduced) {
-      barkBand.visible = true;
-      barkBand.scale.setScalar(trunk.scale.x);
-      const top = Math.min(1.8, trunk.position.y + trunk.scale.y / 2);
-      const y = reduced ? 1.5 : .3 + (top - .3) * (.5 - .5 * Math.cos(progress * 3 * Math.PI));
-      barkBand.position.set(trunk.position.x,y,trunk.position.z);
+      treeRings.visible = true;
+      treeRings.position.copy(trunk.position);
+      treeRings.scale.copy(trunk.scale);
+      const phase = reduced ? .5 : .5 - .5 * Math.cos(2 * Math.PI * progress);
+      if (phase <= .5) bandMaterial.color.lerpColors(deepBlue,azure,phase * 2);
+      else bandMaterial.color.lerpColors(azure,ice,phase * 2 - 1);
     },
-    stop(){ring.visible = barkBand.visible = false},
+    stop(){ring.visible = treeRings.visible = false},
     dispose(){
       parent.remove(root);
-      for (const resource of [coin,tablet,detail,gold,relief,stone,engraving,ringGeometry,light,barkBand.geometry,barkBand.material,sleeveGeometry]) resource.dispose();
+      for (const resource of [coin,tablet,detail,gold,relief,stone,engraving,ringGeometry,light,treeRings,bandMaterial]) resource.dispose();
     },
   };
 }
