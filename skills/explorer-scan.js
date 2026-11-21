@@ -5,6 +5,15 @@ export const EXCEL_REWARDS = Object.freeze({basic:20, medium:40, advanced:70});
 const levels = Object.keys(EXCEL_REWARDS);
 const emptySave = () => ({day:null, locations:{}, coins:0});
 
+export function resetDailyFindings(save) {
+  save.locations = {};
+  save.scanRevision = (save.scanRevision ?? 0) + 1;
+}
+
+function currentCycle(save, day, revision) {
+  return save.day === day && (save.scanRevision ?? 0) === revision;
+}
+
 function dailyFindings(save, location, random, skill) {
   if (save.locations[location]) return save.locations[location];
   if (skill === 'tree') {
@@ -21,8 +30,8 @@ function tabletFinding(random, skill) {
 }
 
 // Pin only the remaining prizes when a preview is first requested for this island and day.
-export function prepareFindingPreview(save, {location, day, cells, skill = 'grass'}, random = Math.random) {
-  if (save.day !== day || !cells.size) return;
+export function prepareFindingPreview(save, {location, day, revision = 0, cells, skill = 'grass'}, random = Math.random) {
+  if (!currentCycle(save,day,revision) || !cells.size) return;
   const island = dailyFindings(save, location, random, skill);
   if (island.hiddenPrizes) return;
   const available = [...cells.keys()].filter(key => !Object.hasOwn(island.cells, key));
@@ -38,8 +47,8 @@ export function prepareFindingPreview(save, {location, day, cells, skill = 'gras
   island.hiddenPrizes = prizes;
 }
 
-export function scanCell(save, {location, cells, key, day, skill = 'grass', face}, random = Math.random) {
-  if (save.day !== day || !cells.has(key)) return null;
+export function scanCell(save, {location, cells, key, day, revision = 0, skill = 'grass', face}, random = Math.random) {
+  if (!currentCycle(save,day,revision) || !cells.has(key)) return null;
   const island = dailyFindings(save, location, random, skill);
   if (Object.hasOwn(island.cells, key)) return 'repeat';
   let entry = {kind:'empty'};
@@ -59,9 +68,9 @@ export function scanCell(save, {location, cells, key, day, skill = 'grass', face
   return entry.kind;
 }
 
-export function claimFinding(save, {day, location, key}, kind, correct = false) {
+export function claimFinding(save, {day, revision = 0, location, key}, kind, correct = false) {
   const entry = save.locations[location]?.cells[key];
-  if (save.day !== day || !entry || entry.kind !== kind || entry.claimed) return 0;
+  if (!currentCycle(save,day,revision) || !entry || entry.kind !== kind || entry.claimed) return 0;
   let reward = 1;
   if (kind === 'tablet') {
     if (correct !== true) return 0;

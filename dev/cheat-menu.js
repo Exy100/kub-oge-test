@@ -1,6 +1,6 @@
 import { catalog } from '../catalog/index.js';
 
-export function installCheatMenu({locations, currentIsland, getScanner, travel, account, bag, canOpen, pause, reset}) {
+export function installCheatMenu({locations, currentIsland, getScanner, travel, account, bag, canOpen, pause, resetScanLimits, reset}) {
   const dialog = document.createElement('dialog');
   dialog.id = 'cheat-menu';
   dialog.className = 'panel-dialog';
@@ -19,7 +19,7 @@ export function installCheatMenu({locations, currentIsland, getScanner, travel, 
     <h3>Перейти на остров</h3><div class="cheat-actions" data-islands></div>
     <h3>Награды</h3><div class="cheat-actions"><button data-coins>+100 монет</button><button data-keys>Выдать все ключи</button></div>
     <output data-balance></output>
-    <h3>Сканирование</h3><div class="cheat-actions"><button data-scan></button></div>
+    <h3>Сканирование</h3><div class="cheat-actions"><button data-scan></button><button data-reset-scans>Сбросить суточный лимит на всех островах</button></div>
     <button id="cheat-reset">Сбросить прогресс и монеты</button>
     <output aria-live="polite" data-status></output>`;
   document.body.append(dialog);
@@ -58,6 +58,18 @@ export function installCheatMenu({locations, currentIsland, getScanner, travel, 
       await scanner.setShowingPrizes(!scanner.showingPrizes);
       if (scanner.showingPrizes) status.textContent = 'Чтобы обнаружить отмеченный приз, просканируй клетку или дерево.';
     } finally {
+      refresh();
+    }
+  };
+  const resetScansButton = dialog.querySelector('[data-reset-scans]');
+  resetScansButton.onclick = async () => {
+    clearConfirmation();
+    resetScansButton.disabled = true;
+    try {
+      await resetScanLimits();
+      status.textContent = 'Траву и деревья на всех островах можно сканировать заново.';
+    } finally {
+      resetScansButton.disabled = false;
       refresh();
     }
   };
