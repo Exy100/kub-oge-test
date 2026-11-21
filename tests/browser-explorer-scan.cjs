@@ -48,6 +48,17 @@ const {chromium} = require('playwright');
           island.traverse(m=>{if(m.userData.scanKey===key)result=m.position.toArray()});
           return result;
         },
+        treePulse(){
+          const rings = island.getObjectByName('tree-scan-rings');
+          if (!rings.visible) return null;
+          const levels = new Set();
+          const matrix = new THREE.Matrix4();
+          for (let i=0; i<rings.count; i++) {
+            rings.getMatrixAt(i,matrix);
+            levels.add(matrix.elements[13]);
+          }
+          return {color:rings.material.color.getHex(),levels:[...levels],origin:rings.position.toArray()};
+        },
         saved:()=>scanStore.state,
         solve:correct=>scanner.submitVerifiedAnswer(correct),
         travel:index=>goToIsland(index,'Переход'),
@@ -151,7 +162,28 @@ const {chromium} = require('playwright');
     await aimTree(-8,-6);
     await choose();
     assert.match(await page.locator('#message').innerText(),/клетку травы/);
-    await treeScan(-8,-6);
+    const pulse = () => page.evaluate(()=>scanTest.treePulse());
+    await page.emulateMedia({reducedMotion:'reduce'});
+    await choose(true);await tick(200);
+    const still = await pulse();
+    assert.equal(still.color,0x168fff);
+    await tick(1000);assert.deepEqual(await pulse(),still);
+    await press('KeyV');await tick(16);
+    assert.equal(await pulse(),null);
+    assert.equal(await page.evaluate(()=>scanTest.saved().locations['island.dreamers/trees']),undefined);
+    await page.emulateMedia({reducedMotion:'no-preference'});
+    await press('KeyV');await aimTree(-8,-6);await choose(true);
+    await tick(0);
+    const start = await pulse();
+    assert.equal(start.levels.length,3);
+    assert.equal(start.color,0x143ba8);
+    for (const color of [0x168fff,0x9eefff,0x168fff]) {
+      await tick(750);
+      assert.deepEqual(await pulse(),{...start,color});
+    }
+    await tick(749);assert.equal((await pulse()).color,start.color);
+    await tick(2);assert.equal(await pulse(),null);
+    await page.waitForFunction(()=>scanTest.marker('tree:-8,-6'),null,{polling:50});
     const marker = await page.evaluate(key=>scanTest.marker(key),treeKey);
     assert.equal(marker[0],-8);
     assert.equal(marker[1],1.5);
