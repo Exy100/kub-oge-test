@@ -60,7 +60,11 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
     <div class="dock-caption"><span class="dock-dot"></span><span id="dock-mode" aria-live="polite">СБОРКА</span></div>
     <div class="dock-frame">
       <button id="navigator-button" class="dock-end navigator" aria-label="Позвать Навигатора · Z + X / Я + Ч" title="Навигатор · Z + X / Я + Ч">${portrait}<span>Навигатор</span><kbd>Z + X</kbd></button>
-      <div class="dock-content"></div>
+      <div class="dock-content">
+        <button id="skill-slot" type="button" aria-haspopup="dialog" aria-controls="skill-list" hidden>
+          <kbd>0</kbd><span></span><span aria-hidden="true">▾</span>
+        </button>
+      </div>
     </div>
     <div class="dock-tabs" role="group" aria-label="Действия панели игрока">
       <button id="inventory-button" type="button" title="Инвентарь · B / И">${icon('bag')}<span>Инвентарь</span><kbd>B / И</kbd></button>
