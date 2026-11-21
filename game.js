@@ -1,4 +1,4 @@
-import { createScanStore } from './skills/explorer-scan.js';
+import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
 import { createScanInteraction } from './skills/scan-interaction.js';
 import { installCheatMenu } from './dev/cheat-menu.js';
 import { BUILD_MATERIALS } from './catalog/index.js';
@@ -606,6 +606,7 @@ extraDialog = installCheatMenu({
     dragging = jumpRequested = false;
   },
   travel: index => goToIsland(index, LOCATIONS[index].name),
+  resetScanLimits: () => scanStore.change(resetDailyFindings),
   async reset() {
     await scanStore.change(save => {save.coins=0});
     stages = LOCATIONS.map((_, index) => createStage(index));

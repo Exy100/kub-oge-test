@@ -26,6 +26,7 @@ export function createScanInteraction({location, island, solids, obstacles, stag
   const floor = new THREE.Plane(new THREE.Vector3(0,1,0),0);
   let disposed = false;
   let pending = null, opened = null, day = store.state.day;
+  let revision = store.state.scanRevision ?? 0;
   let showingPrizes = false;
   function cancel() {
     pending = null;
@@ -33,15 +34,16 @@ export function createScanInteraction({location, island, solids, obstacles, stag
     progress.hidden = true;
   }
   function sync(save) {
-    if (day !== save.day) {
+    if (day !== save.day || revision !== (save.scanRevision ?? 0)) {
       cancel();
       showingPrizes = false;
     }
     day = save.day;
+    revision = save.scanRevision ?? 0;
     const grass = save.locations[location.id], trees = save.locations[treeLocation];
     const preview = showingPrizes ? {...grass?.hiddenPrizes,...trees?.hiddenPrizes} : {};
     view.sync({...preview,...grass?.cells,...trees?.cells});
-    if (opened && (opened.day !== day || !view.markers.has(opened.key))) dialog.close();
+    if (opened && (opened.day !== day || opened.revision !== revision || !view.markers.has(opened.key))) dialog.close();
   }
   function target(allowTreeHit) {
     camera.updateMatrixWorld();
@@ -58,7 +60,7 @@ export function createScanInteraction({location, island, solids, obstacles, stag
     const key = Math.round(point.x)+','+Math.round(point.z);
     return cells.has(key) ? key : null;
   }
-  const ref = key => ({location:trunks.has(key) ? treeLocation : location.id, day:moscowDay(), key});
+  const ref = key => ({location:trunks.has(key) ? treeLocation : location.id, day:moscowDay(), revision, key});
   function start(skill) {
     if (pending) return;
     if (day !== moscowDay()) store.refresh();
@@ -91,7 +93,7 @@ export function createScanInteraction({location, island, solids, obstacles, stag
     const scan = pending;
     cancel();
     store.change(save => scanCell(save,{...scan,cells:scan.skill === 'tree' ? trunks : cells})).then(result => {
-      if (!result || disposed || scan.day!==moscowDay()) return;
+      if (!result || disposed || scan.day!==moscowDay() || scan.revision!==revision) return;
       if (scan.skill === 'tree' && result === 'empty') say('В этом дереве находок нет.');
       else if (scan.skill === 'tree' && result === 'repeat') say('Это дерево уже просканировано.');
       else say(messages[result]);
@@ -129,9 +131,10 @@ export function createScanInteraction({location, island, solids, obstacles, stag
     async setShowingPrizes(visible) {
       store.refresh();
       showingPrizes = visible;
+      const cycle = {day, revision};
       if (visible) await store.change(save => {
-        prepareFindingPreview(save, {location:location.id, day, cells});
-        prepareFindingPreview(save, {location:treeLocation, day, cells:trunks, skill:'tree'});
+        prepareFindingPreview(save, {location:location.id, ...cycle, cells});
+        prepareFindingPreview(save, {location:treeLocation, ...cycle, cells:trunks, skill:'tree'});
       });
       else sync(store.state);
     },
