@@ -1,4 +1,4 @@
-import { newRepair, repairBrief, createWorkshop } from './quests/workshop.js?v=3';
+import { newRepair, repairBrief, createWorkshop } from './quests/workshop.js?v=4';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
@@ -477,7 +477,7 @@ addEventListener('keydown',e=>{
   }
   if(panel.input.down(e))return;
   if(e.code==='KeyE'&&!e.repeat){
-    if (workshop?.interact() || signalStation?.interact())return;
+    if (workshop?.interact() || signalStation?.interact()){e.preventDefault();return}
     if (!panel.isBattle() && scanner?.interact('open')) return;
     if(!travel()&&stage.locationId==='island.data-forge')forge.open(player.position);
     return;
@@ -486,7 +486,10 @@ addEventListener('keydown',e=>{
   if(e.code==='Space'&&!keys.Space)jumpRequested=true;
   keys[e.code]=true;
   if(/^Digit[1-6]$/.test(e.code)){
-    if(panel.isBattle() && workshop && e.code==='Digit1'){if(!e.repeat)workshop.attack()}
+    if(panel.isBattle() && workshop && e.code==='Digit1'){
+      e.preventDefault();
+      if(!e.repeat)workshop.attack();
+    }
     else if(panel.isBattle())notify('Боевые навыки пока недоступны.');
     else select(+e.code.slice(-1)-1);
   }
