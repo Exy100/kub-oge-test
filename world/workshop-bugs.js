@@ -28,7 +28,7 @@ function limb({face}, joints, color, guide) {
 }
 
 function orangeShell(brush) {
-  const {face,block,band}=brush;
+  const {face,block}=brush;
   // One closed arch over the whole back. Both shoulders meet the same crown.
   const profile=[
     [-1,.34],[-.91,.60],[-.68,.83],[-.38,.96],[0,1],
@@ -55,6 +55,9 @@ function orangeShell(brush) {
   }
   // Three bands guard the exposed exhaust on the tail.
   for(const x of [-.09,0,.09])block(x,.548,-.773,.045,.11,.032,0x945435,.01);
+}
+
+function frontShield({block,face,band}){
   // The forward shield broadens toward the eyes, with a stepped copper lip.
   const shield=[[.42,.78],[-.42,.78],[-.55,.53],[-.48,.22],
     [-.28,.12],[.28,.12],[.48,.22],[.55,.47]];
@@ -73,10 +76,7 @@ function orangeShell(brush) {
   }
 }
 
-function greenCartridge({block,face}){
-  block(0,.64,-.115,.97,.39,1.12,graphite,.11);
-  block(0,.819,-.12,.87,.105,.97,iron,.047);
-  block(0,.90,-.115,.42,.105,.68,0x23634e,.044);
+function crystalFace({face}){
   // Cut the crystal shoulders into broad facets around a flat rectangular table.
   const corners=[[.197,.305],[-.197,.305],[-.197,-.305],[.197,-.305]];
   const base=corners.map(([x,z])=>[x,.945,z-.115]);
@@ -86,6 +86,12 @@ function greenCartridge({block,face}){
     face([base[j],table[j],table[k],base[k]],[0x54cc94,0x299c75,0x278960,0x40ae85][j]);
   }
   face(table.slice().reverse(),emerald);
+}
+
+function greenCartridge({block}){
+  block(0,.64,-.115,.97,.39,1.12,graphite,.11);
+  block(0,.819,-.12,.87,.105,.97,iron,.047);
+  block(0,.90,-.115,.42,.105,.68,0x23634e,.044);
   // Backplate with three recessed cooling channels and contrasting upper louvers.
   block(0,.657,-.678,.69,.205,.049,iron,.036);
   for(const x of [-.22,0,.22]){
@@ -226,6 +232,13 @@ export function createBugBody(root,index,material){
     else orangeShell(brush);
     helmet(brush,green);
   });
+  // Only the visor hinge and the crystal need independent transforms or tint.
+  let visor,crystal;
+  if(green)crystal=paintedPart(thorax,'bug-emerald',material.clone(),crystalFace);
+  else{
+    visor=paintedPart(thorax,'bug-visor',material,frontShield);
+    visor.geometry.translate(0,-.78,-.22);visor.position.set(0,.78,.22);
+  }
   const legs=[];
   for(const side of [-1,1])for(let row=0;row<3;row++)legs.push(makeLeg(root,material,side,row,green));
   let aerials;
@@ -245,8 +258,34 @@ export function createBugBody(root,index,material){
   }
   const center=new Vector3(),contact=new Vector3(),next=new Vector3();
   const stride=green?.81:.91,stance=.56;
-  let resting=false;
+  let resting=false,reacting=false;
+  function clearReaction(){
+    if(!reacting)return;
+    reacting=false;
+    if(visor)visor.rotation.x=0;
+    if(crystal)crystal.material.color.setScalar(1);
+    if(aerials)aerials.rotation.set(0,0,0);
+  }
+  function pose(amount,bearing,disabled,recoil=0){
+    resting=false;reacting=true;
+    thorax.position.set(0,-(green?.095:.15)*amount,-.105*recoil);
+    thorax.rotation.set((green?-.085:.15)*amount-.14*recoil,0,.09*Math.sin(bearing)*recoil);
+    if(visor)visor.rotation.x=.35*amount;
+    if(aerials){
+      aerials.rotation.set((disabled?.97:.48)*amount-.32*recoil,disabled?0:bearing*amount,disabled?0:-.22*Math.sin(bearing)*amount);
+      crystal.material.color.setScalar(1-(disabled?.79:.26)*amount);
+    }
+    for(const {home,plant} of legs){
+      contact.copy(home);
+      if(!green && home.z>.35){
+        contact.x+=Math.sign(home.x)*.105*amount;
+        contact.z+=.09*amount;
+      }
+      plant(contact,thorax.position);
+    }
+  }
   function rest(){
+    clearReaction();
     if(resting)return;
     resting=true;
     thorax.position.set(0,0,0);thorax.rotation.set(0,0,0);
@@ -254,6 +293,7 @@ export function createBugBody(root,index,material){
     if(aerials)aerials.rotation.x=0;
   }
   function walk(route,distance,yaw,reduced){
+    clearReaction();
     if(reduced){rest();return}
     resting=false;
     const phase=distance/stride,beat=phase*Math.PI*2;
@@ -281,5 +321,5 @@ export function createBugBody(root,index,material){
     });
   }
   rest();
-  return {walk,rest};
+  return {walk,rest,pose};
 }

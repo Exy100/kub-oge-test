@@ -1,8 +1,8 @@
 import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=3';
 import {pcParts} from '../catalog/pc-parts.js';
-import {workshopModels} from '../world/repair-models.js?v=5';
+import {workshopModels} from '../world/repair-models.js?v=6';
 
-import {createBugPatrol} from '../world/bug-patrol.js';
+import {createBugEncounter} from '../world/bug-encounter.js';
 
 const puzzles = [
   {name:'Оранжевый Баг', parts:[0,1], lines:[
@@ -44,7 +44,8 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   box(center+1.04,1.09,-.77,.56,.06,.07,0xd0c59f);
   const powerLed=box(center+1.86,.93,-.45,.1,.08,.05,0x51665a);
   const bugs=puzzles.map((_,i)=>models.bug(i,center+(i?5:-5),-2));
-  const patrols=bugs.map((_,i)=>createBugPatrol(i));
+  const encounters=bugs.map((bug,i)=>createBugEncounter(i,bug,center));
+  const settleSeconds=.55, settling=bugs.map(()=>0);
   const helpers=bugs.map(({g})=>models.helper(g.position.x,g.position.z));
   const drops=pcParts.map((p,i)=>models.part(p,i,center,0));
   const prompt=document.querySelector('#field-action'), dialog=document.querySelector('#workshop-dialog');
@@ -56,7 +57,10 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       const {g,hp,fill}=bugs[i];
       g.visible=b.phase==='running'||b.phase==='stopped';
       hp.visible=b.phase==='running';fill.scale.x=.93*b.hp/3;fill.position.x=(fill.scale.x-.93)/2;
-      if(b.phase!=='running'){g.position.set(b.x,0,b.z);bugs[i].rest()}
+      if(b.phase!=='running'){
+        g.position.set(b.x,0,b.z);g.rotation.y=b.yaw??0;
+        if(b.phase==='stopped' && !settling[i])bugs[i].pose(1,0,true);
+      }
       helpers[i].visible=b.phase==='leaving';
       helpers[i].position.set(b.x,0,b.z);
       puzzles[i].parts.forEach((part,j)=>{
@@ -162,7 +166,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
         if(!canStore(pcParts[i].id))return;
         state.parts[i]='bag';collect();sync();changed();notify(pcParts[i].name+' в рюкзаке.');
       }};
-      const j=closest(bugs.map(b=>b.g),k=>state.bugs[k].phase==='stopped',3);
+      const j=closest(bugs.map(b=>b.g),k=>state.bugs[k].phase==='stopped' && !settling[k],3);
       if(j>=0)return {label:'Исправить программу',act:()=>edit(j)};
     }
     if(near(turtle.root,3.2) || (state.met && near(worktop,2.2)))return {label:state.met?'Верстак черепахи':'Поговорить с черепахой',act:talk};
@@ -175,22 +179,28 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
     if(time-lastHit<.25)return;
     lastHit=time;onHit();
     const b=state.bugs[i], g=bugs[i].g;
-    b.hp--;if(!b.hp){b.phase='stopped';b.x=g.position.x;b.z=g.position.z}
+    b.hp--;
+    if(b.hp)encounters[i].hit(player.position);
+    else{
+      b.phase='stopped';b.x=g.position.x;b.z=g.position.z;b.yaw=g.rotation.y;
+      settling[i]=settleSeconds;
+    }
     sync();
-    if(!b.hp)edit(i);
   }
   function tick(dt,active,reduced){
     if(!active){prompt.hidden=true;return}
     turtle.update(dt,reduced,player.position);
     time+=dt;
     state.bugs.forEach((b,i)=>{
-      const {g,hp,walk}=bugs[i];
+      const {g,hp,pose}=bugs[i];
       if(b.phase==='running'){
-        const patrol=patrols[i],distance=patrol.distanceAt(time);
-        g.rotation.y=patrol.sample(distance,0,0,g.position);
-        g.position.x+=center;
-        walk(patrol,distance,g.rotation.y,reduced);
+        encounters[i].update(dt,player.position,reduced);
         hp.quaternion.copy(g.quaternion).invert().multiply(camera.quaternion);
+      }else if(settling[i]>0){
+        settling[i]=Math.max(0,settling[i]-dt);
+        const t=1-settling[i]/settleSeconds;
+        pose(reduced?1:.3+.7*(1-(1-t)**3),0,true);
+        if(!settling[i] && !dialog.open)edit(i);
       }else if(b.phase==='leaving'){
         fade[i]+=dt;const fraction=Math.min(1,fade[i]/1.35),h=helpers[i];
         h.position.y=reduced?0:fraction*.95;h.scale.setScalar(1-fraction*.94);

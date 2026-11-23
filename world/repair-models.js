@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 
-import {createBugBody} from './workshop-bugs.js?v=3';
+import {createBugBody} from './workshop-bugs.js?v=4';
 export function workshopModels(parent, geometry) {
   const palette = new Map();
   function cube(group,x,y,z,w,h,d,color) {
@@ -22,11 +22,11 @@ export function workshopModels(parent, geometry) {
     const body=new THREE.Group();
     body.scale.y=1.25;
     g.add(body);
-    const {walk,rest}=createBugBody(body,i,bugMaterial);
+    const {walk,rest,pose}=createBugBody(body,i,bugMaterial);
     const hp=new THREE.Group();g.add(hp);hp.position.y=(i?1.58:1.36)*body.scale.y;
     cube(hp,0,0,0,1,.14,.045,0x293f39);
     const fill=cube(hp,0,0,.034,.93,.08,.025,0xe9aa70);
-    return {g,hp,fill,walk,rest};
+    return {g,hp,fill,walk,rest,pose};
   }
   function helper(x,z) {
     const g=group('friendly-program',x,z);
