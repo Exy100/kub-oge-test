@@ -4,14 +4,23 @@ const {spawn}=require('child_process');const fs=require('fs');const path=require
 try{await new Promise(r=>setTimeout(r,400));browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||(fs.existsSync('/usr/bin/chromium')?'/usr/bin/chromium':undefined),headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(repo,'game.js'),'utf8')+`
 window.storyTest={
+ at(x,z){player.position.set(x,0,z)},
+ repairedWorkshop(){stage.repair.parts.fill('installed');stage.unlocked=true;update();player.position.set(stage.center,0,-6)},
  currentIslandOnly(){
    const unloaded=stages.filter(s=>s!==stage);
-   return island.name===stage.locationId && unloaded.every(s=>!s.placed&&!s.pickups&&!s.ghosts) &&
-     solids.every(m=>m.parent===island) && island.children.every(m=>{
-       if(!m.isInstancedMesh)return Math.abs(m.position.x-stage.center)<13;
+   island.updateMatrixWorld(true);
+   let local=true;
+   island.traverseVisible(m=>{
+     if(m.isInstancedMesh){
        m.computeBoundingBox();
-       return m.boundingBox.min.x>stage.center-13&&m.boundingBox.max.x<stage.center+13;
-     });
+       const bounds=m.boundingBox.clone().applyMatrix4(m.matrixWorld);
+       local &&= bounds.min.x>stage.center-13 && bounds.max.x<stage.center+13;
+     }else if(m.isMesh){
+       local &&= Math.abs(m.getWorldPosition(new THREE.Vector3()).x-stage.center)<13;
+     }
+   });
+   return local && island.name===stage.locationId && unloaded.every(s=>!s.placed&&!s.pickups&&!s.ghosts)
+     && solids.every(m=>m.parent===island);
  },
  snapshot(){return {index:stage.index,built:stage.built.size,inventory:stage.inventory.slice(),unlocked:stage.unlocked,pickups:stage.pickups.length}},
  nearGate(){player.position.set(stage.index===0?0:stage.center+6,0,stage.index===0?0:5)},
@@ -24,8 +33,8 @@ window.storyTest={
  getPosition(){return player.position.toArray()},
  worldCounts(){return {colliders:solids.length,blocks:stage.placed.length,tray:forge?.bytePickups.length??0,platform:forge?.deposited.length??0}},
  playerState(){return {coins:playerAccount.coins,kits:bag.loadouts,mode:panel.isBattle(),third}},
- forgeSnapshot(){return {bits:forgeState.bits,slots:forgeState.slots.filter(Boolean).length,bytes:forgeState.bytes,pending:forgeState.pendingBytes,crafted:forgeState.crafted,inserted:forgeState.cells.filter(Boolean).length,unlocked:forgeState.unlocked,pickups:forge?.pickups.length??stages[2].remainingBits?.length??8}},
- nextGate(){player.position.set(stage.index===1?40:86,0,stage.index===1?-1:-3)},
+ forgeSnapshot(){return {bits:forgeState.bits,slots:forgeState.slots.filter(Boolean).length,bytes:forgeState.bytes,pending:forgeState.pendingBytes,crafted:forgeState.crafted,inserted:forgeState.cells.filter(Boolean).length,unlocked:forgeState.unlocked,pickups:forge?.pickups.length??stages[3].remainingBits?.length??8}},
+ nextGate(){player.position.set(stage.index===2?40:86,0,stage.index===2?-1:-3)},
  nearBench(){player.position.set(80,0,-1.3)},
  collectBits(){for(const m of [...forge.pickups]){player.position.set(m.position.x,0,m.position.z+1);camera.position.set(m.position.x,2.5,m.position.z);camera.lookAt(m.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)}},
  bitMaterial(){return forge.pickups[0].material.map(m=>m.uuid)},
@@ -35,7 +44,7 @@ window.storyTest={
  viewArch(){player.position.set(86,0,1);yaw=0;pitch=.15}
 };`}));
 const assert=(ok,msg)=>{if(!ok)throw Error(msg)};
-await page.goto('http://127.0.0.1:8050');if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();
+await page.goto('http://127.0.0.1:8050/game.html');if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();
 await page.evaluate(()=>document.exitPointerLock());
 await page.waitForFunction(()=>!document.pointerLockElement);
 assert(await page.locator('#paths-button,#paths-dialog,#chosen-path,#portal-prompt,#navigator-paths').count()===0,'learning path UI removed');
@@ -116,7 +125,12 @@ s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.built===7&&s.unl
 await page.keyboard.press('KeyB');
 assert(await sandstone.count()===0,'building spends the inventory stack');
 await page.keyboard.press('KeyB');
-await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.index===1&&s.pickups===21,'second island');
+await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.index===1,'second island is the workshop');
+await page.evaluate(()=>storyTest.repairedWorkshop());await page.keyboard.press('e');
+// The workshop puzzle itself is exercised by browser-workshop.
+assert((await page.evaluate(()=>storyTest.snapshot())).pickups===21,'third island has three sets of materials');
+await page.evaluate(()=>storyTest.at(40,2));await page.keyboard.press('e');
+await page.locator('.signal-bits button').first().click();await page.keyboard.press('Escape');
 assert(await page.evaluate(()=>storyTest.currentIslandOnly()),'leaving destroys the first island meshes and colliders');
 await page.screenshot({path:'/tmp/kub-second-island.png'});
 await page.evaluate(()=>window.storyTest.collect());s=await page.evaluate(()=>window.storyTest.snapshot());assert([0,2,3].every(m=>s.inventory[m]===7),'collect three distinct materials');
@@ -125,14 +139,14 @@ for(let i=0;i<21;i++)await page.evaluate(i=>window.storyTest.build(i),i);
 s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.built===21&&s.unlocked,'three arches complete');
 await page.evaluate(()=>window.storyTest.remove(8));s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.built===20&&s.inventory[2]===1,'refund wood on removal');
 await page.evaluate(()=>window.storyTest.build(8));
-await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.index===0&&s.built===7,'return preserves first island');
-await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).built===21,'return preserves second island');
-await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===2,'three arches open forge');
+await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.index===0&&s.built===7,'return preserves first island');
+await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');await page.evaluate(()=>storyTest.at(160,-6));await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).built===21,'return preserves second island');
+await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===3,'three arches open forge');
 assert(await page.evaluate(()=>storyTest.currentIslandOnly()),'only forge scenery is mounted');
 await page.screenshot({path:'/tmp/kub-forge-world.png'});
 let faces=await page.evaluate(()=>window.storyTest.bitMaterial());
 await page.waitForFunction(before=>window.storyTest.bitMaterial().every((face,i)=>face!==before[i]),faces,{timeout:10000});
-await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===2,'forge door locked');
+await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===3,'forge door locked');
 for(let batch=0;batch<4;batch++){
  await page.evaluate(()=>window.storyTest.collectBits());let f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.bits===8&&f.pickups===0,'eight collectible bits per batch');
  await page.evaluate(()=>window.storyTest.nearBench());await page.keyboard.press('e');assert(await page.locator('#forge-dialog').evaluate(el=>el.open),'forge opens');
@@ -147,13 +161,13 @@ for(let batch=0;batch<4;batch++){
 }
 assert((await page.evaluate(()=>window.storyTest.forgeSnapshot())).pickups===0,'no extra bits after fourth byte');
 await page.evaluate(()=>window.storyTest.viewArch());await page.waitForTimeout(200);await page.screenshot({path:'/tmp/kub-byte-arch.png'});
-await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===3,'door enters next location');
+await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===4,'door enters next location');
 assert(await page.evaluate(()=>storyTest.currentIslandOnly()),'garden contains no forge objects');
 await restart.click();
 assert((await confirmation.innerText()).includes('Врата кузницы останутся открыты'),'garden warning matches scope');
 await confirm.click();
 assert((await page.evaluate(()=>storyTest.forgeSnapshot())).unlocked,'garden restart preserves adjacent gate');
-await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===2,'return to forge');
+await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===3,'return to forge');
 assert((await page.evaluate(()=>window.storyTest.forgeSnapshot())).unlocked,'forge progress retained');
 await page.keyboard.press('c+v');
 const beforeForgeReset=await page.evaluate(()=>storyTest.playerState());
@@ -165,7 +179,7 @@ assert(JSON.stringify(await page.evaluate(()=>storyTest.forgeSnapshot()))===JSON
 assert((await page.evaluate(()=>storyTest.worldCounts())).platform===0,'physical offerings removed');
 assert(JSON.stringify(beforeForgeReset)===JSON.stringify(await page.evaluate(()=>storyTest.playerState())),'player gear, coins, camera and battle mode retained');
 await page.evaluate(()=>storyTest.nextGate());await page.keyboard.press('e');
-assert((await page.evaluate(()=>storyTest.snapshot())).index===2,'garden gate relocked');
+assert((await page.evaluate(()=>storyTest.snapshot())).index===3,'garden gate relocked');
 await page.keyboard.press('c+v');
 await page.evaluate(()=>storyTest.collectBits());await page.evaluate(()=>storyTest.nearBench());await page.keyboard.press('e');
 await page.locator('#fill-bits').click();await page.locator('#craft-byte').click();await page.locator('#forge-close').click();
@@ -178,6 +192,8 @@ assert((await page.evaluate(()=>storyTest.snapshot())).built===21,'forge reset p
 await restart.click();await confirm.click();
 assert((await page.evaluate(()=>storyTest.snapshot())).pickups===21 && !(await page.evaluate(()=>storyTest.snapshot())).unlocked,'second island reset restores materials and closes portal');
 assert(JSON.stringify(partialForge)===JSON.stringify(await page.evaluate(()=>storyTest.forgeSnapshot())),'reset on previous island preserves pending forge work');
+await page.evaluate(()=>storyTest.at(40,2));await page.keyboard.press('e');
+await page.locator('.signal-bits button').first().click();await page.keyboard.press('Escape');
 await page.evaluate(()=>storyTest.collect());
 for(let i=0;i<21;i++)await page.evaluate(i=>storyTest.build(i),i);
 await page.evaluate(()=>storyTest.nextGate());await page.keyboard.press('e');
@@ -186,5 +202,5 @@ assert(await page.evaluate(()=>storyTest.worldCounts().tray===1), 'physical byte
 await restart.click();await confirm.click();
 assert(JSON.stringify(await page.evaluate(()=>storyTest.forgeSnapshot()))===JSON.stringify(cleanForge) && (await page.evaluate(()=>storyTest.worldCounts())).tray===0,'reset clears occupied bench slots and physical byte tray');
 await page.reload();assert(await page.locator('#paths-button,#paths-dialog,#chosen-path,#portal-prompt').count()===0,'learning path UI stays absent after reload');
-console.log(JSON.stringify({result:'no learning portals, 28 placements, four islands, 32 bits, animated faces, four transparent bytes collected into bag and offered to arch, locked/open gate, return and reset passed',errors}));if(errors.length)throw Error(errors.join(';'));
+console.log(JSON.stringify({result:'no learning portals, 28 placements, five islands, 32 bits, animated faces, four transparent bytes collected into bag and offered to arch, locked/open gate, return and reset passed',errors}));if(errors.length)throw Error(errors.join(';'));
 }finally{if(browser)await browser.close();server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});

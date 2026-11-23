@@ -52,8 +52,11 @@ export function drawQuestDiagram(canvas, stage, byteCells) {
       });
       schematic(single?160:58+i*103,single?137:126,single?36:23,blocks,4);
     });
+  } else if (stage.repair) {
+    const pads = [[-1,0],[0,0],[1,0],[-1,1],[1,1]];
+    schematic(150,96,42,pads.map(([x,z],i)=>({x,y:.3,z,color:materials.garden,filled:stage.repair.parts[i]==='installed'})),5);
   } else {
-    const garden = stage.index===3;
+    const garden = stage.locationId==='island.discovery-garden';
     const blocks = byteCells.map((filled,i)=>({x:i%2-0.5,y:.65,z:Math.floor(i/2)-.5,
       color:garden?materials.garden:materials.byte,filled}));
     schematic(160,117,52,blocks,4);

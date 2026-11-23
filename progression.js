@@ -7,11 +7,12 @@ export function createStage(index) {
   const location = LOCATIONS[index];
   if (!location) throw new Error(`Unknown stage: ${index}`);
   const center = location.center;
-  const arches = index > 1 ? [] : index === 0 ? [{x:0,z:-1,material:0}] : [
+  const arches = location.id === 'island.dreamers' ? [{x:0,z:-1,material:0}] : location.id === 'island.three-arches' ? [
     {x:36,z:-2,material:0}, {x:40,z:-2,material:2}, {x:44,z:-2,material:3},
-  ];
+  ] : [];
   return { index, locationId: location.id, center, arches,
     targets: arches.flatMap(arch => ARCH.map(([x,y,z]) => ({x:arch.x+x,y,z:arch.z+z,material:arch.material}))),
+    ...(location.id === 'island.three-arches' ? {signal:0,sentWood:false} : {}),
     inventory: BUILD_MATERIALS.map(() => 0), built: new Set(), unlocked: false,
   };
 }
@@ -19,7 +20,7 @@ export function placeTarget(stage, target, material) {
   const slot = stage.targets[target];
   if (!slot || stage.built.has(target) || slot.material !== material || stage.inventory[material] <= 0) return false;
   stage.inventory[material]--; stage.built.add(target);
-  if (stage.built.size === stage.targets.length) stage.unlocked = true;
+  if (stage.built.size === stage.targets.length && stage.sentWood !== false) stage.unlocked = true;
   return true;
 }
 export function removeTarget(stage, target) {
@@ -28,5 +29,5 @@ export function removeTarget(stage, target) {
   return true;
 }
 export function isLimited(stage, material) {
-  return material === 0 || (stage.index === 1 && (material === 2 || material === 3));
+  return material === 0 || (stage.locationId === 'island.three-arches' && (material === 2 || material === 3));
 }

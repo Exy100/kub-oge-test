@@ -21,7 +21,7 @@ const {chromium} = require('playwright');
           clean(){return stages.every(s=>!s.built.size&&!s.unlocked&&s.inventory.every(n=>n===0)) && forgeState.bits===0 && playerAccount.coins===0},
           moving:()=>!!keys.KeyA
         };`}));
-    await page.goto('http://127.0.0.1:8147');
+    await page.goto('http://127.0.0.1:8147/game.html');
     const menu = page.getByRole('dialog',{name:'Чит-меню'});
     async function chord(a,b) {
       await page.keyboard.down(a);await page.keyboard.press(b);await page.keyboard.up(a);
@@ -43,7 +43,7 @@ const {chromium} = require('playwright');
     await chord('KeyQ','KeyA');assert.equal(await menu.count(),0);
     await page.keyboard.press('Escape');
     const names=await page.evaluate(()=>cheatTest.names);
-    for(const i of [3,1,0,2]){
+    for(const i of [4,3,1,0,2]){
       await chord('KeyQ','KeyA');
       await menu.getByRole('button',{name:names[i],exact:true}).click();
       assert.equal(await page.evaluate(()=>cheatTest.index()),i);

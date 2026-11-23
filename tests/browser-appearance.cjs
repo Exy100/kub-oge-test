@@ -4,7 +4,7 @@ const {spawn}=require('child_process');const fs=require('fs');const path=require
 try{await new Promise(r=>setTimeout(r,400));browser=await chromium.launch({executablePath:process.env.CHROMIUM_PATH||(fs.existsSync('/usr/bin/chromium')?'/usr/bin/chromium':undefined),headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1440,height:1000}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(repo,'game.js'),'utf8')+'\nwindow.avatarTest={appearance:()=>character.getAppearance(),position:()=>player.position.toArray(),stage:(i)=>{enterIsland(stages[i]);refreshMission()}};'}));
 const assert=(ok,msg)=>{if(!ok)throw Error(msg)};
-await page.goto('http://127.0.0.1:8060');if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();await page.evaluate(()=>document.exitPointerLock());await page.waitForFunction(()=>!document.pointerLockElement);
+await page.goto('http://127.0.0.1:8060/game.html');if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();await page.evaluate(()=>document.exitPointerLock());await page.waitForFunction(()=>!document.pointerLockElement);
 const original=await page.evaluate(()=>window.avatarTest.appearance());
 assert(await page.locator('#character-button,#sound,.view,#camera,#viewLabel').count()===0,'old header controls and camera panel removed');
 await page.evaluate(()=>{
@@ -76,7 +76,7 @@ const saved=await page.evaluate(()=>avatarTest.appearance());
 async function russianP(){await page.evaluate(()=>{
  for(const type of ['keydown','keyup'])dispatchEvent(new KeyboardEvent(type,{code:'KeyP',key:'з'}));
 })}
-for(const island of [1,2,3]){
+for(const island of [1,2,3,4]){
  await page.evaluate(i=>avatarTest.stage(i),island);await russianP();
  assert(await page.locator('#character-dialog').evaluate(e=>e.open),'Russian P opens appearance');
  assert((await page.locator('.character-subtitle').innerText()).includes('Только просмотр'),'view-only explanation');

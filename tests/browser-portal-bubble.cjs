@@ -25,12 +25,12 @@ const {chromium} = require('playwright');
     await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascript',
       body:fs.readFileSync(path.join(repo,'game.js'),'utf8')+`
         window.portalTest={
-          move(x,z){player.position.set(x,0,z)},
+          move(x,z){player.position.set(x,0,z);panel.updatePortal(nearbyRoute(),true,performance.now())},
           unlock(){stage.unlocked=true;update()},
           island(){return stage.index}
         };
       `}));
-    await page.goto('http://127.0.0.1:8078/');
+    await page.goto('http://127.0.0.1:8078/game.html');
     const cloud=page.locator('#travel-prompt'), go=page.locator('#portal-go');
     const move=(x,z)=>page.evaluate(([x,z])=>portalTest.move(x,z),[x,z]);
     const lines=()=>page.evaluate(()=>window.lines.filter(t=>t.startsWith('Портал')));
@@ -38,7 +38,10 @@ const {chromium} = require('playwright');
     await page.evaluate(()=>document.exitPointerLock());
     await page.waitForFunction(()=>!document.pointerLockElement);
     assert(await cloud.isHidden());
-    await move(0,-1);
+    // Cross the boundary twice in one input burst, independent of the test runner's frame rate.
+    await page.evaluate(()=>{
+      portalTest.move(0,-1);portalTest.move(0,4);portalTest.move(0,-1);
+    });
     await cloud.waitFor();
     assert.equal(await cloud.locator('.portal-title').innerText(),'Портал спит');
     assert(await go.isHidden());
@@ -46,12 +49,10 @@ const {chromium} = require('playwright');
     await page.keyboard.press('e');
     assert.equal(await page.evaluate(()=>portalTest.island()),0);
     assert(!(await page.locator('#message').innerText()).includes('Портал спит'));
-    await move(0,4);await cloud.waitFor({state:'hidden'});
-    await move(0,-1);await cloud.waitFor();
     assert.equal((await lines()).length,1,'quick re-entry does not repeat speech');
     await page.evaluate(()=>portalTest.unlock());
     await go.waitFor();
-    assert((await lines()).at(-1).includes('Нажми клавишу Е, чтобы перейти на остров трёх арок'));
+    assert((await lines()).at(-1).includes('Нажми клавишу Е, чтобы перейти в мастерскую черепахи'));
     for(const width of [1150,390,320]){
       await page.setViewportSize({width,height:760});
       const fits=await cloud.evaluate(el=>{
@@ -66,7 +67,7 @@ const {chromium} = require('playwright');
     await go.click();
     assert.equal(await page.evaluate(()=>portalTest.island()),1);
     await cloud.waitFor({state:'hidden'});
-    await move(46,6);await go.waitFor();
+    await move(166,6);await go.waitFor();
     assert((await go.innerText()).includes('Остров мечтателей'));
     await page.keyboard.press('e');
     assert.equal(await page.evaluate(()=>portalTest.island()),0);

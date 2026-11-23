@@ -44,14 +44,14 @@ const {chromium} = require('playwright');
           floor(button){select(0);this.at({x:3,y:.5,z:2},button)},
           switchMode(){panel.toggleMode()},
           revisit(){enterIsland(stages[1]);enterIsland(stages[0]);refreshMission()},
-          forge(){forgeState.pendingBytes=1;enterIsland(stages[2]);refreshMission()},
+          forge(){forgeState.pendingBytes=1;enterIsland(stages[3]);refreshMission()},
           bit(){this.at(forge.pickups[0].position);return forgeState.bits},
           byte(){this.at(forge.bytePickups[0].position)},
           deposit(){this.at(forge.cells[0].position)},
           miss(){this.at({x:15,y:0,z:0})}
         };`
     }));
-    await page.goto('http://127.0.0.1:8129');
+    await page.goto('http://127.0.0.1:8129/game.html');
     await page.locator('#play').click();
     async function expectSounds(action, expected) {
       await page.evaluate(action);
