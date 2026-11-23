@@ -1,6 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Box3,BoxGeometry,Group,Raycaster,Vector3} from '../vendor/three.module.js';
+import {createBugPatrol} from '../world/bug-patrol.js';
+import turtleIsland from '../locations/turtle.js';
 import {workshopModels} from '../world/repair-models.js';
 
 test('orange armour has a continuous crown above both shoulders',()=>{
@@ -16,18 +18,57 @@ test('orange armour has a continuous crown above both shoulders',()=>{
   }
 });
 
-test('taller beetles keep the feet above ground and the health bar clear through a stride',()=>{
+test('beetles plant at least three feet in world space through turns and the route seam',()=>{
   const models=workshopModels(new Group(),new BoxGeometry());
-  for(const i of [0,1]){
-    const {g,hp,animate}=models.bug(i,0,0);
-    const body=g.children.find(child=>child!==hp);
+  for(const index of [0,1]){
+    const {g,hp,walk,rest}=models.bug(index,0,0);
+    const body=g.children.find(child=>child!==hp),route=createBugPatrol(index);
+    const feet=body.getObjectsByProperty('name','bug-shin');
+    const previous=feet.map(()=>new Vector3()),now=new Vector3();
+    const lifted=new Set();
+    assert.equal(feet.length,6);
     assert.deepEqual(body.scale.toArray(),[1,1.25,1]);
-    for(let j=0;j<40;j++){
-      animate(j/30,false);
-      const bounds=new Box3().setFromObject(body,true);
-      assert.ok(bounds.min.y>=0 && bounds.max.y<hp.position.y-.12);
+    for(let frame=0;frame<=1250;frame++){
+      const distance=route.length*(frame/1200);
+      const yaw=route.sample(distance,0,0,g.position);g.rotation.y=yaw;
+      walk(route,distance,yaw,false);
+      g.updateMatrixWorld(true);
+      let fixed=0;
+      feet.forEach((foot,j)=>{
+        foot.getWorldPosition(now);
+        if(now.distanceTo(previous[j])<.0001 && now.y<.05)fixed++;
+        if(now.y>.19)lifted.add(j);
+        previous[j].copy(now);
+      });
+      if(frame)assert.ok(fixed>=3,'a supporting tripod must keep its footholds');
+      if(frame%20===0){
+        const bounds=new Box3().setFromObject(body,true);
+        assert.ok(bounds.min.y>=0 && bounds.max.y<hp.position.y-.12);
+      }
     }
-    animate(1,true);
-    assert.ok(body.getObjectsByProperty('name','bug-leg').every(leg=>leg.rotation.x===0));
+    assert.equal(lifted.size,6);
+    rest();
+    const neutral=feet.map(foot=>foot.position.clone());
+    walk(route,4,1,true);
+    assert.ok(feet.every((foot,j)=>foot.position.equals(neutral[j])));
+  }
+});
+
+test('workshop patrols stay on walkable ground clear of props and keep continuous headings',()=>{
+  const obstacles=turtleIsland.trees.map(tree=>[tree.x-turtleIsland.center,tree.z]);
+  obstacles.push([-1.85,-.3],[1.1,-1],[-1,-6],[1,-6],[4.85,6],[7.15,6]);
+  const pos=new Vector3(),bounds=new Box3();
+  for(const index of [0,1]){
+    const route=createBugPatrol(index);bounds.makeEmpty();
+    let lastYaw=route.sample(-.001,0,0,pos);
+    for(let j=0;j<=600;j++){
+      const yaw=route.sample(route.length*j/600,0,0,pos);
+      assert.ok(Math.cos(yaw-lastYaw)>.95);
+      lastYaw=yaw;
+      assert.ok(Math.abs(pos.x)<10.5 && Math.abs(pos.z)<9.5);
+      for(const [x,z] of obstacles)assert.ok(Math.hypot(pos.x-x,pos.z-z)>1.30);
+      bounds.expandByPoint(pos);
+    }
+    assert.ok(bounds.max.z-bounds.min.z>11 && bounds.max.x-bounds.min.x>4.5);
   }
 });

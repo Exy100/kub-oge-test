@@ -1,4 +1,4 @@
-import {Vector3} from '../vendor/three.module.js';
+import {Group,Vector3} from '../vendor/three.module.js';
 import {paintedPart} from './painted-part.js';
 
 const graphite=0x374349, iron=0x566267, brass=0xd29754;
@@ -174,42 +174,63 @@ function helmet(brush,green){
 }
 
 const sideGuide=new Vector3(0,0,1);
-function leg(brush,side,row,green){
-  const {block}=brush;
-  const spread=green?.34:.28, sweep=(row-1)*.135;
-  limb(brush,[[0,0,0,.094],[side*.16,.065,sweep*.6,.105],
-    [side*spread,-.055,sweep,.075]],graphite,sideGuide);
-  limb(brush,[[side*.105,.05,sweep*.42,.105],[side*.215,.06,sweep*.74,.125],
-    [side*(spread+.02),-.08,sweep,.086]],green?leaf:orange,sideGuide);
-  limb(brush,[[side*spread,-.063,sweep,.072],[side*(spread+.072),-.205,sweep+.027,.062],
-    [side*(spread+.085),-.28,sweep+.095,.029]],graphite,sideGuide);
-  // Split armoured greave, ankle collar and a brass pin through the knee bearing.
-  const knuckle=side*(spread-.012);
-  block(knuckle,-.041,sweep,.157,.155,.157,green?iron:0x80583c,.041);
-  block(knuckle,-.041,sweep+.087,.092,.092,.041,brass,.026);
-  block(knuckle,-.041,sweep+.109,.044,.026,.012,graphite,.006,side*.45);
-  limb(brush,[[side*(spread+.04),-.137,sweep+.009,.074],
-    [side*(spread+.065),-.191,sweep+.026,.068]],green?0x849b41:0xa26341,sideGuide);
+function makeLeg(root,material,side,row,green){
+  const spread=green?.34:.30, sweep=(row-1)*.13;
+  const hip=new Vector3(side*.37,.35,(row-1)*.38);
+  const femur=new Vector3(side*spread,green?.066:.12,sweep);
+  const shin=new Vector3(side*.053,-.319-femur.y,.075);
+  const knee=paintedPart(root,'bug-leg',material,brush=>{
+    limb(brush,[[0,0,0,.084],[side*.15,.09,sweep*.5,.098],
+      [femur.x,femur.y,sweep,.074]],graphite,sideGuide);
+    limb(brush,[[side*.095,.063,sweep*.38,.095],[side*.22,.099,sweep*.69,.117],
+      [femur.x,femur.y,sweep,.085]],green?leaf:orange,sideGuide);
+    brush.block(femur.x,femur.y,sweep,.15,.15,.15,green?iron:0x80583c,.038);
+    brush.block(femur.x,femur.y,sweep+.082,.089,.089,.033,brass,.02);
+  });
+  const foot=paintedPart(root,'bug-shin',material,brush=>{
+    limb(brush,[[0,0,0,.077],[side*.045,-.16,0,.071],
+      [side*.05,-.31,.024,.055],[shin.x,shin.y,shin.z,.022]],graphite,sideGuide);
+    limb(brush,[[side*.039,-.125,0,.078],[side*.05,-.213,.008,.064]],
+      green?0x849b41:0xa26341,sideGuide);
+  });
+  // Put the ankle mesh origin at the actual contact tip.
+  foot.geometry.translate(-shin.x,-shin.y,-shin.z);
+  const home=hip.clone().add(femur).add(shin);
+  const upperLength=femur.length(),lowerLength=shin.length();
+  const upperAxis=femur.clone().normalize(),lowerAxis=shin.clone().normalize();
+  const direction=new Vector3(),bend=new Vector3(),axis=new Vector3();
 
+  function plant(target,bodyOffset){
+    // Solve the two links toward the contact point, with the knee pointing up.
+    knee.position.copy(hip).add(bodyOffset);
+    direction.subVectors(target,knee.position);
+    const reach=direction.length();
+    direction.multiplyScalar(1/reach);
+    const along=(upperLength**2-lowerLength**2+reach**2)/(2*reach);
+    bend.set(0,1,0).addScaledVector(direction,-direction.y).normalize();
+    foot.position.copy(knee.position).addScaledVector(direction,along)
+      .addScaledVector(bend,Math.sqrt(Math.max(0,upperLength**2-along**2)));
+    knee.quaternion.setFromUnitVectors(upperAxis,axis.subVectors(foot.position,knee.position).normalize());
+    foot.quaternion.setFromUnitVectors(lowerAxis,axis.subVectors(target,foot.position).normalize());
+    foot.position.copy(target);
+  }
+  return {home,plant};
 }
 
 export function createBugBody(root,index,material){
   const green=index===1;
-  paintedPart(root,green?'emerald-cartridge':'copper-shield',material,brush=>{
+  const thorax=new Group();root.add(thorax);
+  paintedPart(thorax,green?'emerald-cartridge':'copper-shield',material,brush=>{
     brush.block(0,.41,-.07,.77,.31,1.06,graphite,.081);
     if(green)greenCartridge(brush);
     else orangeShell(brush);
     helmet(brush,green);
   });
   const legs=[];
-  for(const side of [-1,1])for(let row=0;row<3;row++){
-    const foot=paintedPart(root,'bug-leg',material,brush=>leg(brush,side,row,green));
-    foot.position.set(side*.41,.318,(row-1)*.38);
-    legs.push(foot);
-  }
+  for(const side of [-1,1])for(let row=0;row<3;row++)legs.push(makeLeg(root,material,side,row,green));
   let aerials;
   if(green){
-    aerials=paintedPart(root,'signal-antennae',material,brush=>{
+    aerials=paintedPart(thorax,'signal-antennae',material,brush=>{
       for(const side of [-1,1]){
         limb(brush,[[side*.18,0,0,.049],[side*.22,.23,.065,.043],
           [side*.33,.44,.13,.032]],graphite,sideGuide);
@@ -222,13 +243,43 @@ export function createBugBody(root,index,material){
     });
     aerials.position.set(0,.755,.47);
   }
-  return function animate(time,reduced){
-    const stride=reduced?0:Math.sin(time*(green?10:8));
-    legs.forEach((foot,i)=>{
-      const swing=i%2===0?stride:-stride;
-      foot.rotation.x=swing*(green?.34:.26);
-      foot.position.y=.318+Math.max(0,swing)*.061;
+  const center=new Vector3(),contact=new Vector3(),next=new Vector3();
+  const stride=green?.81:.91,stance=.56;
+  let resting=false;
+  function rest(){
+    if(resting)return;
+    resting=true;
+    thorax.position.set(0,0,0);thorax.rotation.set(0,0,0);
+    for(const leg of legs)leg.plant(leg.home,thorax.position);
+    if(aerials)aerials.rotation.x=0;
+  }
+  function walk(route,distance,yaw,reduced){
+    if(reduced){rest();return}
+    resting=false;
+    const phase=distance/stride,beat=phase*Math.PI*2;
+    thorax.position.set(.028*Math.cos(beat),.019*Math.sin(beat*2),0);
+    thorax.rotation.set(.032*Math.cos(beat*2),0,.044*Math.cos(beat));
+    if(aerials)aerials.rotation.x=.095*Math.sin(beat-.4);
+    route.sample(distance,0,0,center);
+    const c=Math.cos(yaw),s=Math.sin(yaw);
+    legs.forEach(({home,plant},i)=>{
+      // Alternate tripods. In stance the footprint stays in island coordinates,
+      // even while the body turns. Swing to the next footprint with eased lift.
+      const cycle=phase+(i%2)*.5,step=cycle-Math.floor(cycle);
+      const anchor=distance+(stance*.5-step)*stride;
+      route.sample(anchor,home.x,home.z,contact);
+      let lift=0;
+      if(step>stance){
+        const t=(step-stance)/(1-stance);
+        route.sample(anchor+stride,home.x,home.z,next);
+        contact.lerp(next,t*t*(3-2*t));
+        lift=(green?.19:.16)*Math.sin(Math.PI*t)**2;
+      }
+      const dx=contact.x-center.x,dz=contact.z-center.z;
+      contact.set(c*dx-s*dz,home.y+lift,s*dx+c*dz);
+      plant(contact,thorax.position);
     });
-    if(aerials)aerials.rotation.x=reduced?0:.073*Math.sin(time*5);
-  };
+  }
+  rest();
+  return {walk,rest};
 }
