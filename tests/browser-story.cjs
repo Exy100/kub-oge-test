@@ -8,12 +8,19 @@ window.storyTest={
  repairedWorkshop(){stage.repair.parts.fill('installed');stage.unlocked=true;update();player.position.set(stage.center,0,-6)},
  currentIslandOnly(){
    const unloaded=stages.filter(s=>s!==stage);
-   return island.name===stage.locationId && unloaded.every(s=>!s.placed&&!s.pickups&&!s.ghosts) &&
-     solids.every(m=>m.parent===island) && island.children.every(m=>{
-       if(!m.isInstancedMesh)return Math.abs(m.position.x-stage.center)<13;
+   island.updateMatrixWorld(true);
+   let local=true;
+   island.traverseVisible(m=>{
+     if(m.isInstancedMesh){
        m.computeBoundingBox();
-       return m.boundingBox.min.x>stage.center-13&&m.boundingBox.max.x<stage.center+13;
-     });
+       const bounds=m.boundingBox.clone().applyMatrix4(m.matrixWorld);
+       local &&= bounds.min.x>stage.center-13 && bounds.max.x<stage.center+13;
+     }else if(m.isMesh){
+       local &&= Math.abs(m.getWorldPosition(new THREE.Vector3()).x-stage.center)<13;
+     }
+   });
+   return local && island.name===stage.locationId && unloaded.every(s=>!s.placed&&!s.pickups&&!s.ghosts)
+     && solids.every(m=>m.parent===island);
  },
  snapshot(){return {index:stage.index,built:stage.built.size,inventory:stage.inventory.slice(),unlocked:stage.unlocked,pickups:stage.pickups.length}},
  nearGate(){player.position.set(stage.index===0?0:stage.center+6,0,stage.index===0?0:5)},
