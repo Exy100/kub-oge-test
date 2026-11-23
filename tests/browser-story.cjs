@@ -192,6 +192,8 @@ assert((await page.evaluate(()=>storyTest.snapshot())).built===21,'forge reset p
 await restart.click();await confirm.click();
 assert((await page.evaluate(()=>storyTest.snapshot())).pickups===21 && !(await page.evaluate(()=>storyTest.snapshot())).unlocked,'second island reset restores materials and closes portal');
 assert(JSON.stringify(partialForge)===JSON.stringify(await page.evaluate(()=>storyTest.forgeSnapshot())),'reset on previous island preserves pending forge work');
+await page.evaluate(()=>storyTest.at(40,2));await page.keyboard.press('e');
+await page.locator('.signal-bits button').first().click();await page.keyboard.press('Escape');
 await page.evaluate(()=>storyTest.collect());
 for(let i=0;i<21;i++)await page.evaluate(i=>storyTest.build(i),i);
 await page.evaluate(()=>storyTest.nextGate());await page.keyboard.press('e');
