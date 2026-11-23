@@ -19,6 +19,16 @@ const {chromium} = require('playwright');
         at(x,z){player.position.set(x,0,z)},
         near(name){const o=island.getObjectByName(name);player.position.set(o.position.x,0,o.position.z+.7)},
         tick(seconds){workshop?.tick(seconds,true,false);signalStation?.tick(seconds,true,false)},
+        workbenchGap(){
+          const turtle=island.getObjectByName('turtle-mechanic');
+          const bench=new THREE.Box3().setFromObject(island.getObjectByName('turtle-workbench-top'));
+          let gap=Infinity;
+          for(let i=0;i<252;i++){
+            workshop.tick(1/30,true,false);
+            gap=Math.min(gap,bench.min.x-new THREE.Box3().setFromObject(turtle,true).max.x);
+          }
+          return gap;
+        },
         state:()=>stage.repair,index:()=>stage.index,
         items:()=>bag.items().filter(p=>p.id.startsWith('pc.')).map(p=>p.id),
       };`}));
@@ -33,6 +43,8 @@ const {chromium} = require('playwright');
     const dialog=page.locator('#workshop-dialog');
     await click('#play');await page.evaluate(()=>workTest.arrive());
     assert.equal(await index(),1);
+    const gap=await page.evaluate(()=>workTest.workbenchGap());
+    assert.ok(gap>.55,'Animated turtle clears the workbench by '+gap);
     await at(160,-6);await press('KeyE');assert.equal(await index(),1);
     await near('turtle-mechanic');await press('KeyE');
     assert.match(await dialog.innerText(),/пять деталей/);
@@ -65,7 +77,7 @@ const {chromium} = require('playwright');
       }
     }
     await press('KeyB');assert.match(await page.locator('#inventory-dialog').innerText(),/Блок питания/);await press('Escape');
-    await near('turtle-mechanic');await press('KeyE');
+    await at(162.24,-1);await press('KeyE');
     await click('[data-part="0"]');await click('[data-socket="4"]');
     assert.equal((await items()).length,5);
     for(let i=0;i<5;i++){

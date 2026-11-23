@@ -1,4 +1,4 @@
-import {createTurtleMechanic} from '../world/turtle-mechanic.js';
+import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=2';
 import {pcParts} from '../catalog/pc-parts.js';
 import {workshopModels} from '../world/repair-models.js?v=2';
 
@@ -19,8 +19,9 @@ export function repairBrief(state) {
 export function createWorkshop({stage,parent,geometry,box,player,camera,canStore,notify,pause,changed,collect,place,onHit}) {
   const state=stage.repair, center=stage.center;
   const models=workshopModels(parent,geometry);
-  const turtle=createTurtleMechanic(parent,center-1,-.6);
-  box(center+1.1,.85,-1,1.9,.22,1.2,0xae895d,true);
+  const turtle=createTurtleMechanic(parent,center-1.85,-.3);
+  const worktop=box(center+1.1,.85,-1,1.9,.22,1.2,0xae895d,true);
+  worktop.name='turtle-workbench-top';
   for (const dx of [-.7,.7]) box(center+1.1+dx,.4,-1,.17,.8,.96,0x746b54,true);
   box(center+1.1,1.01,-1,1.35,.12,.8,0x527b69);
   box(center+.85,1.085,-1.07,.32,.05,.32,0xc8ba94);
@@ -131,7 +132,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       const j=closest(bugs.map(b=>b.g),k=>state.bugs[k].phase==='stopped',3);
       if(j>=0)return {label:'Исправить программу',act:()=>edit(j)};
     }
-    if(near(turtle.root,3.2))return {label:state.met?'Верстак черепахи':'Поговорить с черепахой',act:talk};
+    if(near(turtle.root,3.2) || (state.met && near(worktop,2.2)))return {label:state.met?'Верстак черепахи':'Поговорить с черепахой',act:talk};
   }
   function interact(){const t=target();if(t)t.act();return !!t}
   function attack(){

@@ -1,4 +1,4 @@
-import { newRepair, repairBrief, createWorkshop } from './quests/workshop.js?v=2';
+import { newRepair, repairBrief, createWorkshop } from './quests/workshop.js?v=3';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';

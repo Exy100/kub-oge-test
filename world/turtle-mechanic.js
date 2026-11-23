@@ -113,6 +113,34 @@ function makeShell({block,band,face}){
   }
 }
 
+function makePannier({face,band,block},side) {
+  // A continuous skin around the base, canvas pocket and overhanging flap.
+  // Successive rings share their edges, including the two ends facing the camera.
+  function rim(y,offset,halfWidth,halfLength) {
+    const x=side*offset, w=halfWidth, l=halfLength, cut=.055;
+    return [[w-cut,l],[-w+cut,l],[-w,l-cut],[-w,-l+cut],
+      [-w+cut,-l],[w-cut,-l],[w,-l+cut],[w,l-cut]].map(([u,v])=>[x+u,y,v]);
+  }
+  const bottom=rim(-.305,.015,.133,.443);
+  const base=rim(-.25,.018,.184,.50);
+  const pocket=rim(.065,.022,.189,.50);
+  const lip=rim(.09,.035,.212,.528);
+  const flap=rim(.30,.035,.212,.528);
+  const top=rim(.37,.035,.151,.47);
+  face(bottom,0x937051);
+  band(bottom,base,0x937051);
+  band(base,pocket,0xc19a71);
+  band(pocket,lip,0x977754);
+  band(lip,flap,0xd0ac80);
+  band(flap,top,0xc7a176);
+  face(top.slice().reverse(),0xd0ac80);
+  for(const dz of [-.28,.28]){
+    block(side*.238,.067,dz,.055,.24,.093,0x895838,.018);
+    block(side*.266,.083,dz,.035,.087,.126,0xdab16b,.01);
+    block(side*.284,.085,dz,.016,.03,.055,0x795739,.004);
+  }
+}
+
 export function createTurtleMechanic(parent,x,z) {
   const root=new THREE.Group();root.name='turtle-mechanic';root.position.set(x,0,z);
   root.rotation.y=-.56;parent.add(root);
@@ -125,16 +153,7 @@ export function createTurtleMechanic(parent,x,z) {
     makeShell(brush);
   });
   const bags=[-1,1].map(side=>{
-    const bag=paintedPart(body,'canvas-pannier',material,({block})=>{
-      block(0,.03,0,.36,.67,1.04,0x937051,.085);
-      block(side*.045,.02,0,.33,.60,.97,0xc19a71,.065);
-      block(side*.10,.22,0,.30,.30,1.04,0xd0ac80,.065);
-      for(const dz of [-.28,.28]){
-        block(side*.225,.075,dz,.064,.24,.093,0x895838,.021);
-        block(side*.256,.09,dz,.032,.087,.126,0xdab16b,.011);
-        block(side*.275,.092,dz,.012,.03,.055,0x795739,.004);
-      }
-    });
+    const bag=paintedPart(body,'canvas-pannier',material,brush=>makePannier(brush,side));
     bag.position.set(side*.87,.64,-.04);return bag;
   });
   const legs=[];
