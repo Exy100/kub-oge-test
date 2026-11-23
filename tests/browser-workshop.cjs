@@ -18,6 +18,20 @@ const {chromium} = require('playwright');
         arrive(){stage.unlocked=true;player.position.set(0,0,-1);travel()},
         at(x,z){player.position.set(x,0,z)},
         near(name){const o=island.getObjectByName(name);player.position.set(o.position.x,0,o.position.z+.7)},
+        presentation(){
+          return {playing:workshop.presenting(),lit:island.getObjectByName('workbench-power-led').material.emissive.g>0,
+            axe:island.getObjectByName('offered-leafmoon')?.visible??false,state:stage.repair};
+        },
+        finishEarlierRepair(){
+          stage.repair.parts.fill('installed');stage.repair.met=true;
+        },
+        tickReduced(dt){workshop.tick(dt,true,true)},
+        giftInFrame(){
+          frame(performance.now());camera.updateMatrixWorld();
+          const axe=island.getObjectByName('offered-leafmoon');
+          const tip=axe.localToWorld(new THREE.Vector3(.22,.6,0)).project(camera);
+          return !player.visible && Math.abs(tip.x)<.95 && Math.abs(tip.y)<.95 && Math.abs(tip.z)<1;
+        },
         pauseTick(){workshop.tick(4,false,false)},
         tick(seconds){workshop?.tick(seconds,true,false);signalStation?.tick(seconds,true,false)},
         workbenchGap(){
@@ -109,17 +123,35 @@ const {chromium} = require('playwright');
     }
     await press('KeyB');assert.match(await page.locator('#inventory-dialog').innerText(),/Блок питания/);await press('Escape');
     await at(162.24,-1);await press('KeyE');
+    assert.equal(await dialog.isVisible(),false);
+    await tick(1.1);
+    assert.equal(await page.evaluate(()=>workTest.state().acknowledgedParts),5);
     await click('[data-part="0"]');await click('[data-socket="4"]');
     assert.equal((await items()).length,5);
     for(let i=0;i<5;i++){
       await click('[data-part="'+i+'"]');await click('[data-socket="'+i+'"]');
     }
     assert.equal((await items()).length,0);
-    await press('Escape');
+    const presentation=()=>page.evaluate(()=>workTest.presentation());
+    assert.ok((await presentation()).playing && (await presentation()).lit);
+    await press('KeyE');await page.evaluate(()=>workTest.pauseTick());
+    assert.equal(await dialog.isVisible(),false);
+    await tick(1.25);
+    assert.equal((await presentation()).axe,true);
+    assert.equal(await page.evaluate(()=>workTest.giftInFrame()),true);
+    assert.equal(await dialog.isVisible(),false);
+    await tick(.5);
+    assert.equal(await dialog.getByText('Принять топор').isVisible(),true);
+    await press('Escape');await tick(.25);
+    assert.equal(await dialog.isVisible(),false);
     await at(160,-6);await press('KeyE');assert.equal(await index(),1);
+    await at(166,6);await press('KeyE');assert.equal(await index(),0);
+    await at(0,-1);await press('KeyE');assert.equal(await index(),1);
+    assert.equal((await presentation()).axe,true);
     await near('turtle-mechanic');await press('KeyE');
     await dialog.getByText('Принять топор').click();
     assert.equal(await page.evaluate(()=>workTest.tool()),'wood-axe');
+    assert.equal((await presentation()).axe,false);
     for(const third of [true,false])assert.equal(await page.evaluate(v=>workTest.axeView(v),third),true);
     await press('KeyB');
     assert.equal(await page.locator('[data-item="wood-axe"]').count(),1);
@@ -145,7 +177,11 @@ const {chromium} = require('playwright');
     assert.equal(await page.evaluate(()=>workTest.state().met),false);
     assert.equal(await page.evaluate(()=>workTest.tool()),'wand');
     await at(160,-6);await press('KeyE');assert.equal(await index(),1);
+    await page.evaluate(()=>workTest.finishEarlierRepair());
+    await near('turtle-mechanic');await press('KeyE');
+    await page.evaluate(()=>workTest.tickReduced(.36));
+    assert.equal(await dialog.getByText('Принять топор').isVisible(),true);
     assert.deepEqual(errors,[]);
-    console.log('PASS turtle, combat, repair retries, transformation, five drops, inventory, assembly, axe reward, woodcutting, wooden arch, two-bit station, travel and reset');
+    console.log('PASS turtle, combat, repair retries, transformation, five drops, inventory, delivery nod, assembly, pannier gift reveal and axe reward, woodcutting, wooden arch, two-bit station, travel and reset');
   } finally {await browser.close();server.kill()}
 })().catch(e=>{console.error(e);process.exitCode=1});

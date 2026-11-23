@@ -1,4 +1,5 @@
-import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=3';
+import {Vector3} from '../vendor/three.module.js';
+import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=4';
 import {pcParts} from '../catalog/pc-parts.js';
 import {workshopModels} from '../world/repair-models.js?v=6';
 
@@ -42,7 +43,8 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   box(center+.85,1.085,-1.07,.32,.05,.32,0xc8ba94);
   for(const dx of [.27,.39])box(center+1.1+dx,1.09,-1.08,.07,.07,.42,0x374e49);
   box(center+1.04,1.09,-.77,.56,.06,.07,0xd0c59f);
-  const powerLed=box(center+1.86,.93,-.45,.1,.08,.05,0x51665a);
+  const powerLed=box(center+.54,1.086,-.68,.105,.04,.085,0x51665a);
+  powerLed.name='workbench-power-led';
   const bugs=puzzles.map((_,i)=>models.bug(i,center+(i?5:-5),-2));
   const encounters=bugs.map((bug,i)=>createBugEncounter(i,bug,center));
   const settleSeconds=.55, settling=bugs.map(()=>0);
@@ -51,8 +53,16 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   const prompt=document.querySelector('#field-action'), dialog=document.querySelector('#workshop-dialog');
   const title=dialog.querySelector('h2'), body=dialog.querySelector('.field-body');
   let time=0, fade=[0,0], lastHit=-1;
+  let giftTime=null,closingLid=0,deliveryLeft=0,openAfterNod=false;
+  const giftDuration=1.65;
+  const giftCamera=turtle.root.localToWorld(new Vector3(2.65,1.76,2.9));
+  const giftFocus=turtle.root.localToWorld(new Vector3(.38,.89,.10));
+  const repaired=()=>state.parts.every(p=>p==='installed');
+  const byBench=()=>near(turtle.root,3.2) || (state.met && near(worktop,2.2));
+  if(repaired() && state.giftShown && !state.axe)turtle.present(1);
   function sync() {
-    powerLed.material.color.setHex(state.parts.every(p=>p==='installed')?0x95eead:0x51665a);
+    powerLed.material.color.setHex(repaired()?0x95eead:0x51665a);
+    powerLed.material.emissive.setHex(repaired()?0x388958:0);
     state.bugs.forEach((b,i)=>{
       const {g,hp,fill}=bugs[i];
       g.visible=b.phase==='running'||b.phase==='stopped';
@@ -116,12 +126,16 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       show('Компьютер работает','<p>Черепаха: «Мои программы снова запускаются! Портал к трём аркам открыт».</p>');
       return;
     }
-    if(state.parts.every(p=>p==='installed')){
+    if(repaired()){
+      if(!state.axe && !state.giftShown){
+        if(giftTime===null){dialog.close();pause();giftTime=0}
+        return;
+      }
       if(state.axe){show('Компьютер работает','<p>«Топором можно добыть древесину из любого ствола. Собери из семи блоков арку на северной стороне острова».</p>');return}
       show('Подарок черепахи','<img src="./assets/inventory-axe.webp" width="96" height="96" alt="Листолун с нефритовым лезвием"><p>«Компьютер ожил! Спасибо. Держи Листолун — его лезвие снимает древесину, и дерево остаётся целым. Из семи блоков ты построишь арку».</p><button class="field-primary">Принять топор</button>');
       body.querySelector('button').onclick=()=>{
         if(state.axe || !canStore('wood-axe'))return;
-        state.axe=true;dialog.close();equipAxe();collect();changed();
+        state.axe=true;closingLid=1;turtle.present(1,false);dialog.close();equipAxe();collect();changed();
         notify('Листолун в руке. Подойди к дереву и ударь по стволу левой кнопкой мыши.',7000);
       };
       return;
@@ -146,11 +160,21 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
         status.textContent=selected<0?'Сначала выбери деталь из рюкзака.':'Этой детали нужен другой разъём.';return;
       }
       state.parts[selected]='installed';place();changed();
-      if(state.parts.every(p=>p==='installed')){turtle.nod();sync()}
+      if(repaired()){turtle.nod();sync()}
       assembly();
     });
   }
+  function acknowledgeDelivery(){
+    if(!state.parts.includes('bag'))return;
+    const returned=state.parts.filter(p=>p==='bag' || p==='installed').length;
+    if(returned<=(state.acknowledgedParts??0))return;
+    state.acknowledgedParts=returned;
+    turtle.acknowledge();deliveryLeft=1.05;
+  }
   function talk() {
+    if(giftTime!==null)return;
+    acknowledgeDelivery();
+    if(deliveryLeft>0){openAfterNod=true;return}
     turtle.nod();
     if(!state.met){
       state.met=true;changed();
@@ -169,7 +193,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       const j=closest(bugs.map(b=>b.g),k=>state.bugs[k].phase==='stopped' && !settling[k],3);
       if(j>=0)return {label:'Исправить программу',act:()=>edit(j)};
     }
-    if(near(turtle.root,3.2) || (state.met && near(worktop,2.2)))return {label:state.met?'Верстак черепахи':'Поговорить с черепахой',act:talk};
+    if(byBench())return {label:state.met?'Верстак черепахи':'Поговорить с черепахой',act:talk};
   }
   function interact(){const t=target();if(t)t.act();return !!t}
   function attack(){
@@ -189,7 +213,30 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   }
   function tick(dt,active,reduced){
     if(!active){prompt.hidden=true;return}
-    turtle.update(dt,reduced,player.position);
+    if(giftTime!==null){
+      giftTime=Math.min(giftDuration,giftTime+dt);
+      const progress=reduced?1:giftTime/giftDuration;
+      turtle.present(progress);
+      turtle.update(dt,reduced,player.position,false);
+      prompt.hidden=true;
+      if(giftTime>=(reduced?.35:giftDuration)){
+        giftTime=null;state.giftShown=true;turtle.present(1);assembly();
+      }
+      return;
+    }
+    if(closingLid>0){
+      closingLid=reduced?0:Math.max(0,closingLid-dt*1.7);
+      turtle.present(closingLid,false);
+    }
+    if(byBench())acknowledgeDelivery();
+    if(deliveryLeft>0){
+      deliveryLeft=reduced?0:Math.max(0,deliveryLeft-dt);
+      if(!deliveryLeft && openAfterNod){
+        openAfterNod=false;
+        if(byBench())assembly();
+      }
+    }
+    turtle.update(dt,reduced,player.position,!repaired());
     time+=dt;
     state.bugs.forEach((b,i)=>{
       const {g,hp,pose}=bugs[i];
@@ -213,5 +260,10 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   }
   prompt.onclick=interact;
   sync();
-  return {tick,attack,interact,dispose(){prompt.hidden=true;prompt.onclick=null;dialog.close()}};
+  return {tick,attack,interact,
+    presenting:()=>giftTime!==null,
+    frameGift(){
+      camera.position.copy(giftCamera);camera.lookAt(giftFocus);
+    },
+    dispose(){prompt.hidden=true;prompt.onclick=null;dialog.close()}};
 }
