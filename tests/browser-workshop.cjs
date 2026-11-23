@@ -18,6 +18,7 @@ const {chromium} = require('playwright');
         arrive(){stage.unlocked=true;player.position.set(0,0,-1);travel()},
         at(x,z){player.position.set(x,0,z)},
         near(name){const o=island.getObjectByName(name);player.position.set(o.position.x,0,o.position.z+.7)},
+        pauseTick(){workshop.tick(4,false,false)},
         tick(seconds){workshop?.tick(seconds,true,false);signalStation?.tick(seconds,true,false)},
         workbenchGap(){
           const turtle=island.getObjectByName('turtle-mechanic');
@@ -69,10 +70,17 @@ const {chromium} = require('playwright');
       for(let hit=0;hit<3;hit++){
         await tick(.4);await near('repair-bug-'+bug);await press('Digit1');
       }
+      assert.equal(await dialog.isVisible(),false);
+      assert.equal(await page.evaluate(i=>workTest.state().bugs[i].phase,bug),'stopped');
+      await press('KeyE');await tick(.18);
+      assert.equal(await dialog.isVisible(),false);
+      await page.evaluate(()=>workTest.pauseTick());
+      assert.equal(await dialog.isVisible(),false);
+      await tick(.4);
       assert(await dialog.isVisible());
       const fields=dialog.locator('input');
       assert.equal(await fields.first().inputValue(),bug?'fro':'inpt');
-      await press('Escape');await press('KeyE');
+      await press('Escape');await tick(1);assert.equal(await dialog.isVisible(),false);await press('KeyE');
       if(bug){
         assert.equal(await fields.count(),3);
         assert.equal(await fields.nth(0).inputValue(),'fro');
