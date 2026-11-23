@@ -15,27 +15,6 @@ export function workshopModels(parent, geometry) {
     const g = new THREE.Group();
     g.name=name; g.position.set(x,0,z); parent.add(g); return g;
   }
-  function turtle(x,z) {
-    const g=group('turtle-mechanic',x,z);
-    for(const a of [-.52,.52]) for(const b of [-.49,.49]) cube(g,a,.23,b,.43,.43,.44,0x819454);
-    cube(g,0,.58,0,1.65,.62,1.85,0x647957);
-    cube(g,0,.93,-.03,1.41,.38,1.56,0x417366);
-    cube(g,0,1.14,-.05,1.13,.22,1.21,0x568673);
-    for(const a of [-.25,.25])for(const b of [-.32,.18]){
-      const plate=cube(g,a,1.29,b,.46,.11,.45,0x75a087);
-      plate.rotation.z=-a*.18;
-    }
-    cube(g,0,.53,-1,.32,.26,.34,0x839b62);
-    for(const a of [-.45,.45]) cube(g,a,1.14,0,.09,.06,1.04,0xc2ac76);
-    cube(g,0,.83,1,.85,.62,.69,0x97b472);
-    for(const a of [-.24,.24]){
-      cube(g,a,.91,1.35,.35,.27,.08,0xc19560);
-      cube(g,a,.93,1.405,.21,.16,.05,0x304e47);
-      cube(g,a-.04,.963,1.44,.052,.046,.018,0xf9f3cc);
-    }
-    cube(g,0,.74,1.36,.26,.045,.04,0x536546);
-    return g;
-  }
   function bug(i,x,z) {
     const g=group('repair-bug-'+i,x,z);
     const color=i?0x82ae48:0xe28640;
@@ -79,5 +58,5 @@ export function workshopModels(parent, geometry) {
     if(i!==4)cube(g,0,.24,d*.51,w*.76,.07,.04,0xe8c071);
     return g;
   }
-  return {cube,group,turtle,bug,helper,part};
+  return {cube,group,bug,helper,part};
 }
