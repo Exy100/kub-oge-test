@@ -69,6 +69,7 @@ function orangeShell(brush) {
   }
   for(const side of [-1,1]){
     block(side*.34,.912,.38,.061,.042,.064,brass,.013);
+    block(side*.50,.755,.48,.076,.079,.091,0xa76339,.019);
   }
 }
 
@@ -103,6 +104,8 @@ function greenCartridge({block,face}){
       block(side*.338,.873,z,.188,.11,.15,0x83908b,.035);
       block(side*.49,.70,z,.045,.081,.084,brass,.017);
     }
+    block(side*.337,.908,-.612,.144,.066,.043,0x899485,.014);
+    block(side*.337,.908,.384,.144,.066,.043,0x899485,.014);
     for(const z of [-.425,.179]){
       block(side*.468,.535,z,.09,.115,.135,iron,.027);
       block(side*.519,.536,z,.024,.047,.088,0x91a18a,.011);
@@ -213,6 +216,7 @@ export function createBugBody(root,index,material){
         brush.block(side*.18,.022,.02,.129,.123,.136,0x738440,.032);
         limb(brush,[[side*.222,.231,.066,.052],[side*.243,.275,.084,.047]],iron,sideGuide);
         brush.block(side*.33,.45,.13,.145,.15,.135,leaf,.025,-side*.23);
+        brush.block(side*.33,.462,.065,.080,.083,.018,0xd7e878,.012,-side*.23);
         brush.block(side*.33,.466,.195,.079,.08,.027,0xe6f18b,.014,-side*.23);
       }
     });
