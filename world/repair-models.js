@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 
-import {createBugBody} from './workshop-bugs.js';
+import {createBugBody} from './workshop-bugs.js?v=2';
 export function workshopModels(parent, geometry) {
   const palette = new Map();
   function cube(group,x,y,z,w,h,d,color) {
@@ -19,8 +19,11 @@ export function workshopModels(parent, geometry) {
   function bug(i,x,z) {
     const g=group('repair-bug-'+i,x,z);
     if (!bugMaterial) bugMaterial=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.78});
-    const animate=createBugBody(g,i,bugMaterial);
-    const hp=new THREE.Group();g.add(hp);hp.position.y=i?1.58:1.36;
+    const body=new THREE.Group();
+    body.scale.y=1.25;
+    g.add(body);
+    const animate=createBugBody(body,i,bugMaterial);
+    const hp=new THREE.Group();g.add(hp);hp.position.y=(i?1.58:1.36)*body.scale.y;
     cube(hp,0,0,0,1,.14,.045,0x293f39);
     const fill=cube(hp,0,0,.034,.93,.08,.025,0xe9aa70);
     return {g,hp,fill,animate};
