@@ -29,6 +29,20 @@ const {chromium} = require('playwright');
           }
           return gap;
         },
+        useAt(mesh){
+          player.position.set(mesh.position.x,0,mesh.position.z+1.8);
+          camera.position.set(mesh.position.x,mesh.position.y,mesh.position.z+2.5);
+          camera.lookAt(mesh.position);scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);
+          act(0);
+        },
+        axeView(third){
+          gathering.update(1/60,1,{active:true,third,tool:bag.loadouts.build.tool});
+          const rig=third?player:gathering.viewScene;
+          return rig.getObjectByName('woodcutting-axe')?.visible;
+        },
+        chop(){this.useAt(trunks[0]);return stage.inventory[2]},
+        build(index){this.useAt(stage.ghosts[index]);return stage.built.size},
+        tool:()=>bag.loadouts.build.tool,
         state:()=>stage.repair,index:()=>stage.index,
         items:()=>bag.items().filter(p=>p.id.startsWith('pc.')).map(p=>p.id),
       };`}));
@@ -93,6 +107,24 @@ const {chromium} = require('playwright');
       await click('[data-part="'+i+'"]');await click('[data-socket="'+i+'"]');
     }
     assert.equal((await items()).length,0);
+    await press('Escape');
+    await at(160,-6);await press('KeyE');assert.equal(await index(),1);
+    await near('turtle-mechanic');await press('KeyE');
+    await dialog.getByText('Принять топор').click();
+    assert.equal(await page.evaluate(()=>workTest.tool()),'wood-axe');
+    for(const third of [true,false])assert.equal(await page.evaluate(v=>workTest.axeView(v),third),true);
+    await press('KeyB');
+    assert.equal(await page.locator('[data-item="wood-axe"]').count(),1);
+    await press('Escape');
+    for(let j=1;j<=7;j++){
+      assert.equal(await page.evaluate(()=>workTest.chop()),j);
+      if(j<7)await page.waitForTimeout(360);
+    }
+    for(let j=0;j<6;j++)assert.equal(await page.evaluate(i=>workTest.build(i),j),j+1);
+    await at(160,-6);await press('KeyE');assert.equal(await index(),1);
+    await at(166,6);await press('KeyE');
+    await at(0,-1);await press('KeyE');
+    assert.equal(await page.evaluate(()=>workTest.build(6)),7);
     await at(160,-6);await press('KeyE');assert.equal(await index(),2);
     await at(40,2);await press('KeyE');
     const bits=dialog.locator('.signal-bits button');
@@ -103,8 +135,9 @@ const {chromium} = require('playwright');
     await at(46,6);await press('KeyE');assert.equal(await index(),1);
     await click('#reset');await click('#restart-confirm');
     assert.equal(await page.evaluate(()=>workTest.state().met),false);
+    assert.equal(await page.evaluate(()=>workTest.tool()),'wand');
     await at(160,-6);await press('KeyE');assert.equal(await index(),1);
     assert.deepEqual(errors,[]);
-    console.log('PASS turtle, combat, repair retries, transformation, five drops, inventory, assembly, two-bit station, travel and reset');
+    console.log('PASS turtle, combat, repair retries, transformation, five drops, inventory, assembly, axe reward, woodcutting, wooden arch, two-bit station, travel and reset');
   } finally {await browser.close();server.kill()}
 })().catch(e=>{console.error(e);process.exitCode=1});

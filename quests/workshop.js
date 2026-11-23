@@ -1,6 +1,6 @@
-import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=2';
+import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=3';
 import {pcParts} from '../catalog/pc-parts.js';
-import {workshopModels} from '../world/repair-models.js?v=2';
+import {workshopModels} from '../world/repair-models.js?v=4';
 
 const puzzles = [
   {name:'Оранжевый Баг', parts:[0,1], lines:[
@@ -19,16 +19,17 @@ const repairHints = {
   range:'Здесь нужна последовательность чисел.',
 };
 export function newRepair() {
-  return {met:false,bugs:puzzles.map(()=>({hp:3,phase:'running',x:0,z:0})),parts:pcParts.map(()=>'stolen')};
+  return {met:false,axe:false,bugs:puzzles.map(()=>({hp:3,phase:'running',x:0,z:0})),parts:pcParts.map(()=>'stolen')};
 }
 export function repairBrief(state) {
   if (!state.met) return 'Поговори с черепахой у верстака.';
   if (state.bugs.some(b=>b.phase==='running'||b.phase==='stopped')) return 'В режиме боя поймай двух багов и исправь их программы.';
-  if (state.parts.every(p=>p==='installed')) return 'Компьютер работает! Пройди через арку к станции кодирования.';
+  if (state.axe) return 'Добудь древесину топором и собери деревянную арку на севере.';
+  if (state.parts.every(p=>p==='installed')) return 'Вернись к черепахе за волшебным топором.';
   if (state.parts.includes('ground') || state.parts.includes('stolen')) return 'Подбери оставленные на траве детали клавишей E.';
   return 'Вернись к черепахе и установи детали компьютера.';
 }
-export function createWorkshop({stage,parent,geometry,box,player,camera,canStore,notify,pause,changed,collect,place,onHit}) {
+export function createWorkshop({stage,parent,geometry,box,player,camera,canStore,equipAxe,notify,pause,changed,collect,place,onHit}) {
   const state=stage.repair, center=stage.center;
   const models=workshopModels(parent,geometry);
   const turtle=createTurtleMechanic(parent,center-1.85,-.3);
@@ -47,12 +48,12 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   const title=dialog.querySelector('h2'), body=dialog.querySelector('.field-body');
   let time=0, fade=[0,0], lastHit=-1;
   function sync() {
-    powerLed.material.color.setHex(stage.unlocked?0x95eead:0x51665a);
+    powerLed.material.color.setHex(state.parts.every(p=>p==='installed')?0x95eead:0x51665a);
     state.bugs.forEach((b,i)=>{
       const {g,hp,fill}=bugs[i];
       g.visible=b.phase==='running'||b.phase==='stopped';
       hp.visible=b.phase==='running';fill.scale.x=.93*b.hp/3;fill.position.x=(fill.scale.x-.93)/2;
-      if(b.phase!=='running')g.position.set(b.x,0,b.z);
+      if(b.phase!=='running'){g.position.set(b.x,0,b.z);bugs[i].animate(0,true)}
       helpers[i].visible=b.phase==='leaving';
       helpers[i].position.set(b.x,0,b.z);
       puzzles[i].parts.forEach((part,j)=>{
@@ -108,6 +109,16 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       show('Компьютер работает','<p>Черепаха: «Мои программы снова запускаются! Портал к трём аркам открыт».</p>');
       return;
     }
+    if(state.parts.every(p=>p==='installed')){
+      if(state.axe){show('Компьютер работает','<p>«Топором можно добыть древесину из любого ствола. Собери из семи блоков арку на северной стороне острова».</p>');return}
+      show('Подарок черепахи','<img src="./assets/inventory-axe.webp" width="96" height="96" alt="Листолун с нефритовым лезвием"><p>«Компьютер ожил! Спасибо. Держи Листолун — его лезвие снимает древесину, и дерево остаётся целым. Из семи блоков ты построишь арку».</p><button class="field-primary">Принять топор</button>');
+      body.querySelector('button').onclick=()=>{
+        if(state.axe || !canStore('wood-axe'))return;
+        state.axe=true;dialog.close();equipAxe();collect();changed();
+        notify('Листолун в руке. Подойди к дереву и ударь по стволу левой кнопкой мыши.',7000);
+      };
+      return;
+    }
     function socket(p,i){
       const installed=state.parts[i]==='installed';
       return `<button data-socket="${i}" ${installed?'disabled':''}>${installed?'✓ '+p.name:p.socket}</button>`;
@@ -127,9 +138,9 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       if(selected!==Number(btn.dataset.socket)||state.parts[selected]!=='bag'){
         status.textContent=selected<0?'Сначала выбери деталь из рюкзака.':'Этой детали нужен другой разъём.';return;
       }
-      state.parts[selected]='installed';place();stage.unlocked=state.parts.every(p=>p==='installed');changed();
-      if(stage.unlocked){turtle.nod();sync();dialog.close();notify('Черепаха: «Компьютер включился! Спасибо!» Портал к трём аркам открыт.',7000)}
-      else assembly();
+      state.parts[selected]='installed';place();changed();
+      if(state.parts.every(p=>p==='installed')){turtle.nod();sync()}
+      assembly();
     });
   }
   function talk() {
@@ -138,7 +149,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       state.met=true;changed();
       show('Черепаха-механик','<p>«Я разобрала компьютер, чтобы найти баг. А их оказалось двое! Пока я проверяла плату, они унесли пять деталей. Поможешь мне их вернуть?»</p><p>Нажми L для боя. Подойди к жуку и нажимай 1 или ЛКМ. Когда жук остановится, исправь слова в его программе.</p><button class="field-primary">Помогу</button>');
       body.querySelector('button').onclick=()=>dialog.close();
-    } else if(state.parts.includes('bag') || stage.unlocked) assembly();
+    } else if(state.parts.includes('bag') || state.parts.every(p=>p==='installed')) assembly();
     else notify(repairBrief(state));
   }
   function target() {
@@ -170,12 +181,12 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
     turtle.update(dt,reduced,player.position);
     time+=dt;
     state.bugs.forEach((b,i)=>{
-      const {g,hp,feet}=bugs[i];
+      const {g,hp,animate}=bugs[i];
       if(b.phase==='running'){
         const t=time*.78+i*2;
         g.position.set(center+(i?4.7:-4.7)+1.65*Math.sin(t),reduced?0:.045*Math.abs(Math.sin(t*6)),-2+2.2*Math.cos(t));
         g.rotation.y=Math.atan2(1.65*Math.cos(t),-2.2*Math.sin(t));
-        feet.forEach((foot,j)=>{foot.position.y=.17+(reduced?0:.10*Math.max(0,Math.sin(t*9+j*Math.PI)))});
+        animate(t,reduced);
         hp.quaternion.copy(g.quaternion).invert().multiply(camera.quaternion);
       }else if(b.phase==='leaving'){
         fade[i]+=dt;const fraction=Math.min(1,fade[i]/1.35),h=helpers[i];

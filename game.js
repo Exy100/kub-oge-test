@@ -1,4 +1,5 @@
-import { newRepair, repairBrief, createWorkshop } from './quests/workshop.js?v=4';
+import { timberMaterial } from './world/timber.js';
+import { newRepair, repairBrief, createWorkshop } from './quests/workshop.js?v=6';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
@@ -9,10 +10,10 @@ import { LOCATIONS } from './locations/index.js';
 import { createSimpleArchEffect } from './world/simple-arch.js';
 import { buildIslandTerrain } from './world/island-terrain.js';
 import { createForgeState } from './forge-state.js?v=5';
-import { drawQuestDiagram } from './quest-diagram.js';
-import { createPlayerInventory } from './player-inventory.js?v=3';
-import { equipGatheringWand } from './gathering-wand.js?v=16';
-import { createPlayerPanel } from './player-panel.js?v=38';
+import { drawQuestDiagram } from './quest-diagram.js?v=2';
+import { createPlayerInventory } from './player-inventory.js?v=4';
+import { equipGatheringWand } from './gathering-wand.js?v=17';
+import { createPlayerPanel } from './player-panel.js?v=39';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
@@ -20,7 +21,7 @@ import { createForge } from './forge.js?v=18';
 import { EXPLORER, loadAppearance } from './appearance.js?v=12';
 import { createCustomizer } from './customizer.js?v=20';
 import { createFollowState, followCamera } from './follow-camera.js?v=2';
-import { createStage, placeTarget, removeTarget, isLimited, MATERIAL_NAMES } from './progression.js?v=3';
+import { createStage, placeTarget, removeTarget, isLimited, MATERIAL_NAMES } from './progression.js?v=4';
 const $=s=>document.querySelector(s), scene=new THREE.Scene();scene.background=new THREE.Color('#c9dfda');scene.fog=new THREE.Fog('#c9dfda',35,85);
 const renderer=new THREE.WebGLRenderer({canvas:$('#world'),antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,140);scene.add(new THREE.HemisphereLight(0xf6ffe6,0x788974,2.5));const sun=new THREE.DirectionalLight(0xffeed0,3);sun.position.set(-10,25,10);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-22,right:22,top:22,bottom:-22});sun.shadow.normalBias=.03;scene.add(sun);
@@ -45,7 +46,8 @@ const forgeState = createForgeState();
 const island = new THREE.Group();
 const box = createBoxBuilder(island, solids);
 const cameraObstacles = [];
-let workshop, signalStation;
+let workshop, signalStation, timber;
+let trunks=[],lastChop=-Infinity;
 let stage, forge, exitGlow, returnGlow, simpleArchEffect;
 scene.add(island);
 const character=createCharacter(loadAppearance(EXPLORER), EXPLORER), player=character.root;scene.add(player);
@@ -152,6 +154,7 @@ skillList.addEventListener('keydown',e=>{
   }
 });
 const bag=createPlayerInventory(()=>[
+  {id:'wood-axe',quantity:stages.some(s=>s.repair?.axe)?1:0},
   ...pcParts.map((part,i)=>({id:part.id,quantity:stages.some(s=>s.repair?.parts[i]==='bag')?1:0})),
   ...BUILD_MATERIALS.map((item,i)=>({id:item.id,quantity:stages.reduce((sum,island)=>sum+island.inventory[i],0)})),
   {id:'bit',quantity:forgeState.bits},
@@ -198,7 +201,7 @@ function notify(text,duration=4500){
   messageTimer=setTimeout(()=>{messageBox.hidden=true},duration);
 }
 function spawnPickups(state){
-  if(!state.arches.length)return;
+  if(!state.arches.length || state.locationId==='island.turtle')return;
   const entries=state.index===0 ? [[-4,3,0],[3,4,0],[-5,-4,0],[5,-3,0],[-7,5,0],[7,4,0],[3,-6,0]] :
     [0,2,3].flatMap((material,group)=>Array.from({length:7},(_,i)=>[33+group*6+(i%2)*1.3, [-6,-4,1,4.5][Math.floor(i/2)], material]));
   entries.forEach(([x,z,material], phase) => {
@@ -229,12 +232,14 @@ function unloadIsland() {
     if (object.geometry && object.geometry !== geo) resources.add(object.geometry);
     if (!object.material) return;
     for (const material of (Array.isArray(object.material) ? object.material : [object.material])) {
+      if(material===timber)continue;
       if (!mats.includes(material)) resources.add(material);
       if (material.map) resources.add(material.map);
     }
   });
   for (const resource of resources) resource.dispose();
   island.clear();
+  if(timber){timber.map.dispose();timber.dispose();timber=null}
   solids.length = cameraObstacles.length = 0;
   delete stage.placed;
   delete stage.ghosts;
@@ -242,7 +247,7 @@ function unloadIsland() {
 }
 
 function addBlock(x, y, z, material, target) {
-  const block = box(x,y,z,.98,.98,.98,mats[material],true);
+  const block = box(x,y,z,.98,.98,.98,material===2 && timber ? timber : mats[material],true);
   block.userData.objectId = BUILD_MATERIALS[material].id;
   if (target === undefined) block.userData.material = material;
   else block.userData.target = target;
@@ -255,6 +260,8 @@ function enterIsland(next) {
   stage = next;
   island.name = stage.locationId;
   buildIslandTerrain(LOCATIONS[stage.index], stage.index, island, geo, box, solids, cameraObstacles);
+  trunks=solids.filter(mesh=>mesh.name==='island-tree-trunk' || mesh.name==='tree-trunk');
+  if(stage.locationId==='island.turtle')timber=timberMaterial();
   if (character.profile.specialSkills?.length) {
     scanStore.refresh();
     scanner = createScanInteraction({
@@ -292,13 +299,14 @@ function enterIsland(next) {
   if (stage.locationId==='island.turtle') {
     stage.repair ??= newRepair();
     workshop=createWorkshop({stage,parent:island,geometry:geo,box,player,camera,canStore:hasBagRoom,
+      equipAxe(){
+        bag.equip('build','tool','wood-axe');
+        if(panel.isBattle())panel.toggleMode();
+        select(2);
+      },
       notify,pause:pauseForScanMenu,changed:update,collect:playPickup,place:playPlacement,onHit:()=>character.react()});
     panel.setStrike(()=>{if(!modalOpen())workshop.attack()});
-    for(const dx of [-1.2,1.2])box(stage.center+dx,1.45,-6,.6,2.9,.7,0xc5a781,true);
-    box(stage.center,3,-6,3,.5,.7,0x8eab80,true);
-    simpleArchEffect=createSimpleArchEffect();
-    exitGlow=simpleArchEffect.createSurface({x:stage.center,z:-6});
-    island.add(exitGlow);cameraObstacles.push(exitGlow);
+
   }
   if(stage.locationId==='island.three-arches'){
     signalStation=createSignalStation({stage,box,player,pause:pauseForScanMenu,changed:update});
@@ -358,15 +366,23 @@ function refreshMission(){
   controlStrip.querySelector('.scan-hint').hidden=!equippedSkill();
   controlStrip.querySelector('.forge-hint').hidden=stage.locationId!=='island.data-forge';
   const interact=controlStrip.querySelector('.interact-hint');
-  interact.hidden=stage.arches.length;
+  interact.hidden=stage.arches.length>0 && !workshop;
   interact.lastElementChild.textContent=workshop?'Черепаха / детали / портал':stage.locationId==='island.data-forge'?'Верстак / портал':'Вернуться через портал';
   select(selected);update();
 }
 function update(){
-  if(stage.repair && stage.repair.met)$('.tip').textContent='L — режим боя. 1 или ЛКМ — удар вблизи. E — детали и верстак.';
+  if(stage.repair){
+    const building=!!stage.repair.axe;
+    document.body.classList.toggle('forge-mode',!building);
+    $('.progress-label > span').textContent=building?'Блоки в деревянной арке':'Детали в компьютере';
+    stage.ghosts.forEach((mesh,i)=>{mesh.visible=building && !stage.built.has(i)});
+    if(building)$('.tip').textContent='В режиме сборки ударь ЛКМ по стволу. Клавиша 3 — дерево, ЛКМ по контуру — поставить блок.';
+  }
+  if(stage.repair && stage.repair.met && !stage.repair.axe)$('.tip').textContent='L — режим боя. 1 или ЛКМ — удар вблизи. E — детали и верстак.';
   if(stage.repair || signalStation)$('#quest-action').textContent=currentQuestBrief();
-  const n=stage.repair?stage.repair.parts.filter(p=>p==='installed').length:stage.arches.length?stage.built.size:forgeState.cells.filter(Boolean).length;
-  const total=stage.repair?pcParts.length:stage.arches.length?stage.targets.length:4;
+  const repairing=stage.repair && !stage.repair.axe;
+  const n=repairing?stage.repair.parts.filter(p=>p==='installed').length:stage.arches.length?stage.built.size:forgeState.cells.filter(Boolean).length;
+  const total=repairing?pcParts.length:stage.arches.length?stage.targets.length:4;
   $('#count').textContent=`${n} / ${total}`;
   drawQuestDiagram($('#quest-diagram'),stage,forgeState.cells);
   document.querySelectorAll('.slot b').forEach((el,i)=>el.textContent=isLimited(stage,i)?stage.inventory[i]:'∞');
@@ -385,7 +401,7 @@ function nearbyRoute(){
   const routes=[];
   if(stage.index>0)routes.push({x:stage.center+6,z:6,to:stage.index-1,ready:true,label:'Вернуться в локацию «'+LOCATIONS[stage.index-1].name+'»'});
   if(stage.index===0)routes.push({x:0,z:-1,to:1,ready:stage.unlocked,label:'Перейти в мастерскую черепахи',locked:'Дострой арку, чтобы открыть проход.'});
-  if(workshop)routes.push({x:stage.center,z:-6,to:2,ready:stage.unlocked,label:'Перейти на остров трёх арок',locked:'Собери компьютер черепахи, чтобы открыть портал.'});
+  if(workshop)routes.push({x:stage.center,z:-6,to:2,ready:stage.unlocked,label:'Перейти на остров трёх арок',locked:stage.repair.axe?'Заверши деревянную арку.':'Помоги черепахе починить компьютер.'});
   if(stage.locationId==='island.three-arches')routes.push({x:40,z:-2,to:3,ready:stage.unlocked,label:'Отправиться в кузницу',locked:stage.sentWood?'Собери все три арки, чтобы открыть кузницу.':'Включи на пульте указатель к дереву.'});
   if(stage.locationId==='island.data-forge')routes.push({x:86,z:-4,to:4,ready:forgeState.unlocked,label:'Пройти сквозь врата',locked:'Выложи четыре байта на площадку у арки.'});
   return routes.find(route=>Math.hypot(player.position.x-route.x,player.position.z-route.z)<1.8);
@@ -398,7 +414,7 @@ function travel(){
 }
 function goToIsland(index, message){
   enterIsland(stages[index]);followState=createFollowState();player.position.set(stage.center,0,stage.index===0?2:stage.locationId==='island.data-forge'?4:3);
-  Object.assign(physics,createPhysicsState());Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;selected=0;yaw=0;
+  Object.assign(physics,createPhysicsState());Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;selected=stage.repair?.axe?2:0;yaw=0;
   sun.position.set(stage.center-10,25,10);sun.target.position.set(stage.center,0,0);sun.target.updateMatrixWorld();
   refreshMission();announceLocation(message);
 }
@@ -506,6 +522,19 @@ function act(button){
   if(panel.isBattle()){notify('Для строительства нажми L / Д или C + V.');return}
   if (button===0 && scanner?.interact('collect')) return;
   ray.setFromCamera(new THREE.Vector2(),camera);
+  if(button===0 && bag.loadouts.build.tool==='wood-axe'){
+    const hit=ray.intersectObjects(trunks,false)[0];
+    if(hit && hit.point.distanceTo(player.position)<3.4){
+      // A ghost or solid block directly in front of a tree still takes the click.
+      const closer=ray.intersectObjects([...stage.ghosts.filter(m=>m.visible),...solids],false)[0];
+      if(closer?.object===hit.object){
+        if(performance.now()-lastChop<350 || !hasBagRoom(BUILD_MATERIALS[2].id))return;
+        lastChop=performance.now();stage.inventory[2]++;gathering.chop();playPickup();character.react();
+        notify('Древесина +1');update();return;
+      }
+    }
+  }
+  if(workshop && !stage.repair.axe)return;
   if(!stage.arches.length){if(stage.locationId==='island.data-forge'&&button===0&&forge.collect(ray,player.position))character.react();return}
   const {pickups,ghosts,placed,targets}=stage;
   const objects=[...pickups,...ghosts.filter(m=>m.visible),...placed];
@@ -521,7 +550,7 @@ function act(button){
       const wasUnlocked=stage.unlocked;
       if(!placeTarget(stage,gi,selected))return;character.react();
       m.visible=false;addBlock(t.x,t.y,t.z,selected,gi);playPlacement();update();
-      if(stage.unlocked&&!wasUnlocked)notify(stage.index===0?'✦ Портал открыт! Подойди к арке и нажми E.':'✦ Три арки готовы! Средняя арка открыла портал в кузницу — нажми E рядом с ней.');
+      if(stage.unlocked&&!wasUnlocked)notify(workshop?'Деревянная арка готова! Подойди к ней и нажми E.':stage.index===0?'✦ Портал открыт! Подойди к арке и нажми E.':'✦ Три арки готовы! Средняя арка открыла портал в кузницу — нажми E рядом с ней.');
       return;
     }
     if(button===2&&placed.includes(m)){
@@ -533,7 +562,7 @@ function act(button){
       island.remove(m);placed.splice(placed.indexOf(m),1);solids.splice(solids.indexOf(m),1);update();return;
     }
   }
-  if(button!==0)return;
+  if(button!==0 || workshop)return;
   const point=new THREE.Vector3();
   if(!ray.ray.intersectPlane(new THREE.Plane(new THREE.Vector3(0,1,0),0),point)||point.distanceTo(player.position)>=6||Math.abs(point.x-stage.center)>=10||Math.abs(point.z)>=9)return;
   const x=Math.round(point.x),z=Math.round(point.z);
@@ -547,7 +576,7 @@ function act(button){
   addBlock(x,y,z,selected);playPlacement();update();
 }
 function restartWarning(){
-  if(workshop)return 'Черепаха снова попросит о помощи. Баги, детали и сборка компьютера на этом острове будут сброшены.';
+  if(workshop)return 'Черепаха снова попросит о помощи. Ремонт компьютера, подарок черепахи и деревянная арка будут сброшены.';
   if(signalStation && stage.sentWood)return 'Сигнал, постройки и собранные на острове материалы будут сброшены.';
   if(stage.locationId==='island.discovery-garden')return 'Вы вернётесь к началу сада. Врата кузницы останутся открыты.';
   if(stage.locationId==='island.data-forge'){
@@ -580,6 +609,7 @@ $('#restart-confirm').onclick=e=>{
   restartDialog.close();
   if(target!==stage)return;
   if(workshop || signalStation){
+    if(workshop && bag.loadouts.build.tool==='wood-axe')bag.equip('build','tool','wand');
     stages[stage.index]=createStage(stage.index);
     goToIsland(stage.index,'Текущий остров начат заново.');return;
   }
@@ -634,7 +664,7 @@ simpleArchEffect?.update(now, reducedHandMotion.matches);
 if (returnGlow) returnGlow.material.opacity=.4+Math.sin(now*.002)*.12;
 forge?.update(player.position,now/1000,$('#welcome').classList.contains('hidden')&&!skillList.open&&!scanDialog.open&&!extraDialog?.open&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);
-gathering.update(dt,now/1000,{active,third:player.visible,visible:!panel.isBattle()&&bag.loadouts.build.tool==='wand',dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
+gathering.update(dt,now/1000,{active,third:player.visible,visible:!panel.isBattle()&&!!bag.loadouts.build.tool,tool:bag.loadouts.build.tool,dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
 if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
 
 // Temporary cheats: remove this installation and its import to disable the menu.
@@ -651,6 +681,7 @@ extraDialog = installCheatMenu({
   resetScanLimits: () => scanStore.change(resetDailyFindings),
   async reset() {
     await scanStore.change(save => {save.coins=0});
+    if(bag.loadouts.build.tool==='wood-axe')bag.equip('build','tool','wand');
     stages = LOCATIONS.map((_, index) => createStage(index));
     Object.assign(forgeState, createForgeState());
     playerAccount.coins = 0;

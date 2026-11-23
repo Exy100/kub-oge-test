@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 
-// All island models share the same cube geometry and a small palette.
+import {createBugBody} from './workshop-bugs.js?v=2';
 export function workshopModels(parent, geometry) {
   const palette = new Map();
   function cube(group,x,y,z,w,h,d,color) {
@@ -15,30 +15,18 @@ export function workshopModels(parent, geometry) {
     const g = new THREE.Group();
     g.name=name; g.position.set(x,0,z); parent.add(g); return g;
   }
+  let bugMaterial;
   function bug(i,x,z) {
     const g=group('repair-bug-'+i,x,z);
-    const color=i?0x82ae48:0xe28640;
-    const feet=[];
-    cube(g,0,.48,0,.9,.45,1.1,0x394746);
-    cube(g,0,.73,-.07,.82,.27,.89,color);
-    cube(g,0,.54,.59,.69,.32,.4,color);
-    for(const side of [-1,1]){
-      for(const z of [-.38,0,.38]){
-        cube(g,side*.55,.26,z,.42,.17,.16,color);
-        feet.push(cube(g,side*.7,.17,z,.15,.22,.18,0x394746));
-      }
-      cube(g,side*.21,.56,.805,.15,.1,.05,0xffdc81);
-      if(i){
-        cube(g,side*.25,.83,.64,.055,.33,.055,0x455545);
-        cube(g,side*.25,1,.64,.11,.09,.11,0xc3ec8b);
-        cube(g,side*.3,.89,-.08,.13,.12,.68,0x40504c);
-      }
-    }
-    cube(g,0,.91,-.1,i?.4:.51,.1,.54,i?0x29b67e:0xf3a351);
-    const hp=new THREE.Group();g.add(hp);hp.position.y=1.34;
+    if (!bugMaterial) bugMaterial=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.78});
+    const body=new THREE.Group();
+    body.scale.y=1.25;
+    g.add(body);
+    const animate=createBugBody(body,i,bugMaterial);
+    const hp=new THREE.Group();g.add(hp);hp.position.y=(i?1.58:1.36)*body.scale.y;
     cube(hp,0,0,0,1,.14,.045,0x293f39);
     const fill=cube(hp,0,0,.034,.93,.08,.025,0xe9aa70);
-    return {g,hp,fill,feet};
+    return {g,hp,fill,animate};
   }
   function helper(x,z) {
     const g=group('friendly-program',x,z);

@@ -25,3 +25,18 @@ test('physics supports the new island coordinates without snapping to the first 
   const p={x:40,y:0,z:3},state=createPhysicsState();movePlayer(p,state,{dt:.04,vx:4,limits:{x:[30,50],z:[-9,9]}},[]);
   assert.ok(p.x>40&&p.x<41);assert.equal(p.y,0);
 });
+
+test('workshop arch needs the turtle gift and seven harvested wood blocks',()=>{
+  const stage=createStage(1);
+  stage.inventory[2]=7;
+  assert.equal(placeTarget(stage,0,2),false);
+  stage.repair={axe:true};
+  for(let i=0;i<7;i++){
+    assert.equal(stage.unlocked,false);
+    assert.equal(placeTarget(stage,i,2),true);
+  }
+  assert.equal(stage.unlocked,true);
+  assert.equal(stage.inventory[2],0);
+  assert.equal(removeTarget(stage,6),true);
+  assert.equal(stage.unlocked,false);
+});

@@ -1,4 +1,4 @@
-import { createInventoryWindows } from './inventory-window.js?v=4';
+import { createInventoryWindows } from './inventory-window.js?v=5';
 import { createLiveNavigator } from './navigator-live.js?v=11';
 import { createNavigatorSpeech } from './navigator-speech.js?v=16';
 import { createNavigatorChoice } from './navigator-choice.js?v=12';
