@@ -1,6 +1,6 @@
 import {createTurtleMechanic} from '../world/turtle-mechanic.js';
 import {pcParts} from '../catalog/pc-parts.js';
-import {workshopModels} from '../world/repair-models.js';
+import {workshopModels} from '../world/repair-models.js?v=2';
 
 const puzzles = [
   {name:'Оранжевый Баг', parts:[0,1], words:['input','print'], lines:[['name = ','inpt','("Как тебя зовут?")'],['','pritn','("Привет,", name)']]},
