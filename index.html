@@ -1,99 +1,21 @@
-<!doctype html><html lang="ru"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>КУБ · маленький мир больших идей</title><link rel="stylesheet" href="style.css?v=41"></head><body><canvas id="world"></canvas><header><a class="brand" href="./"><span>◈</span> КУБ<span class="tag">тестовая версия</span></a><div id="location-banner" hidden><span class="location-plaque"></span></div></header><aside id="quest-panel" class="mission" aria-labelledby="quest-title">
-  <div class="quest-heading"><button id="reset" type="button" tabindex="-1" aria-label="Начать этап заново" title="Начать этап заново" aria-haspopup="dialog" aria-controls="restart-dialog">↻</button><button id="quest-close" type="button" aria-label="Закрыть задание" title="Закрыть задание"><span aria-hidden="true">×</span></button><div class="eyebrow">Остров 01</div><h1 id="quest-title">Солнечная арка</h1></div>
-  <canvas id="quest-diagram" width="960" height="540" aria-hidden="true"></canvas>
-  <div class="quest-instructions">
-    <p id="quest-action"></p>
-    <div class="progress-label"><span></span><b id="count">0 / 7</b></div>
-    <div id="arch-status"></div>
-  </div>
-  <div class="tip"></div>
-</aside><button id="forge-prompt" hidden>E · Кузница байтов</button><progress id="scan-progress" aria-label="Сканирование" max="1" value="0" hidden></progress><div id="crosshair">+</div><div class="bottom"><div id="message" hidden></div><div class="controls" role="group" aria-label="Подсказки управления" hidden>
-  <span><kbd>W</kbd><kbd>A</kbd><kbd>S</kbd><kbd>D</kbd> Движение</span>
-  <span><kbd>Пробел</kbd> Прыжок</span>
-  <span class="build-hint"><kbd>ЛКМ</kbd> Собрать / поставить блок</span>
-  <span class="build-hint"><kbd>ПКМ</kbd> / <kbd>N / Т</kbd> Убрать блок</span>
-  <span class="scan-hint build-hint" hidden><kbd>0</kbd> Применить · <kbd>Shift + 0</kbd> Сменить навык</span>
-  <span class="forge-hint" hidden><kbd>ЛКМ</kbd> Подобрать ресурс / выложить байт</span>
-  <span class="interact-hint" hidden><kbd>E / У</kbd> <span></span></span>
-  <span><kbd>H / Р</kbd> Справка по управлению</span>
-</div><div id="forge-bag" hidden><span class="bag-title">СУМКА</span><span>Биты <b id="bag-bits">0</b></span><span class="bag-byte">Байты <b id="bag-bytes">0</b></span></div><div class="hotbar"><div class="slot selected"><kbd>1</kbd><div class="cube sand"></div><b id="inventory">0</b></div><div class="slot"><kbd>2</kbd><div class="cube grass"></div><b>∞</b></div><div class="slot"><kbd>3</kbd><div class="cube wood"></div><b>∞</b></div><div class="slot"><kbd>4</kbd><div class="cube stone"></div><b>∞</b></div><div class="slot"><kbd>5</kbd><div class="cube rose"></div><b>∞</b></div><div class="slot"><kbd>6</kbd><div class="cube blue"></div><b>∞</b></div></div></div><div id="welcome" class="overlay"><div class="modal navigator-welcome"><div class="eyebrow">ВЫБЕРИ СВОЕГО СПУТНИКА</div><h2>Вместе интереснее.</h2><p>Кто отправится с тобой на остров? Все четыре Навигатора помогут с заданиями — выбирай того, кто нравится. Позже выбор можно изменить.</p><button id="play">Отправиться на остров <span>→</span></button></div></div><dialog id="forge-dialog" aria-labelledby="forge-title">
-<div class="paths-heading"><div><div class="eyebrow">ОСТРОВ 03 · КУЗНИЦА ДАННЫХ</div><h2 id="forge-title">Из битов — в байты</h2></div><button id="forge-close" aria-label="Вернуться в кузницу">×</button></div>
-<p class="forge-explanation">Бит хранит одно значение: <strong>0 или 1</strong>. Восемь битов составляют <strong>1 байт</strong>. Создай и забери в сумку 4 байта, затем выложи их на площадку у арки.</p>
-<div class="forge-stock"><span>Биты в запасе <b id="bit-stock">0</b></span><span>Байты в сумке <b id="byte-stock">0</b></span></div>
-<section class="assembly"><div class="eyebrow">БЛОК БАЙТА · 8 СЛОТОВ</div><div id="bit-slots"></div><div class="forge-actions"><button id="fill-bits">Заполнить слоты</button><button id="craft-byte" disabled>Создать байт →</button></div><p>Нажми на пустой слот, чтобы поставить бит. Нажми на заполненный — чтобы вернуть его в запас.</p></section>
-<section class="door-cells"><div class="progress-label"><span>ПЛОЩАДКА У АРКИ · 4 МЕСТА</span><b id="forge-count">0 / 4</b></div><div id="byte-cells"></div><p class="altar-help">Байты нужно забрать с подставки у верстака и выложить на площадку в мире игры — левой кнопкой мыши.</p></section><p id="forge-status" aria-live="polite"></p>
-</dialog><dialog id="character-dialog" aria-labelledby="character-title">
-<div class="paths-heading"><div><div class="eyebrow">МАСТЕРСКАЯ ОБРАЗА</div><h2 id="character-title">Твой исследователь</h2><p class="character-subtitle">Выбери черты лица, причёску и палитру волос.</p></div><button id="character-close" aria-label="Закрыть без сохранения">×</button></div>
-<div class="character-editor">
-<section class="character-stage" aria-label="Предпросмотр"><div class="preview-switch"><button id="preview-face" aria-pressed="true">Лицо</button><button id="preview-body" aria-pressed="false">Весь рост</button></div><div id="character-preview"></div><div class="preview-rotation"><button id="preview-left" aria-label="Повернуть влево">↶</button><span>Потяни мышью, чтобы повернуть</span><button id="preview-right" aria-label="Повернуть вправо">↷</button></div><p id="appearance-summary"></p></section>
-<section class="appearance-controls"><div id="appearance-tabs" role="tablist" aria-label="Настройки внешности"></div><div class="appearance-heading"><h3 id="appearance-category">Глаза</h3><span>10 вариантов</span></div><p id="appearance-note"></p><div id="appearance-options" role="tabpanel"></div><fieldset id="eye-colors" hidden><legend>Цвет глаз</legend><div class="eye-swatches"></div></fieldset><div class="appearance-utilities"><button id="appearance-random">↝ Случайный образ</button><button id="appearance-default">Исходный образ</button></div></section>
-</div><footer class="character-footer"><span>Внешность сохраняется в этом браузере.</span><div><button id="character-cancel">Отмена</button><button id="character-save">Сохранить образ →</button></div></footer>
-</dialog>
-<dialog id="skill-list" class="panel-dialog" aria-labelledby="skill-list-title" aria-describedby="skill-list-help">
-  <div class="paths-heading"><h2 id="skill-list-title">Особые навыки</h2><button type="button" aria-label="Закрыть список">×</button></div>
-  <p id="skill-list-help">Выбери навык для клавиши 0. Затем наведи прицел на цель и нажми 0.</p>
-  <button type="button" class="scan-choice" data-skill="grass"><video muted loop playsinline preload="none" poster="assets/skills/grass.png" src="assets/skills/grass.webm" aria-hidden="true"></video><span><strong>Скан травы</strong><small>Клетка Острова мечтателей</small></span><kbd>1</kbd></button>
-  <button type="button" class="scan-choice" data-skill="tree"><video muted loop playsinline preload="none" poster="assets/skills/tree.png" src="assets/skills/tree.webm" aria-hidden="true"></video><span><strong>Эхо дерева</strong><small>Находки на стволах деревьев</small></span><kbd>2</kbd></button>
-</dialog>
-<dialog id="scan-dialog" class="panel-dialog" aria-labelledby="scan-title">
-  <div class="paths-heading"><h2 id="scan-title">Каменная табличка</h2><button type="button" aria-label="Закрыть табличку">×</button></div>
-  <p>Скоро здесь будет задание по работе с таблицами.</p>
-</dialog>
-<dialog id="restart-dialog" class="panel-dialog" aria-labelledby="restart-title" aria-describedby="restart-loss restart-kept">
-  <div class="eyebrow" id="restart-island"></div>
-  <h2 id="restart-title">Начать этап заново?</h2>
-  <p id="restart-loss"></p>
-  <p id="restart-kept">Прогресс других островов, снаряжение и монеты сохранятся.</p>
-  <div class="restart-actions">
-    <button type="button" id="restart-cancel" autofocus>Продолжить игру</button>
-    <button type="button" id="restart-confirm" tabindex="-1">Начать заново</button>
-  </div>
-</dialog>
-<dialog id="controls-guide" aria-labelledby="guide-title">
-  <div class="guide-header">
-    <h2 id="guide-title">Управление</h2>
-    <div class="guide-tabs" role="tablist" aria-label="Устройство">
-      <button type="button" id="guide-keyboard-tab" role="tab" aria-controls="guide-keyboard" aria-selected="true">Клавиатура</button>
-      <button type="button" id="guide-mouse-tab" role="tab" aria-controls="guide-mouse" aria-selected="false" tabindex="-1">Мышь</button>
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#306a79">
+  <title>КУБ · На остров</title>
+  <link rel="stylesheet" href="entrance.css">
+</head>
+<body>
+  <main class="entrance" aria-label="КУБ">
+    <div class="scene">
+      <div class="film" aria-hidden="true">
+        <video muted playsinline loop></video>
+      </div>
+      <a class="enter" href="game.html"><span>На остров</span></a>
     </div>
-    <button type="button" class="guide-close" aria-label="Закрыть управление">×</button>
-  </div>
-  <section id="guide-keyboard" role="tabpanel" aria-labelledby="guide-keyboard-tab" tabindex="0">
-    <h3>Движение и взаимодействие</h3>
-    <dl>
-      <dt>Двигаться</dt><dd><kbd>W A S D</kbd> / <kbd>Ц Ф Ы В</kbd></dd>
-      <dt>Прыгнуть</dt><dd><kbd>Пробел</kbd></dd>
-      <dt>Сменить вид камеры</dt><dd><kbd>V</kbd> / <kbd>М</kbd></dd>
-      <dt>Выбрать материал</dt><dd><kbd>1–6</kbd></dd>
-      <dt>Забрать поставленный блок под прицелом</dt><dd><kbd>N</kbd> / <kbd>Т</kbd></dd>
-      <dt>Применить выбранный особый навык</dt><dd><kbd>0</kbd></dd>
-      <dt>Сменить особый навык</dt><dd><kbd>Shift + 0</kbd> или клик по слоту навыка</dd>
-      <dt>Открыть табличку, войти в портал или открыть кузницу</dt><dd><kbd>E</kbd> / <kbd>У</kbd></dd>
-    </dl>
-    <h3>Панели игрока</h3>
-    <dl>
-      <dt>Переключить сборку и бой</dt><dd><kbd>L</kbd> / <kbd>Д</kbd><br><kbd>C + V</kbd> / <kbd>С + М</kbd></dd>
-      <dt>Позвать Навигатора</dt><dd><kbd>Z + X</kbd> / <kbd>Я + Ч</kbd></dd>
-      <dt>Инвентарь</dt><dd><kbd>B</kbd> / <kbd>И</kbd></dd>
-      <dt>Открыть или свернуть задание</dt><dd><kbd>J</kbd> / <kbd>О</kbd></dd>
-      <dt>Снаряжение</dt><dd><kbd>C</kbd> / <kbd>С</kbd></dd>
-      <dt>Внешность персонажа (изменение на первом острове)</dt><dd><kbd>P</kbd> / <kbd>З</kbd></dd>
-      <dt>Открыть или закрыть справку</dt><dd><kbd>H</kbd> / <kbd>Р</kbd></dd>
-      <dt>Освободить курсор или закрыть окно</dt><dd><kbd>Esc</kbd></dd>
-    </dl>
-  </section>
-  <section id="guide-mouse" role="tabpanel" aria-labelledby="guide-mouse-tab" tabindex="0" hidden>
-    <div class="guide-mouse-feature">
-      <span class="guide-mouse-shape" aria-hidden="true"><i></i></span>
-      <div><h3>Боковая кнопка «Назад»</h3><p>Переключает сборку и бой, пока мышь управляет камерой. При свободном курсоре возвращает на предыдущую страницу браузера.</p></div>
-    </div>
-    <dl>
-      <dt>Захватить курсор для обзора</dt><dd>Щелчок по миру</dd>
-      <dt>Повернуть камеру</dt><dd>Движение мыши</dd>
-      <dt>Обзор без захвата курсора</dt><dd>Перетаскивание по миру</dd>
-      <dt>Собрать ресурс или поставить блок</dt><dd><kbd>ЛКМ</kbd></dd>
-      <dt>Убрать поставленный блок</dt><dd><kbd>ПКМ</kbd></dd>
-    </dl>
-  </section>
-</dialog>
-<script type="module" src="game.js?v=71"></script></body></html>
+  </main>
+  <script type="module" src="entrance.js"></script>
+</body>
+</html>
