@@ -1,10 +1,11 @@
+import { pcParts } from './pc-parts.js';
 import { keys } from './keys.js';
 import { resources } from './resources.js';
 import { tools } from './tools.js';
 import { trees } from './trees.js';
 import { createCatalog } from './registry.js';
 
-export const catalog = createCatalog([...resources, ...tools, ...keys, ...trees]);
+export const catalog = createCatalog([...resources, ...pcParts, ...tools, ...keys, ...trees]);
 export const BUILD_MATERIALS = Object.freeze(catalog.list('resource')
   .filter(item => item.materialSlot !== undefined).sort((a,b) => a.materialSlot - b.materialSlot));
 

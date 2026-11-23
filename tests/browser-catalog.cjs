@@ -36,7 +36,7 @@ const repo = path.resolve(__dirname, '..');
       refreshMission();announceLocation();
       window.catalogTest={color:stages[0].pickups[0].material.color.getHex(),id:stages[0].pickups[0].userData.objectId};
     `);
-    await page.goto('http://127.0.0.1:8076');
+    await page.goto('http://127.0.0.1:8076/game.html');
     await page.waitForFunction(() => window.catalogTest, null, {polling:100});
     assert.deepEqual(await page.evaluate(() => catalogTest), {color:0xaa00ff,id:'material-0'});
     await page.waitForFunction(() => document.querySelector('#location-banner').textContent === 'Остров проверки', null, {polling:100});

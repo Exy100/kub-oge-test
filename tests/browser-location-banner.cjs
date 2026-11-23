@@ -17,17 +17,17 @@ const {chromium} = require('playwright');
       contentType:'text/javascript',
       body:fs.readFileSync(path.join(repo,'game.js'),'utf8') + `
         window.atGate = forward => {
-          if(forward && stage.index===2){
+          if(forward && stage.index===3){
             forge.state.unlocked=true;
             player.position.set(86,0,-4);
           }else if(forward){
             stage.unlocked=true;
-            player.position.set(stage.center,0,stage.index===0?-1:-2);
+            player.position.set(stage.center,0,stage.index===0?-1:stage.index===1?-6:-2);
           }else player.position.set(stage.center+6,0,6);
         };
       `,
     }));
-    await page.goto('http://127.0.0.1:8079/');
+    await page.goto('http://127.0.0.1:8079/game.html');
     const banner = page.locator('#location-banner');
     const message = page.locator('#message');
     const strip = page.getByRole('group',{name:'Подсказки управления', includeHidden:true});
@@ -83,13 +83,13 @@ const {chromium} = require('playwright');
       await page.keyboard.press('e');
     }
     await banner.waitFor({state:'visible'});
-    assert.equal(await banner.innerText(),'Остров трёх арок');
+    assert.equal(await banner.innerText(),'Мастерская черепахи');
     assert(await message.isVisible());
-    assert((await message.innerText()).includes('три арки'));
-    assert.deepEqual(await page.evaluate(()=>arrivals.filter(a=>!a.hidden).map(a=>a.name)),['Остров мечтателей','Остров трёх арок']);
+    assert((await message.innerText()).includes('Черепаха'));
+    assert.deepEqual(await page.evaluate(()=>arrivals.filter(a=>!a.hidden).map(a=>a.name)),['Остров мечтателей','Мастерская черепахи']);
 
     await page.keyboard.press('l');
-    assert(await buildHint.isVisible() && await helpHint.isVisible());
+    assert(await helpHint.isVisible());
     // Freeze only the banner animation while checking its geometry at different widths.
     await banner.evaluate(el=>{const a=el.getAnimations()[0];a.pause();a.currentTime=2500});
     for(const width of [1440,1024,801,768,590,390,320]){
@@ -103,6 +103,8 @@ const {chromium} = require('playwright');
     }
     await page.emulateMedia({reducedMotion:'reduce'});
     assert.equal(await banner.evaluate(el=>getComputedStyle(el).getPropertyValue('--arrival-shift').trim()),'0px');
+    await page.evaluate(()=>window.atGate(true));
+    await page.keyboard.press('e');
     await page.evaluate(()=>window.atGate(true));
     await page.keyboard.press('e');
     await banner.waitFor({state:'hidden'});

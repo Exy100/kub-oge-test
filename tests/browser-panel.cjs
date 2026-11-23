@@ -3,7 +3,7 @@ const assert=(x,msg)=>{if(!x)throw Error(msg)};
 (async()=>{const repo=path.resolve(__dirname,'..');const server=spawn('python3',['-m','http.server','8064','--bind','127.0.0.1'],{cwd:repo,stdio:'ignore'});let browser;
 try{await new Promise(r=>setTimeout(r,500));browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});const page=await browser.newPage({viewport:{width:1440,height:900}});const errors=[];page.on('pageerror',e=>errors.push(e.message));
 await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(repo,'game.js'),'utf8')+'\nwindow.panelTest={cameraThird:()=>third,playerAccount,position:()=>player.position.toArray(),stage:(i)=>{enterIsland(stages[i]);refreshMission()},act:()=>act(0)};'}));
-await page.goto('http://127.0.0.1:8064');if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();
+await page.goto('http://127.0.0.1:8064/game.html');if(await page.locator('#play').isDisabled())await page.locator('#welcome [data-navigator="27"]').click();await page.locator('#play').click();
 await page.waitForFunction(()=>document.pointerLockElement===document.querySelector('#world'));
 const mode=()=>page.locator('.player-dock').getAttribute('data-mode');
 await page.keyboard.down('l');
@@ -95,7 +95,7 @@ await physical('KeyH','р');
 assert(!await guide.isVisible(),'Russian H closes guide');
 await questTab.click();
 assert(!await quest.isVisible()&&await questTab.getAttribute('aria-expanded')==='false','quest collapses');
-await page.evaluate(()=>panelTest.stage(2));
+await page.evaluate(()=>panelTest.stage(3));
 await questTab.press('Enter');
 assert(await quest.isVisible()&&(await quest.innerText()).includes('Кузница байтов'),'quest reopens with current island');
 await page.evaluate(()=>panelTest.stage(0));
@@ -158,7 +158,7 @@ await page.emulateMedia({reducedMotion:'no-preference'});
 await page.screenshot({path:'/tmp/kub-panel-battle.png'});await page.locator('#weapons-button').click();assert(await page.locator('#weapons-dialog').evaluate(e=>e.open),'gear opens in battle mode');await page.keyboard.press('Escape');await page.keyboard.press('c+v');
 assert((await rim()).name==='none','exploration rim stays still');
 await page.locator('.slot').nth(2).click();assert(await page.locator('.slot').nth(2).evaluate(e=>e.classList.contains('selected')),'build selection works');
-await page.evaluate(()=>panelTest.stage(2));await page.locator('#navigator-button').click();assert((await page.locator('#navigator-task').innerText()).includes('биты'),'forge context');await page.keyboard.press('Escape');await page.evaluate(()=>panelTest.stage(0));
+await page.evaluate(()=>panelTest.stage(3));await page.locator('#navigator-button').click();assert((await page.locator('#navigator-task').innerText()).includes('биты'),'forge context');await page.keyboard.press('Escape');await page.evaluate(()=>panelTest.stage(0));
 for(const width of [320,390,640,768,1440]){
   await page.setViewportSize({width,height:844});
   for(let i=0;i<2;i++){

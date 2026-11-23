@@ -22,7 +22,7 @@ const { chromium } = require('playwright');
       body:fs.readFileSync(path.join(repo,'game.js'),'utf8') + '\nstages[0].inventory[0]=2;',
     }));
     const enter = async () => {
-      await page.goto('http://127.0.0.1:8176');
+      await page.goto('http://127.0.0.1:8176/game.html');
       await page.locator('#play').click();
       await page.keyboard.press('b');
     };

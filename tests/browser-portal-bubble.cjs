@@ -30,7 +30,7 @@ const {chromium} = require('playwright');
           island(){return stage.index}
         };
       `}));
-    await page.goto('http://127.0.0.1:8078/');
+    await page.goto('http://127.0.0.1:8078/game.html');
     const cloud=page.locator('#travel-prompt'), go=page.locator('#portal-go');
     const move=(x,z)=>page.evaluate(([x,z])=>portalTest.move(x,z),[x,z]);
     const lines=()=>page.evaluate(()=>window.lines.filter(t=>t.startsWith('Портал')));
@@ -51,7 +51,7 @@ const {chromium} = require('playwright');
     assert.equal((await lines()).length,1,'quick re-entry does not repeat speech');
     await page.evaluate(()=>portalTest.unlock());
     await go.waitFor();
-    assert((await lines()).at(-1).includes('Нажми клавишу Е, чтобы перейти на остров трёх арок'));
+    assert((await lines()).at(-1).includes('Нажми клавишу Е, чтобы перейти в мастерскую черепахи'));
     for(const width of [1150,390,320]){
       await page.setViewportSize({width,height:760});
       const fits=await cloud.evaluate(el=>{
@@ -66,7 +66,7 @@ const {chromium} = require('playwright');
     await go.click();
     assert.equal(await page.evaluate(()=>portalTest.island()),1);
     await cloud.waitFor({state:'hidden'});
-    await move(46,6);await go.waitFor();
+    await move(166,6);await go.waitFor();
     assert((await go.innerText()).includes('Остров мечтателей'));
     await page.keyboard.press('e');
     assert.equal(await page.evaluate(()=>portalTest.island()),0);
