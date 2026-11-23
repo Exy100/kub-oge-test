@@ -1,3 +1,4 @@
+import {createTurtleMechanic} from '../world/turtle-mechanic.js';
 import {pcParts} from '../catalog/pc-parts.js';
 import {workshopModels} from '../world/repair-models.js';
 
@@ -18,7 +19,7 @@ export function repairBrief(state) {
 export function createWorkshop({stage,parent,geometry,box,player,camera,canStore,notify,pause,changed,collect,place,onHit}) {
   const state=stage.repair, center=stage.center;
   const models=workshopModels(parent,geometry);
-  const turtle=models.turtle(center-1,-.6);
+  const turtle=createTurtleMechanic(parent,center-1,-.6);
   box(center+1.1,.85,-1,1.9,.22,1.2,0xae895d,true);
   for (const dx of [-.7,.7]) box(center+1.1+dx,.4,-1,.17,.8,.96,0x746b54,true);
   box(center+1.1,1.01,-1,1.35,.12,.8,0x527b69);
@@ -107,11 +108,12 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
         status.textContent=selected<0?'Сначала выбери деталь из рюкзака.':'Этой детали нужен другой разъём.';return;
       }
       state.parts[selected]='installed';place();stage.unlocked=state.parts.every(p=>p==='installed');changed();
-      if(stage.unlocked){sync();dialog.close();notify('Черепаха: «Компьютер включился! Спасибо!» Портал к трём аркам открыт.',7000)}
+      if(stage.unlocked){turtle.nod();sync();dialog.close();notify('Черепаха: «Компьютер включился! Спасибо!» Портал к трём аркам открыт.',7000)}
       else assembly();
     });
   }
   function talk() {
+    turtle.nod();
     if(!state.met){
       state.met=true;changed();
       show('Черепаха-механик','<p>«Я разобрала компьютер, чтобы найти баг. А их оказалось двое! Пока я проверяла плату, они унесли пять деталей. Поможешь мне их вернуть?»</p><p>Нажми L для боя. Подойди к жуку и нажимай 1 или ЛКМ. Когда жук остановится, исправь слова в его программе.</p><button class="field-primary">Помогу</button>');
@@ -129,7 +131,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       const j=closest(bugs.map(b=>b.g),k=>state.bugs[k].phase==='stopped',3);
       if(j>=0)return {label:'Исправить программу',act:()=>edit(j)};
     }
-    if(near(turtle,3.2))return {label:state.met?'Верстак черепахи':'Поговорить с черепахой',act:talk};
+    if(near(turtle.root,3.2))return {label:state.met?'Верстак черепахи':'Поговорить с черепахой',act:talk};
   }
   function interact(){const t=target();if(t)t.act();return !!t}
   function attack(){
@@ -145,6 +147,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   }
   function tick(dt,active,reduced){
     if(!active){prompt.hidden=true;return}
+    turtle.update(dt,reduced,player.position);
     time+=dt;
     state.bugs.forEach((b,i)=>{
       const {g,hp,feet}=bugs[i];
