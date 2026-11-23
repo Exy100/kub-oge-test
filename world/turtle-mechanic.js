@@ -1,6 +1,8 @@
 import * as THREE from '../vendor/three.module.js';
 import {paintedPart} from './painted-part.js';
 
+import {createWoodcuttingAxe} from './woodcutting-axe.js';
+
 const shellWidth=.92, shellLength=1.07;
 function shellY(x,z){
   return .74+.83*Math.pow(Math.max(0,1-(x/shellWidth)**2-(z/shellLength)**2),.68);
@@ -77,37 +79,42 @@ function makeShell({block,band,face}){
   }
 }
 
-function makePannier({face,band,block},side) {
-  // A continuous skin around the base, canvas pocket and overhanging flap.
-  // Successive rings share their edges, including the two ends facing the camera.
-  function rim(y,offset,halfWidth,halfLength) {
-    const x=side*offset, w=halfWidth, l=halfLength, cut=.055;
-    return [[w-cut,l],[-w+cut,l],[-w,l-cut],[-w,-l+cut],
-      [-w+cut,-l],[w-cut,-l],[w,-l+cut],[w,l-cut]].map(([u,v])=>[x+u,y,v]);
-  }
-  const bottom=rim(-.305,.015,.133,.443);
-  const base=rim(-.25,.018,.184,.50);
-  const pocket=rim(.065,.022,.189,.50);
-  const lip=rim(.09,.035,.212,.528);
-  const flap=rim(.30,.035,.212,.528);
-  const top=rim(.37,.035,.151,.47);
-  face(bottom,0x937051);
-  band(bottom,base,0x937051);
-  band(base,pocket,0xc19a71);
-  band(pocket,lip,0x977754);
-  band(lip,flap,0xd0ac80);
-  band(flap,top,0xc7a176);
-  face(top.slice().reverse(),0xd0ac80);
-  for(const dz of [-.28,.28]){
-    block(side*.238,.067,dz,.055,.24,.093,0x895838,.018);
-    block(side*.266,.083,dz,.035,.087,.126,0xdab16b,.01);
-    block(side*.284,.085,dz,.016,.03,.055,0x795739,.004);
-  }
+function pannierRim(side,y,offset,w,l){
+  const x=side*offset,cut=.055;
+  return [[w-cut,l],[-w+cut,l],[-w,l-cut],[-w,-l+cut],
+    [-w+cut,-l],[w-cut,-l],[w,-l+cut],[w,l-cut]].map(([u,v])=>[x+u,y,v]);
+}
+
+function makePannier(body,side,material){
+  const rim=(...args)=>pannierRim(side,...args);
+  const bag=paintedPart(body,'canvas-pannier',material,({face,band})=>{
+    const bottom=rim(-.305,.015,.133,.443),base=rim(-.25,.018,.184,.50);
+    const mouth=rim(.065,.022,.189,.50),lining=rim(.065,.022,.165,.473);
+    face(bottom,0x937051);band(bottom,base,0x937051);band(base,mouth,0xc19a71);
+    band(mouth,lining,0xb69568);
+    const floor=rim(-.21,.018,.130,.431);
+    band(lining,floor,0x71563e);face(floor.slice().reverse(),0x594637);
+  });
+  bag.position.set(side*.87,.64,-.04);
+  const lid=paintedPart(bag,'pannier-lid',material,({face,band,block})=>{
+    const edge=rim(.067,.022,.189,.50),lip=rim(.09,.035,.212,.528);
+    const flap=rim(.30,.035,.212,.528),top=rim(.37,.035,.151,.47);
+    face(edge,0x846443);band(edge,lip,0x977754);band(lip,flap,0xd0ac80);
+    band(flap,top,0xc7a176);face(top.slice().reverse(),0xd0ac80);
+    for(const dz of [-.28,.28]){
+      block(side*.238,.067,dz,.055,.24,.093,0x895838,.018);
+      block(side*.266,.083,dz,.035,.087,.126,0xdab16b,.01);
+      block(side*.284,.085,dz,.016,.03,.055,0x795739,.004);
+    }
+  });
+  lid.position.set(0,.067,-.5);
+  lid.geometry.translate(0,-.067,.5);
+  return {bag,lid};
 }
 
 export function createTurtleMechanic(parent,x,z) {
   const root=new THREE.Group();root.name='turtle-mechanic';root.position.set(x,0,z);
-  root.rotation.y=-.56;parent.add(root);
+  root.rotation.y=.58;parent.add(root);
   const material=new THREE.MeshStandardMaterial({vertexColors:true,roughness:.91});
   const body=new THREE.Group();root.add(body);
   paintedPart(body,'field-shell',material,brush=>{
@@ -116,10 +123,7 @@ export function createTurtleMechanic(parent,x,z) {
     block(0,.52,-.96,.28,.23,.48,0x888750,.085);
     makeShell(brush);
   });
-  const bags=[-1,1].map(side=>{
-    const bag=paintedPart(body,'canvas-pannier',material,brush=>makePannier(brush,side));
-    bag.position.set(side*.87,.64,-.04);return bag;
-  });
+  const bags=[-1,1].map(side=>makePannier(body,side,material));
   const legs=[];
   for(const side of [-1,1])for(const end of [-1,1]){
     const leg=paintedPart(root,'mechanic-foot',material,({block})=>{
@@ -141,43 +145,77 @@ export function createTurtleMechanic(parent,x,z) {
       block(side*.255,.403,.76,.258,.088,.135,0x5c5b3a,.035,-side*.1);
       block(side*.099,.122,.943,.038,.025,.014,0x797644,.008);
       // Hollow square rims, temples and bridge sit in front of the eyes.
-      for(const dy of [-.124,.124])block(side*.221,.252+dy,.905,.344,.039,.052,0xe1b769,.014);
-      for(const dx of [-.153,.153])block(side*.221+dx,.252,.905,.040,.236,.052,0xd5a453,.014);
+      for(const dy of [-.124,.124])block(side*.221,.252+dy,.905,.344,.039,.052,0xc69a58,.014);
+      for(const dx of [-.153,.153])block(side*.221+dx,.252,.905,.040,.236,.052,0xc49551,.014);
       block(side*.399,.267,.656,.033,.042,.50,0xb18c4f,.012);
     }
     block(0,.27,.903,.116,.037,.05,0xd9ad5d,.012);
   });
   const eyes=paintedPart(neck,'mechanic-eyes',material,({block})=>{
     for(const side of [-1,1]){
-      block(side*.22,0,.863,.247,.203,.062,0xf3e4bd,.043);
-      block(side*.22,-.003,.896,.116,.145,.025,0x403e2d,.025);
+      block(side*.22,0,.863,.247,.203,.062,0xfff1cf,.043);
+    }
+  });
+  const pupils=paintedPart(eyes,'mechanic-pupils',material,({block})=>{
+    for(const side of [-1,1]){
+      block(side*.22,-.003,.896,.137,.16,.025,0x302f22,.028);
       block(side*.22-.025,.04,.912,.038,.038,.014,0xfff1c6,.009);
     }
   });
   eyes.position.y=.254;
-  let elapsed=0,nodTime=2;
+  let elapsed=0,nodTime=2,deliveryTime=2,gift=0,axe;
+  const ease=(t,a,b)=>THREE.MathUtils.smoothstep(t,a,b);
+  const {bag:giftBag,lid}=bags[1];
   return {
     root,
     nod(){nodTime=0},
-    update(dt,reduced,player){
-      elapsed+=dt;nodTime+=dt;
+    acknowledge(){deliveryTime=0},
+    present(progress,displayAxe=true){
+      gift=progress;
+      lid.rotation.x=-1.48*ease(gift,.16,.66);
+      if(gift>0 && !axe){
+        axe=createWoodcuttingAxe();axe.name='offered-leafmoon';giftBag.add(axe);
+        axe.rotation.set(.08,.83,-.30);
+      }
+      if(axe){
+        const rise=ease(gift,.49,.95);
+        axe.visible=displayAxe && rise>0;
+        axe.scale.setScalar(.30+.66*rise);
+        axe.position.set(.01+.08*rise,-.18+.49*rise,.06+.13*rise);
+      }
+    },
+    update(dt,reduced,player,working=true){
+      elapsed+=dt;nodTime+=dt;deliveryTime+=dt;
       const t=elapsed, breath=reduced?0:Math.sin(t*1.8);
       const phase=(t%8.4)/1.8;
-      const step=!reduced && phase<1 ? Math.sin(phase*Math.PI*2)*Math.sin(phase*Math.PI)**2 : 0;
+      const step=!reduced && !gift && phase<1 ? Math.sin(phase*Math.PI*2)*Math.sin(phase*Math.PI)**2 : 0;
       body.position.set(.027*step,.009*breath,.045*step);
       body.rotation.z=.025*step;
       legs.forEach((leg,i)=>{
         const swing=(i===0||i===3?step:-step);
         leg.rotation.x=.23*swing;leg.position.y=.43+.065*Math.max(0,swing);
       });
-      bags.forEach((bag,i)=>{bag.rotation.x=(i?1:-1)*.055*step});
+      bags.forEach(({bag},i)=>{bag.rotation.x=(i?1:-1)*.055*step});
       const dx=player.x-x,dz=player.z-z;
       const nearby=Math.hypot(dx,dz)<3.8;
-      const angle=Math.atan2(dx,dz)-root.rotation.y;
-      const look=nearby && dz>-.3?THREE.MathUtils.clamp(angle,-.45,.45):0;
-      neck.rotation.y=reduced?0:THREE.MathUtils.damp(neck.rotation.y,look,5,dt);
+      const relative=Math.atan2(dx,dz)-root.rotation.y;
+      const playerYaw=THREE.MathUtils.clamp(Math.atan2(Math.sin(relative),Math.cos(relative)),-.85,.85);
+      const inspecting=working && !nearby;
+      let look=inspecting?.97:nearby?playerYaw:0;
+      let tilt=inspecting?.23+.035*breath:0;
+      if(deliveryTime<1.0){
+        const turn=ease(deliveryTime,.28,.63);
+        look=THREE.MathUtils.lerp(playerYaw,.97,turn);
+        tilt=.22*turn+.17*Math.sin(Math.PI*ease(deliveryTime,.53,.98));
+      }
+      if(gift>0){
+        look=THREE.MathUtils.lerp(.92,1.30,ease(gift,.04,.45));
+        tilt=.17+.16*ease(gift,.13,.46)-.22*ease(gift,.67,.98);
+      }
+      neck.rotation.y=reduced?0:THREE.MathUtils.damp(neck.rotation.y,look,7,dt);
       const nod=nodTime<1 && !reduced ? Math.sin(nodTime*Math.PI)**2 : 0;
-      neck.rotation.x=.014*breath+.045*step+.21*nod;
+      neck.rotation.x=reduced?0:THREE.MathUtils.damp(neck.rotation.x,tilt+.014*breath+.045*step+.25*nod,10,dt);
+      pupils.position.x=reduced?0:.029*Math.sin(look);
       const blink=Math.abs(t%4.7-3.85);
       eyes.scale.y=reduced?1:Math.min(1,.10+blink*8);
     }

@@ -1,5 +1,5 @@
 import { timberMaterial } from './world/timber.js';
-import { newRepair, repairBrief, createWorkshop } from './quests/workshop.js?v=8';
+import { newRepair, repairBrief, createWorkshop } from './quests/workshop.js?v=9';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
@@ -636,7 +636,7 @@ requestAnimationFrame(frame);
 const dt=Math.min((now-last)/1000,.04);last=now;
 const active=$('#welcome').classList.contains('hidden')&&!modalOpen();
 const previousX=player.position.x,previousZ=player.position.z;
-if(active){
+if(active && !workshop?.presenting()){
   const forward=Number(!!keys.KeyW)-Number(!!keys.KeyS),right=Number(!!keys.KeyD)-Number(!!keys.KeyA);
   let vx=-Math.sin(yaw)*forward+Math.cos(yaw)*right;
   let vz=-Math.cos(yaw)*forward-Math.sin(yaw)*right;
@@ -656,7 +656,9 @@ if (!third) {
   camera.lookAt(eye.clone().add(look));
 }
 stage.pickups.forEach(m=>{const phase=m.userData.animationPhase;m.rotation.y=now*.0008+phase;m.position.y=.65+Math.sin(now*.002+phase)*.12});
+const showingGift=workshop?.presenting() && !customizer.isOpen();
 workshop?.tick(dt,active,reducedHandMotion.matches);
+if(showingGift){workshop.frameGift();player.visible=false}
 signalStation?.tick(dt,active,reducedHandMotion.matches);
 scanner?.update(now,active && !document.hidden && !third && !panel.isBattle(),reducedHandMotion.matches);
 panel.updatePortal(nearbyRoute(),active&&!document.hidden,now);
@@ -664,7 +666,7 @@ simpleArchEffect?.update(now, reducedHandMotion.matches);
 if (returnGlow) returnGlow.material.opacity=.4+Math.sin(now*.002)*.12;
 forge?.update(player.position,now/1000,$('#welcome').classList.contains('hidden')&&!skillList.open&&!scanDialog.open&&!extraDialog?.open&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);
-gathering.update(dt,now/1000,{active,third:player.visible,visible:!panel.isBattle()&&!!bag.loadouts.build.tool,tool:bag.loadouts.build.tool,dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
+gathering.update(dt,now/1000,{active,third:player.visible,visible:!showingGift&&!panel.isBattle()&&!!bag.loadouts.build.tool,tool:bag.loadouts.build.tool,dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
 if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
 
 // Temporary cheats: remove this installation and its import to disable the menu.
