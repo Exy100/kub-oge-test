@@ -1,6 +1,6 @@
-import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=2';
+import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=3';
 import {pcParts} from '../catalog/pc-parts.js';
-import {workshopModels} from '../world/repair-models.js?v=2';
+import {workshopModels} from '../world/repair-models.js?v=3';
 
 const puzzles = [
   {name:'Оранжевый Баг', parts:[0,1], lines:[
@@ -52,7 +52,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       const {g,hp,fill}=bugs[i];
       g.visible=b.phase==='running'||b.phase==='stopped';
       hp.visible=b.phase==='running';fill.scale.x=.93*b.hp/3;fill.position.x=(fill.scale.x-.93)/2;
-      if(b.phase!=='running')g.position.set(b.x,0,b.z);
+      if(b.phase!=='running'){g.position.set(b.x,0,b.z);bugs[i].animate(0,true)}
       helpers[i].visible=b.phase==='leaving';
       helpers[i].position.set(b.x,0,b.z);
       puzzles[i].parts.forEach((part,j)=>{
@@ -170,12 +170,12 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
     turtle.update(dt,reduced,player.position);
     time+=dt;
     state.bugs.forEach((b,i)=>{
-      const {g,hp,feet}=bugs[i];
+      const {g,hp,animate}=bugs[i];
       if(b.phase==='running'){
         const t=time*.78+i*2;
         g.position.set(center+(i?4.7:-4.7)+1.65*Math.sin(t),reduced?0:.045*Math.abs(Math.sin(t*6)),-2+2.2*Math.cos(t));
         g.rotation.y=Math.atan2(1.65*Math.cos(t),-2.2*Math.sin(t));
-        feet.forEach((foot,j)=>{foot.position.y=.17+(reduced?0:.10*Math.max(0,Math.sin(t*9+j*Math.PI)))});
+        animate(t,reduced);
         hp.quaternion.copy(g.quaternion).invert().multiply(camera.quaternion);
       }else if(b.phase==='leaving'){
         fade[i]+=dt;const fraction=Math.min(1,fade[i]/1.35),h=helpers[i];
