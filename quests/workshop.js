@@ -3,9 +3,21 @@ import {pcParts} from '../catalog/pc-parts.js';
 import {workshopModels} from '../world/repair-models.js?v=2';
 
 const puzzles = [
-  {name:'Оранжевый Баг', parts:[0,1], words:['input','print'], lines:[['name = ','inpt','("Как тебя зовут?")'],['','pritn','("Привет,", name)']]},
-  {name:'Зелёный Баг', parts:[2,3,4], words:['range','print'], lines:[['for i in ','rnage','(3):'],['    ','prnit','(i)']]},
+  {name:'Оранжевый Баг', parts:[0,1], lines:[
+    ['name = ', {typo:'inpt', answer:'input'}, '("Как тебя зовут?")'],
+    [{typo:'pritn', answer:'print'}, '("Привет,", name)'],
+  ]},
+  {name:'Зелёный Баг', parts:[2,3,4], lines:[
+    [{typo:'fro', answer:'for'}, ' i in ', {typo:'rnage', answer:'range'}, '(3):'],
+    ['    ', {typo:'prnit', answer:'print'}, '(i)'],
+  ]},
 ];
+const repairHints = {
+  input:'Здесь нужна функция ввода.',
+  print:'Здесь нужна функция вывода.',
+  for:'Здесь нужно ключевое слово, с которого начинается цикл перебора.',
+  range:'Здесь нужна последовательность чисел.',
+};
 export function newRepair() {
   return {met:false,bugs:puzzles.map(()=>({hp:3,phase:'running',x:0,z:0})),parts:pcParts.map(()=>'stolen')};
 }
@@ -67,17 +79,24 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   }
   function edit(i) {
     const p=puzzles[i], b=state.bugs[i];
-    show(p.name+' · Отладка',`<p>Исправь два выделенных слова Python, сохранив смысл программы.</p><form>
-      <pre class="repair-code">${p.lines.map(([left,typo,right],j)=>left+'<input aria-label="Слово в строке '+(j+1)+'" spellcheck="false" autocapitalize="off" value="'+typo+'">'+right).join('\n')}</pre>
+    const blanks=[];
+    const code=p.lines.map((line,row)=>line.map(token=>{
+      if(typeof token==='string')return token;
+      blanks.push({answer:token.answer,row:row+1});
+      return `<input aria-label="Строка ${row+1}, поле ${blanks.length}" spellcheck="false" autocapitalize="off" value="${token.typo}">`;
+    }).join('')).join('\n');
+    show(p.name+' · Отладка',`<p>Исправь выделенные слова Python, сохранив смысл программы.</p><form>
+      <pre class="repair-code">${code}</pre>
       <button class="field-primary">Проверить программу</button><p role="status"></p></form>`);
     const form=body.querySelector('form'), inputs=[...form.querySelectorAll('input')];
     inputs[0].focus();inputs[0].select();
     form.onsubmit=e=>{
       e.preventDefault();
       if(b.phase!=='stopped')return;
-      const wrong=inputs.findIndex((el,j)=>el.value.trim()!==p.words[j]);
+      const wrong=inputs.findIndex((el,j)=>el.value.trim()!==blanks[j].answer);
       if(wrong>=0){
-        form.querySelector('[role=status]').textContent='Проверь строку '+(wrong+1)+'. '+(p.words[wrong]==='print'?'Здесь нужна функция вывода.':p.words[wrong]==='input'?'Здесь нужна функция ввода.':'Здесь нужна последовательность чисел.');
+        const {answer,row}=blanks[wrong];
+        form.querySelector('[role=status]').textContent='Проверь строку '+row+'. '+repairHints[answer];
         inputs[wrong].focus();inputs[wrong].select();return;
       }
       b.phase='leaving';fade[i]=0;sync();helpers[i].rotation.y=Math.atan2(player.position.x-b.x,player.position.z-b.z);dialog.close();

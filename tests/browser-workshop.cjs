@@ -56,12 +56,21 @@ const {chromium} = require('playwright');
         await tick(.4);await near('repair-bug-'+bug);await press('Digit1');
       }
       assert(await dialog.isVisible());
-      await press('Escape');await press('KeyE');
       const fields=dialog.locator('input');
-      await fields.nth(0).fill(bug?'range':'input');
+      assert.equal(await fields.first().inputValue(),bug?'fro':'inpt');
+      await press('Escape');await press('KeyE');
+      if(bug){
+        assert.equal(await fields.count(),3);
+        assert.equal(await fields.nth(0).inputValue(),'fro');
+        await fields.nth(1).fill('range');
+        await dialog.getByText('Проверить программу').click();
+        assert.match(await dialog.locator('[role=status]').innerText(),/строку 1.*цикл/);
+        assert.equal(await fields.nth(0).evaluate(el=>el===document.activeElement),true);
+      }
+      await fields.nth(0).fill(bug?'for':'input');
       await dialog.getByText('Проверить программу').click();
       assert.match(await dialog.locator('[role=status]').innerText(),/строку 2/);
-      await fields.nth(1).fill('print');
+      await fields.last().fill('print');
       await dialog.getByText('Проверить программу').click();
       assert.equal(await dialog.isVisible(),false);
       assert.equal(await page.evaluate(i=>workTest.state().bugs[i].phase,bug),'leaving');
