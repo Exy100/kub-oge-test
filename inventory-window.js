@@ -1,4 +1,4 @@
-import { equipmentSlots } from './player-inventory.js?v=3';
+import { equipmentSlots } from './player-inventory.js?v=4';
 
 function element(tag, className, value) {
   const node = document.createElement(tag);
@@ -46,7 +46,7 @@ export function createInventoryWindows({ bag, playerAccount, open, mode, setMode
     const cells = bag.cells();
     const item = cells.find(entry => entry && entry.id === selected);
     if (!item) { selected = null; choosingCell = false; }
-    const wandEquipped = bag.loadouts.build.tool === 'wand';
+    const equippedTool = bag.loadouts.build.tool;
     const exploring = mode() === 'build';
     amount.textContent = playerAccount.coins.toLocaleString('ru-RU');
     occupancy.textContent = 'Занято ' + cells.filter(Boolean).length + ' из ' + bag.capacity;
@@ -59,15 +59,15 @@ export function createInventoryWindows({ bag, playerAccount, open, mode, setMode
         cell.dataset.item = entry.id;
         cell.classList.add('occupied');
         cell.setAttribute('aria-pressed', String(entry.id === selected));
-        if (entry.id === 'wand') {
+        if (entry.id === 'wand' || entry.id === 'wood-axe') {
           const icon = element('img', 'wand-icon');
-          icon.src = './assets/inventory-wand.webp';
+          icon.src = entry.id === 'wood-axe' ? './assets/inventory-axe.webp' : './assets/inventory-wand.webp';
           icon.alt = '';
           icon.draggable = false;
           cell.append(icon);
         } else cell.append(element('span', 'item-glyph', entry.glyph));
         cell.append(element('span', 'item-name', entry.name), element('small', 'item-count', '×' + entry.quantity));
-        if (entry.id === 'wand' && wandEquipped) {
+        if (entry.kind === 'tool' && equippedTool === entry.id) {
           cell.append(element('small', 'bag-equipped', exploring ? 'В руке' : 'Исследование'));
         }
       } else {
@@ -81,10 +81,11 @@ export function createInventoryWindows({ bag, playerAccount, open, mode, setMode
     if (!item) return;
     details.append(element('strong', '', item.name), element('p', '', item.description || item.category));
     const actions = element('div', 'bag-actions');
-    if (item.id === 'wand' && !choosingCell) {
-      const equip = element('button', '', wandEquipped ? 'Снять' : exploring ? 'Взять в руку' : 'Назначить для исследования');
+    if (item.kind === 'tool' && !choosingCell) {
+      const equipped = equippedTool === item.id;
+      const equip = element('button', '', equipped ? 'Снять' : exploring ? 'Взять в руку' : 'Назначить для исследования');
       equip.onclick = () => {
-        bag.equip('build', 'tool', wandEquipped ? null : item.id);
+        bag.equip('build', 'tool', equipped ? null : item.id);
         renderBag();
         details.querySelector('button').focus();
       };

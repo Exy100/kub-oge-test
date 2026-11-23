@@ -1,7 +1,7 @@
 import { pcParts } from './pc-parts.js';
 import { keys } from './keys.js';
 import { resources } from './resources.js';
-import { tools } from './tools.js';
+import { tools } from './tools.js?v=2';
 import { trees } from './trees.js';
 import { createCatalog } from './registry.js';
 

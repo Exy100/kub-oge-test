@@ -41,7 +41,7 @@ export function drawQuestDiagram(canvas, stage, byteCells) {
       path([c,b,g,f],edge,filled?color[2]:'#45897638');
     }
   }
-  if (stage.arches.length) {
+  if (stage.arches.length && (!stage.repair || stage.repair.axe)) {
     const single = stage.arches.length===1;
     stage.arches.forEach((arch,i)=>{
       const blocks=[];

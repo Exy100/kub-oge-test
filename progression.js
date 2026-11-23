@@ -7,7 +7,7 @@ export function createStage(index) {
   const location = LOCATIONS[index];
   if (!location) throw new Error(`Unknown stage: ${index}`);
   const center = location.center;
-  const arches = location.id === 'island.dreamers' ? [{x:0,z:-1,material:0}] : location.id === 'island.three-arches' ? [
+  const arches = location.id === 'island.dreamers' ? [{x:0,z:-1,material:0}] : location.id === 'island.turtle' ? [{x:center,z:-6,material:2}] : location.id === 'island.three-arches' ? [
     {x:36,z:-2,material:0}, {x:40,z:-2,material:2}, {x:44,z:-2,material:3},
   ] : [];
   return { index, locationId: location.id, center, arches,
@@ -18,6 +18,7 @@ export function createStage(index) {
 }
 export function placeTarget(stage, target, material) {
   const slot = stage.targets[target];
+  if (stage.locationId === 'island.turtle' && !stage.repair?.axe) return false;
   if (!slot || stage.built.has(target) || slot.material !== material || stage.inventory[material] <= 0) return false;
   stage.inventory[material]--; stage.built.add(target);
   if (stage.built.size === stage.targets.length && stage.sentWood !== false) stage.unlocked = true;
@@ -26,8 +27,9 @@ export function placeTarget(stage, target, material) {
 export function removeTarget(stage, target) {
   if (!stage.built.delete(target)) return false;
   stage.inventory[stage.targets[target].material]++;
+  if(stage.locationId==='island.turtle') stage.unlocked=false;
   return true;
 }
 export function isLimited(stage, material) {
-  return material === 0 || (stage.locationId === 'island.three-arches' && (material === 2 || material === 3));
+  return material === 0 || (stage.locationId === 'island.turtle' && material === 2) || (stage.locationId === 'island.three-arches' && (material === 2 || material === 3));
 }

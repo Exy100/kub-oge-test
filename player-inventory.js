@@ -1,4 +1,4 @@
-import { itemStack } from './catalog/index.js';
+import { itemStack } from './catalog/index.js?v=2';
 
 export const BAG_COLUMNS = 5;
 export const BAG_ROWS = 4;
@@ -71,8 +71,7 @@ export function createPlayerInventory(readResources, describeItem = itemStack) {
     const spec = equipmentSlots(mode).find(([key]) => key === slot);
     if (!spec || !loadouts[mode]) return false;
     if (id === null) { delete loadouts[mode][slot]; return true; }
-    const stored = possessions.get(id);
-    const item = stored && describe(stored);
+    const item = items().find(entry=>entry.id===id);
     const used = Object.entries(loadouts[mode]).filter(([key,value]) => key !== slot && value === id).length;
     if (!item || item.kind !== spec[2] || used >= item.quantity) return false;
     loadouts[mode][slot] = id;

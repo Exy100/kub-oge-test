@@ -1,5 +1,7 @@
 import * as THREE from './vendor/three.module.js';
 
+import {createWoodcuttingAxe} from './world/woodcutting-axe.js';
+
 // Original concept 8: ceramic tuning fork, sage grip, brass terminals.
 export function createGatheringWand(){
   const root=new THREE.Group();root.name='gathering-wand-8';root.userData.objectId='wand';const geometries=[],materials=[];
@@ -85,6 +87,11 @@ export function equipGatheringWand({character,camera,scene,renderer}){
   const viewScene=new THREE.Scene(),viewCamera=new THREE.PerspectiveCamera(55,camera.aspect,.01,5),viewRig=new THREE.Group();viewScene.add(viewRig);
   viewScene.add(new THREE.HemisphereLight(0xfff7e4,0x657b72,2.4));const light=new THREE.DirectionalLight(0xffe9c3,2.5);light.position.set(-1,3,2);viewScene.add(light);
   const viewWand=createGatheringWand();viewRig.add(viewWand.root);viewWand.root.rotation.y=Math.PI;viewRig.position.set(.28,-.1,-.83);viewRig.scale.setScalar(.42);viewRig.rotation.set(-.2,.12,.16);
+  let axe,viewAxe;
+  function equipAxe(){
+    axe=createWoodcuttingAxe();axe.position.copy(wand.root.position);axe.rotation.copy(wand.root.rotation);elbow.add(axe);
+    viewAxe=axe.clone();viewAxe.position.set(0,0,0);viewAxe.rotation.set(0,Math.PI,0);viewRig.add(viewAxe);
+  }
   const handGeometry=new THREE.SphereGeometry(1,16,12),armGeometry=new THREE.CylinderGeometry(.82,1,1,20),skin=new THREE.MeshStandardMaterial({color:0xe2b58a,roughness:.85}),cuffMaterial=new THREE.MeshStandardMaterial({color:0xdbdfcb,roughness:.85}),glove=new THREE.MeshStandardMaterial({color:0x78694d,roughness:.9}),jacket=new THREE.MeshStandardMaterial({color:0x78a09a,roughness:.85});
   const palm=new THREE.Mesh(handGeometry,glove);palm.scale.set(.09,.065,.07);palm.position.set(.025,-.025,.015);viewRig.add(palm);
   // Shoulder and elbow stay outside the right edge. The forearm bridges to the wrist,
@@ -112,11 +119,20 @@ export function equipGatheringWand({character,camera,scene,renderer}){
   function destination(){if(firstPerson){viewScene.updateMatrixWorld(true);viewWand.tip.getWorldPosition(endpoint);camera.updateMatrixWorld(true);camera.localToWorld(endpoint)}else{character.root.updateMatrixWorld(true);wand.tip.getWorldPosition(endpoint)}return endpoint}
   function clear(){for(const f of flights)scene.remove(f.mesh);flights.length=0;elapsed=1}
   return {wand,viewWand,viewScene,
+    chop(){elapsed=0},
     collect(mesh){elapsed=0;const start=mesh.position.clone(),scale=mesh.scale.clone();scene.add(mesh);flights.push({mesh,start,scale,age:0});if(flights.length>24)scene.remove(flights.shift().mesh)},
-    update(dt,time,{active,third,visible=true,dx=0,dz=0,yaw=0,pitch=0,grounded=true,reducedMotion=false}){
-      firstPerson=!third;enabled=visible;wand.root.visible=visible;
+    update(dt,time,{active,third,visible=true,tool='wand',dx=0,dz=0,yaw=0,pitch=0,grounded=true,reducedMotion=false}){
+      firstPerson=!third;enabled=visible;
+      const chopping=visible && tool==='wood-axe';
+      if(chopping && !axe)equipAxe();
+      wand.root.visible=viewWand.root.visible=visible && !chopping;
+      if(axe)axe.visible=viewAxe.visible=chopping;
       if(active)elapsed=Math.min(1,elapsed+Math.max(0,dt));const power=Math.sin(Math.PI*elapsed);
       if(visible){shoulder.rotation.x=THREE.MathUtils.lerp(shoulder.rotation.x,.25+power*.6,.85);elbow.rotation.x=.4+power*.2;wand.root.rotation.x=-.85-power*.7}
+      if(chopping){
+        const swing=reducedMotion?0:Math.sin(Math.PI*Math.min(1,elapsed*2.6));
+        axe.rotation.x=-.85-swing*.9;viewAxe.rotation.x=-swing*.82;
+      }
       if(active)armClock+=Math.max(0,dt);
       poseArm(handMotion({dt,dx,dz,yaw,pitch,grounded,active,reducedMotion}),power);
       wand.animate(time,power);viewWand.animate(armClock,power);
@@ -125,6 +141,6 @@ export function equipGatheringWand({character,camera,scene,renderer}){
     },
     render(){if(!firstPerson||!enabled)return;viewCamera.aspect=camera.aspect;viewCamera.updateProjectionMatrix();const auto=renderer.autoClear;renderer.autoClear=false;renderer.clearDepth();renderer.render(viewScene,viewCamera);renderer.autoClear=auto},
     clear,
-    dispose(){clear();elbow.remove(wand.root);wand.dispose();viewWand.dispose();handGeometry.dispose();armGeometry.dispose();skin.dispose();cuffMaterial.dispose();glove.dispose();jacket.dispose()},
+    dispose(){clear();if(axe){axe.removeFromParent();viewAxe.removeFromParent();axe.geometry.dispose();axe.material.dispose()}elbow.remove(wand.root);wand.dispose();viewWand.dispose();handGeometry.dispose();armGeometry.dispose();skin.dispose();cuffMaterial.dispose();glove.dispose();jacket.dispose()},
   };
 }

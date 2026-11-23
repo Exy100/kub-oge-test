@@ -5,7 +5,7 @@ try{await new Promise(r=>setTimeout(r,400));browser=await chromium.launch({execu
 await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(repo,'game.js'),'utf8')+`
 window.storyTest={
  at(x,z){player.position.set(x,0,z)},
- repairedWorkshop(){stage.repair.parts.fill('installed');stage.unlocked=true;update();player.position.set(stage.center,0,-6)},
+ repairedWorkshop(){stage.repair.parts.fill('installed');stage.repair.axe=true;stage.inventory[2]=7;stage.targets.forEach((_,i)=>placeTarget(stage,i,2));update();player.position.set(stage.center,0,-6)},
  currentIslandOnly(){
    const unloaded=stages.filter(s=>s!==stage);
    island.updateMatrixWorld(true);

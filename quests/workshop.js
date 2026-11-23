@@ -19,16 +19,17 @@ const repairHints = {
   range:'Здесь нужна последовательность чисел.',
 };
 export function newRepair() {
-  return {met:false,bugs:puzzles.map(()=>({hp:3,phase:'running',x:0,z:0})),parts:pcParts.map(()=>'stolen')};
+  return {met:false,axe:false,bugs:puzzles.map(()=>({hp:3,phase:'running',x:0,z:0})),parts:pcParts.map(()=>'stolen')};
 }
 export function repairBrief(state) {
   if (!state.met) return 'Поговори с черепахой у верстака.';
   if (state.bugs.some(b=>b.phase==='running'||b.phase==='stopped')) return 'В режиме боя поймай двух багов и исправь их программы.';
-  if (state.parts.every(p=>p==='installed')) return 'Компьютер работает! Пройди через арку к станции кодирования.';
+  if (state.axe) return 'Добудь древесину топором и собери деревянную арку на севере.';
+  if (state.parts.every(p=>p==='installed')) return 'Вернись к черепахе за волшебным топором.';
   if (state.parts.includes('ground') || state.parts.includes('stolen')) return 'Подбери оставленные на траве детали клавишей E.';
   return 'Вернись к черепахе и установи детали компьютера.';
 }
-export function createWorkshop({stage,parent,geometry,box,player,camera,canStore,notify,pause,changed,collect,place,onHit}) {
+export function createWorkshop({stage,parent,geometry,box,player,camera,canStore,equipAxe,notify,pause,changed,collect,place,onHit}) {
   const state=stage.repair, center=stage.center;
   const models=workshopModels(parent,geometry);
   const turtle=createTurtleMechanic(parent,center-1.85,-.3);
@@ -47,7 +48,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   const title=dialog.querySelector('h2'), body=dialog.querySelector('.field-body');
   let time=0, fade=[0,0], lastHit=-1;
   function sync() {
-    powerLed.material.color.setHex(stage.unlocked?0x95eead:0x51665a);
+    powerLed.material.color.setHex(state.parts.every(p=>p==='installed')?0x95eead:0x51665a);
     state.bugs.forEach((b,i)=>{
       const {g,hp,fill}=bugs[i];
       g.visible=b.phase==='running'||b.phase==='stopped';
@@ -108,6 +109,16 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       show('Компьютер работает','<p>Черепаха: «Мои программы снова запускаются! Портал к трём аркам открыт».</p>');
       return;
     }
+    if(state.parts.every(p=>p==='installed')){
+      if(state.axe){show('Компьютер работает','<p>«Топором можно добыть древесину из любого ствола. Собери из семи блоков арку на северной стороне острова».</p>');return}
+      show('Подарок черепахи','<img src="./assets/inventory-axe.webp" width="96" height="96" alt="Листолун с нефритовым лезвием"><p>«Компьютер ожил! Спасибо. Держи Листолун — его лезвие снимает древесину, и дерево остаётся целым. Из семи блоков ты построишь арку».</p><button class="field-primary">Принять топор</button>');
+      body.querySelector('button').onclick=()=>{
+        if(state.axe || !canStore('wood-axe'))return;
+        state.axe=true;dialog.close();equipAxe();collect();changed();
+        notify('Листолун в руке. Подойди к дереву и ударь по стволу левой кнопкой мыши.',7000);
+      };
+      return;
+    }
     function socket(p,i){
       const installed=state.parts[i]==='installed';
       return `<button data-socket="${i}" ${installed?'disabled':''}>${installed?'✓ '+p.name:p.socket}</button>`;
@@ -127,9 +138,9 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       if(selected!==Number(btn.dataset.socket)||state.parts[selected]!=='bag'){
         status.textContent=selected<0?'Сначала выбери деталь из рюкзака.':'Этой детали нужен другой разъём.';return;
       }
-      state.parts[selected]='installed';place();stage.unlocked=state.parts.every(p=>p==='installed');changed();
-      if(stage.unlocked){turtle.nod();sync();dialog.close();notify('Черепаха: «Компьютер включился! Спасибо!» Портал к трём аркам открыт.',7000)}
-      else assembly();
+      state.parts[selected]='installed';place();changed();
+      if(state.parts.every(p=>p==='installed')){turtle.nod();sync()}
+      assembly();
     });
   }
   function talk() {
@@ -138,7 +149,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       state.met=true;changed();
       show('Черепаха-механик','<p>«Я разобрала компьютер, чтобы найти баг. А их оказалось двое! Пока я проверяла плату, они унесли пять деталей. Поможешь мне их вернуть?»</p><p>Нажми L для боя. Подойди к жуку и нажимай 1 или ЛКМ. Когда жук остановится, исправь слова в его программе.</p><button class="field-primary">Помогу</button>');
       body.querySelector('button').onclick=()=>dialog.close();
-    } else if(state.parts.includes('bag') || stage.unlocked) assembly();
+    } else if(state.parts.includes('bag') || state.parts.every(p=>p==='installed')) assembly();
     else notify(repairBrief(state));
   }
   function target() {
