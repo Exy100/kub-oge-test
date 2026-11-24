@@ -16,8 +16,9 @@ export function createProcessorLab({stage, box, player, dialog, pause, changed, 
   box(deskX,1.09,deskZ,1.6,.12,1,0x68817b);
   const display = box(deskX,1.37,deskZ-.24,1.14,.48,.12,0x386376);
   for(let i=0;i<4;i++)box(deskX+(i-1.5)*.29,1.17,deskZ+.16,.2,.07,.18,0xd3b277);
-  for(const side of [-1,1])box(x+side*.83,1.08,-6,.6,2.16,.65,0x547974,true);
-  box(x,2.3,-6,2.26,.28,.65,0x72968a,true);
+  const exitArch = {x: x - 7, z: -6};
+  for(const side of [-1,1])box(exitArch.x+side*.83,1.08,exitArch.z,.6,2.16,.65,0x547974,true);
+  box(exitArch.x,2.3,exitArch.z,2.26,.28,.65,0x72968a,true);
   function lightCore() {
     for (const mesh of [...lights,display]) {
       mesh.material.color.setHex(stage.unlocked ? 0x81f1cd : 0xe89b62);
@@ -117,7 +118,7 @@ export function createProcessorLab({stage, box, player, dialog, pause, changed, 
     return true;
   }
   prompt.onclick=interact;
-  return {interact,tick(active,dt,reduced){
+  return {exitArch,interact,tick(active,dt,reduced){
     if (stage.unlocked && active && !reduced) {
       for (const rotor of rotors) rotor.rotation.z -= dt*4;
     }

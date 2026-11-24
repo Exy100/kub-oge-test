@@ -1,6 +1,6 @@
 import { timberMaterial } from './world/timber.js';
 import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=17';
-import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js';
+import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=2';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
@@ -292,7 +292,7 @@ function enterIsland(next) {
   if (lab) processorLab=createProcessorLab({stage,box,player,dialog:fieldDialog,pause:pauseForScanMenu,changed:update,canStore:hasBagRoom});
   if (stage.arches.length || lab) {
     simpleArchEffect = createSimpleArchEffect();
-    exitGlow = simpleArchEffect.createSurface(lab ? {x:stage.center,z:-6} : stage.arches[stage.arches.length===1?0:1]);
+    exitGlow = simpleArchEffect.createSurface(lab ? processorLab.exitArch : stage.arches[stage.arches.length===1?0:1]);
     island.add(exitGlow);
     cameraObstacles.push(exitGlow);
   }
@@ -427,7 +427,7 @@ function nearbyRoute(){
   const routes=[];
   if(returnGlow)routes.push({x:returnGlow.position.x,z:returnGlow.position.z,to:stage.index-1,ready:true,label:'Вернуться в локацию «'+LOCATIONS[stage.index-1].name+'»'});
   if(stage.index===0)routes.push({x:0,z:-1,to:stage.index+1,ready:stage.unlocked,label:'Перейти в мастерскую черепахи',locked:'Дострой арку, чтобы открыть проход.'});
-  if(processorLab)routes.push({x:stage.center,z:-6,to:stage.index+1,ready:stage.unlocked,label:'Перейти на остров трёх арок',locked:'Исправь код на пульте процессора.'});
+  if(processorLab)routes.push({...processorLab.exitArch,to:stage.index+1,ready:stage.unlocked,label:'Перейти на остров трёх арок',locked:'Исправь код на пульте процессора.'});
   if(workshop)routes.push({x:stage.center,z:-6,to:stage.index+1,ready:stage.unlocked,label:'Перейти в лабораторию процессора',locked:stage.repair.axe?'Заверши деревянную арку.':'Помоги черепахе починить компьютер.'});
   if(stage.locationId==='island.three-arches')routes.push({x:40,z:-2,to:stage.index+1,ready:stage.unlocked,label:'Отправиться в кузницу',locked:stage.sentWood?'Собери все три арки, чтобы открыть кузницу.':'Включи на пульте указатель к дереву.'});
   if(stage.locationId==='island.data-forge')routes.push({x:86,z:-4,to:stage.index+1,ready:forgeState.unlocked,label:'Пройти сквозь врата',locked:'Выложи четыре байта на площадку у арки.'});
