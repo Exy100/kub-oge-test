@@ -3,9 +3,9 @@ import {workbenchView,bindWorkbench} from './workbench.js?v=3';
 import {CanvasTexture, Sprite, SpriteMaterial, SRGBColorSpace, Vector3} from '../vendor/three.module.js';
 import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=4';
 import {pcParts} from '../catalog/pc-parts.js';
-import {workshopModels} from '../world/repair-models.js?v=6';
+import {workshopModels} from '../world/repair-models.js?v=7';
 
-import {createBugEncounter} from '../world/bug-encounter.js';
+import {createBugEncounter} from '../world/bug-encounter.js?v=2';
 
 const puzzles = [
   {enemy:orangeBug, color:'оранжевого', parts:[0,1], lines:[
@@ -85,7 +85,7 @@ function createQuestMark() {
   mark.scale.setScalar(.95);
   return mark;
 }
-export function createWorkshop({stage,parent,geometry,box,player,camera,canStore,equipAxe,notify,pause,changed,collect,place,onHit}) {
+export function createWorkshop({stage,parent,geometry,box,solids,player,camera,canStore,equipAxe,notify,pause,changed,collect,place,onHit}) {
   const state=stage.repair, center=stage.center;
   const models=workshopModels(parent,geometry);
   const turtle=createTurtleMechanic(parent,center-1.85,-.3);
@@ -101,7 +101,13 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   const powerLed=box(center+.54,1.086,-.68,.105,.04,.085,0x51665a);
   powerLed.name='workbench-power-led';
   const bugs=puzzles.map((_,i)=>models.bug(i,center+(i?5:-5),-2));
-  const encounters=bugs.map((bug,i)=>createBugEncounter(i,bug,center));
+  function clearForHop(x,z){
+    if(Math.abs(x-center)>10 || Math.abs(z)>9)return false;
+    if(Math.hypot(x-turtle.root.position.x,z-turtle.root.position.z)<1.65)return false;
+    return !solids.some(({position:p,scale:s})=>p.y+s.y/2>.05 && p.y-s.y/2<1.6 &&
+      Math.abs(x-p.x)<s.x/2+.68 && Math.abs(z-p.z)<s.z/2+.68);
+  }
+  const encounters=bugs.map((bug,i)=>createBugEncounter(i,bug,center,clearForHop));
   const settleSeconds=.55, settling=bugs.map(()=>0);
   const helpers=bugs.map(({g})=>models.helper(g.position.x,g.position.z));
   const drops=pcParts.map((p,i)=>models.part(p,i,center,0));
@@ -133,9 +139,9 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       const {g,hp,fill}=bugs[i];
       g.visible=b.phase==='running'||b.phase==='stopped';
       hp.visible=b.phase==='running';fill.scale.x=.93*b.hp/puzzles[i].enemy.maxHp;fill.position.x=(fill.scale.x-.93)/2;
-      if(b.phase!=='running'){
+      if(b.phase!=='running' && !settling[i]){
         g.position.set(b.x,0,b.z);g.rotation.y=b.yaw??0;
-        if(b.phase==='stopped' && !settling[i])bugs[i].pose(1,0,true);
+        if(b.phase==='stopped')bugs[i].pose(1,0,true);
       }
       helpers[i].visible=b.phase==='leaving';
       helpers[i].position.set(b.x,0,b.z);
@@ -261,9 +267,11 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
     lastHit=time;onHit();
     const b=state.bugs[i], g=bugs[i].g;
     b.hp=Math.max(0,b.hp-UNARMED_DAMAGE);
-    if(b.hp)encounters[i].hit(player.position);
-    else{
-      b.phase='stopped';b.x=g.position.x;b.z=g.position.z;b.yaw=g.rotation.y;
+    const hits=(puzzles[i].enemy.maxHp-b.hp)/UNARMED_DAMAGE;
+    const landing=encounters[i].hit(player.position,hits);
+    if(!b.hp){
+      const end=landing??g.position;
+      b.phase='stopped';b.x=end.x;b.z=end.z;b.yaw=g.rotation.y;
       settling[i]=settleSeconds;
     }
     sync();
@@ -301,9 +309,10 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
         encounters[i].update(dt,player.position,reduced);
         hp.quaternion.copy(g.quaternion).invert().multiply(camera.quaternion);
       }else if(settling[i]>0){
+        encounters[i].advanceHop(dt,reduced);
         settling[i]=Math.max(0,settling[i]-dt);
         const t=1-settling[i]/settleSeconds;
-        pose(reduced?1:.3+.7*(1-(1-t)**3),0,true);
+        pose(reduced?1:.3+.7*(1-(1-t)**3),0,true,0,g.position.y);
         if(!settling[i] && !dialog.open)edit(i);
       }else if(b.phase==='leaving'){
         fade[i]+=dt;const fraction=Math.min(1,fade[i]/1.35),h=helpers[i];
@@ -331,7 +340,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   }
   prompt.onclick=interact;
   sync();
-  return {tick,attack,interact,
+  return {tick,attack,interact,shoveVelocity:encounters[0].shoveVelocity,
     presenting:()=>giftTime!==null,
     frameGift(){
       camera.position.copy(giftCamera);camera.lookAt(giftFocus);

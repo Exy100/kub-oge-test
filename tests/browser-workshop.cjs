@@ -16,6 +16,8 @@ const {chromium} = require('playwright');
     await page.route('**/game.js*',r=>r.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(root,'game.js'),'utf8')+`
       window.bagForTest=()=>bag.items().find(item=>item.id===WEAPON_KIT)?.quantity??0;
       window.workTest={
+        actor(i){return (i===-1?player:island.getObjectByName('repair-bug-'+i)).position.toArray()},
+        runFrames(n){for(let i=0;i<n;i++)frame(last+25)},
         pickupMarkers:()=>island.children.filter(o=>o.name.startsWith('pickup-label-') && o.visible).map(o=>o.name),
         archMarked:()=>island.getObjectByName('north-arch-label').visible,
         marked:()=>island.getObjectByName('turtle-quest-mark').visible,
@@ -103,6 +105,24 @@ const {chromium} = require('playwright');
     for(const [bug,hitsNeeded] of hitsByBug.entries()){
       for(let hit=0;hit<hitsNeeded;hit++){
         await tick(.4);await near('repair-bug-'+bug);await press('Digit1');
+        if(bug===0 && hit===2){
+          const before=await page.evaluate(()=>workTest.actor(-1));
+          await press('Digit1'); // duplicate during the strike cooldown
+          await page.evaluate(()=>workTest.runFrames(10));
+          const after=await page.evaluate(()=>workTest.actor(-1));
+          const dz=after[2]-before[2];
+          assert.ok(Math.abs(dz-2)<.001 || Math.abs(dz-3)<.001,'shove reaches a whole 2 or 3 tiles');
+          assert.ok(Math.abs(after[0]-before[0])<.001);
+        }
+        if(bug===1 && hit===1){
+          const before=await page.evaluate(()=>workTest.actor(1));
+          await tick(.12);
+          assert.ok((await page.evaluate(()=>workTest.actor(1)))[1]>.4);
+          await tick(.12);
+          const after=await page.evaluate(()=>workTest.actor(1));
+          assert.ok(after[2]<before[2] && Math.abs(Math.hypot(after[2]-before[2],after[0]-before[0])-2)<.001);
+          assert.equal(after[1],0);
+        }
         const {hp,phase}=await page.evaluate(i=>workTest.state().bugs[i],bug);
         assert.equal(hp,hitsNeeded-hit-1);
         assert.equal(phase,hp?'running':'stopped');
@@ -111,6 +131,7 @@ const {chromium} = require('playwright');
       assert.equal(await dialog.isVisible(),false);
       assert.equal(await page.evaluate(i=>workTest.state().bugs[i].phase,bug),'stopped');
       await press('KeyE');await tick(.18);
+      if(bug===1)assert.ok((await page.evaluate(()=>workTest.actor(1)))[1]>0,'last hit still produces a leap');
       assert.equal(await dialog.isVisible(),false);
       await page.evaluate(()=>workTest.pauseTick());
       assert.equal(await dialog.isVisible(),false);

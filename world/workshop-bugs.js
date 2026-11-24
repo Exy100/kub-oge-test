@@ -266,7 +266,7 @@ export function createBugBody(root,index,material){
     if(crystal)crystal.material.color.setScalar(1);
     if(aerials)aerials.rotation.set(0,0,0);
   }
-  function pose(amount,bearing,disabled,recoil=0){
+  function pose(amount,bearing,disabled,recoil=0,lift=0){
     resting=false;reacting=true;
     thorax.position.set(0,-(green?.095:.15)*amount,-.105*recoil);
     thorax.rotation.set((green?-.085:.15)*amount-.14*recoil,0,.09*Math.sin(bearing)*recoil);
@@ -277,6 +277,10 @@ export function createBugBody(root,index,material){
     }
     for(const {home,plant} of legs){
       contact.copy(home);
+      if(green && lift>0){
+        contact.x*=1-.28*lift;
+        contact.y+=.36*lift;
+      }
       if(!green && home.z>.35){
         contact.x+=Math.sign(home.x)*.105*amount;
         contact.z+=.09*amount;
