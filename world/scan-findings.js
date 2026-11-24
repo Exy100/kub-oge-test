@@ -1,6 +1,26 @@
 import * as THREE from '../vendor/three.module.js';
 
-export function createScanFindings(parent, trunks) {
+function createFloorGrid(cells) {
+  const points = [];
+  const edge = (x1,z1,x2,z2) => points.push(x1,.024,z1,x2,.024,z2);
+  for (const key of cells) {
+    const [x,z] = key.split(',').map(Number);
+    edge(x-.5,z-.5,x+.5,z-.5);
+    edge(x-.5,z-.5,x-.5,z+.5);
+    if (!cells.has(x+','+(z+1))) edge(x-.5,z+.5,x+.5,z+.5);
+    if (!cells.has((x+1)+','+z)) edge(x+.5,z-.5,x+.5,z+.5);
+  }
+  const geometry = new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(points,3));
+  const grid = new THREE.LineSegments(geometry,new THREE.LineBasicMaterial({
+    color:0x86e9ff, transparent:true, opacity:.70, depthWrite:false,
+  }));
+  grid.name = 'board-scan-grid';
+  grid.visible = false;
+  return grid;
+}
+
+export function createScanFindings(parent, trunks, boardCells) {
   const root = new THREE.Group();
   parent.add(root);
   const markers = new Map();
@@ -34,6 +54,8 @@ export function createScanFindings(parent, trunks) {
   }
   treeRings.visible = false;
   root.add(ring,treeRings);
+  const grid = boardCells ? createFloorGrid(boardCells) : null;
+  if (grid) root.add(grid);
 
   function addMark(mesh, width, height, x, y, z, material) {
     const mark = new THREE.Mesh(detail, material);
@@ -82,6 +104,7 @@ export function createScanFindings(parent, trunks) {
   }
   return {
     markers, sync,
+    startFloorScan(){if (grid) grid.visible=true},
     pulse(x,z,progress,reduced) {
       ring.visible = true;
       ring.position.set(x,.035,z);
@@ -95,9 +118,10 @@ export function createScanFindings(parent, trunks) {
       if (phase <= .5) bandMaterial.color.lerpColors(deepBlue,azure,phase * 2);
       else bandMaterial.color.lerpColors(azure,ice,phase * 2 - 1);
     },
-    stop(){ring.visible = treeRings.visible = false},
+    stop(){ring.visible = treeRings.visible = false;if (grid) grid.visible=false},
     dispose(){
       parent.remove(root);
+      if (grid) {grid.geometry.dispose();grid.material.dispose()}
       for (const resource of [coin,tablet,detail,gold,relief,stone,engraving,ringGeometry,light,treeRings,bandMaterial]) resource.dispose();
     },
   };

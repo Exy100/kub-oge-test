@@ -1,4 +1,5 @@
-import { PLAYER_HEIGHT } from '../physics.js';
+import { createRemontik } from '../world/remontik.js';
+import { buildProcessorSocket } from '../world/processor-socket.js';
 
 const reference = Array.from(new TextEncoder().encode('Б'), byte => byte.toString(2).padStart(8,'0'));
 const expected = reference.join('');
@@ -6,19 +7,11 @@ export const WEAPON_KIT = 'reward.weapon-kit';
 
 export function createProcessorLab({stage, box, player, dialog, pause, changed, canStore}) {
   const x = stage.center;
-  const height = 2 * PLAYER_HEIGHT;
-  box(x,height/2,-2,height,height,.7,0x305d56,true);
-  box(x,height/2,-1.59,2.7,2.7,.16,0x536976);
-  const core = box(x,height/2,-1.46,1.95,1.95,.16,0x3f5059);
-  for (let i=0;i<8;i++) {
-    const offset = (i-3.5)*.37;
-    for (const side of [-1,1]) {
-      box(x+side*1.45,height/2+offset,-1.54,.33,.12,.13,0xd3b277);
-      box(x+offset,height/2+side*1.45,-1.54,.12,.33,.13,0xd3b277);
-    }
-  }
-  const lights = [-.46,0,.46].map(dx=>box(x+dx,height/2,-1.34,.27,.56,.08,0xd78a53));
-  const deskX = x+2.25, deskZ = .55;
+  const {core,lights,rotors} = buildProcessorSocket(box,x);
+  const robot = createRemontik(core.parent,x+.6,2.25);
+  const robotCollider = box(robot.root.position.x,1.10,robot.root.position.z,.88,.82,.76,0x426c52,true);
+  robotCollider.visible=false;
+  const deskX = x+3.45, deskZ = 1;
   box(deskX,.54,deskZ,1.36,1.08,.85,0x45665f,true);
   box(deskX,1.09,deskZ,1.6,.12,1,0x68817b);
   const display = box(deskX,1.37,deskZ-.24,1.14,.48,.12,0x386376);
@@ -30,7 +23,7 @@ export function createProcessorLab({stage, box, player, dialog, pause, changed, 
       mesh.material.color.setHex(stage.unlocked ? 0x81f1cd : 0xe89b62);
       mesh.material.emissive.setHex(stage.unlocked ? 0x228f77 : 0x623824);
     }
-    core.material.color.setHex(stage.unlocked ? 0x346c65 : 0x3f5059);
+    core.material.color.setHex(stage.unlocked ? 0x89aca0 : 0xa6aeaa);
   }
   lightCore();
   stage.codeBits ??= Array.from('1110000010010010');
@@ -99,21 +92,37 @@ export function createProcessorLab({stage, box, player, dialog, pause, changed, 
         return;
       }
       if(!canStore(WEAPON_KIT)){status.textContent='Освободи место в рюкзаке для оружейного набора и повтори запуск.';return}
-      stage.unlocked=true;
+      stage.unlocked=true;robot.wave();
       lightCore();changed();success();
       body.querySelector('button').focus();
     };
   }
+  function nearRobot(){
+    return player.position.y<2 && Math.hypot(player.position.x-robot.root.position.x,player.position.z-robot.root.position.z)<2;
+  }
   function interact(){
-    if(!near())return false;
+    if(!near()){
+      if(!nearRobot())return false;
+      pause();robot.wave();
+      dialog.querySelector('h2').textContent=robot.root.name;
+      body.innerHTML=stage.unlocked
+        ? '<p>Спасибо! Слышишь, как заработал кулер? Через северный портал можно идти дальше.</p>'
+        : '<p>Привет! Я Ремонтик, модель 1. Чип я проверил. Теперь поможешь с кодом? На пульте рядом со мной восстанови два байта буквы Б.</p>';
+      dialog.showModal();
+      return true;
+    }
     pause();
     if(stage.unlocked)success();else puzzle();
     dialog.showModal();
     return true;
   }
   prompt.onclick=interact;
-  return {interact,tick(active){
-    prompt.hidden=!active || !near();
-    if(!prompt.hidden)prompt.textContent='E · Пульт процессора';
+  return {interact,tick(active,dt,reduced){
+    if (stage.unlocked && active && !reduced) {
+      for (const rotor of rotors) rotor.rotation.z -= dt*4;
+    }
+    robot.update(dt,active,reduced,player.position);
+    prompt.hidden=!active || !(near() || nearRobot());
+    if(!prompt.hidden)prompt.textContent=near()?'E · Пульт процессора':'E · Ремонтик, модель 1';
   },dispose(){prompt.hidden=true;prompt.onclick=null;dialog.close()}};
 }

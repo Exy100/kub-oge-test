@@ -13,15 +13,22 @@ export function createScanInteraction({location, island, solids, obstacles, stag
   dialog, progress, say, notify, pause, onCoin}) {
   const cells = new Set(), trunks = new Map();
   const treeLocation = location.id + '/trees';
-  // Capture the permanent terrain before player buildings and loose pickups are restored.
+  // Player-built blocks obstruct the ray but do not change the permanent prize pool.
+  const fixedSolids = solids.filter(mesh => !stage.placed.includes(mesh));
   for (const tile of island.children) {
     if (tile.userData.treeKey && tile.name.endsWith('-trunk')) trunks.set(tile.userData.treeKey, tile);
     if (!location.scanSurface || tile.userData.scanSurface !== location.scanSurface) continue;
-    const {x,z} = tile.position;
-    if (!solids.some(m => Math.abs(x-m.position.x) < .32+m.scale.x/2 &&
-        Math.abs(z-m.position.z) < .32+m.scale.z/2)) cells.add(x+','+z);
+    const left = Math.ceil(tile.position.x-tile.scale.x/2);
+    const back = Math.ceil(tile.position.z-tile.scale.z/2);
+    for (let x=left;x<tile.position.x+tile.scale.x/2;x++) {
+      for (let z=back;z<tile.position.z+tile.scale.z/2;z++) {
+        if (!fixedSolids.some(m => Math.abs(x-m.position.x) < .32+m.scale.x/2 &&
+            Math.abs(z-m.position.z) < .32+m.scale.z/2)) cells.add(x+','+z);
+      }
+    }
   }
-  const view = createScanFindings(island,trunks);
+  const board = location.scanSurface === 'board';
+  const view = createScanFindings(island,trunks,board ? cells : null);
   const ray = new THREE.Raycaster(), center = new THREE.Vector2(), point = new THREE.Vector3();
   const floor = new THREE.Plane(new THREE.Vector3(0,1,0),0);
   let disposed = false;
@@ -66,7 +73,7 @@ export function createScanInteraction({location, island, solids, obstacles, stag
     if (day !== moscowDay()) store.refresh();
     const key = target(true), tree = skill === 'tree';
     if (!(tree ? trunks : cells).has(key)) {
-      notify(tree ? 'Наведи прицел на дерево поблизости.' : 'Наведи прицел на свободную клетку травы поблизости.');
+      notify(tree ? 'Наведи прицел на дерево поблизости.' : board ? 'Наведи прицел на свободную клетку платы поблизости.' : 'Наведи прицел на свободную клетку травы поблизости.');
       return;
     }
     const finding = ref(key);
@@ -78,6 +85,7 @@ export function createScanInteraction({location, island, solids, obstacles, stag
     const [x,z] = tree ? [trunk.position.x,trunk.position.z] : key.split(',').map(Number);
     const face = tree ? Math.round(Math.atan2(player.position.x-x,player.position.z-z)/(Math.PI/2)) : undefined;
     pending = {...finding, skill, face, x,z,start:performance.now()};
+    if (!tree) view.startFloorScan();
     progress.hidden = false;
     progress.value = 0;
   }
