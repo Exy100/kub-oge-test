@@ -1,3 +1,4 @@
+import {orangeBug,greenBug,UNARMED_DAMAGE} from '../catalog/bugs.js';
 import {Vector3} from '../vendor/three.module.js';
 import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=4';
 import {pcParts} from '../catalog/pc-parts.js';
@@ -6,11 +7,11 @@ import {workshopModels} from '../world/repair-models.js?v=6';
 import {createBugEncounter} from '../world/bug-encounter.js';
 
 const puzzles = [
-  {name:'Оранжевый Баг', parts:[0,1], lines:[
+  {enemy:orangeBug, parts:[0,1], lines:[
     ['name = ', {typo:'inpt', answer:'input'}, '("Как тебя зовут?")'],
     [{typo:'pritn', answer:'print'}, '("Привет,", name)'],
   ]},
-  {name:'Зелёный Баг', parts:[2,3,4], lines:[
+  {enemy:greenBug, parts:[2,3,4], lines:[
     [{typo:'fro', answer:'for'}, ' i in ', {typo:'rnage', answer:'range'}, '(3):'],
     ['    ', {typo:'prnit', answer:'print'}, '(i)'],
   ]},
@@ -22,7 +23,7 @@ const repairHints = {
   range:'Здесь нужна последовательность чисел.',
 };
 export function newRepair() {
-  return {met:false,axe:false,bugs:puzzles.map(()=>({hp:3,phase:'running',x:0,z:0})),parts:pcParts.map(()=>'stolen')};
+  return {met:false,axe:false,bugs:puzzles.map(({enemy})=>({hp:enemy.maxHp,phase:'running',x:0,z:0})),parts:pcParts.map(()=>'stolen')};
 }
 export function repairBrief(state) {
   if (!state.met) return 'Поговори с черепахой у верстака.';
@@ -66,7 +67,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
     state.bugs.forEach((b,i)=>{
       const {g,hp,fill}=bugs[i];
       g.visible=b.phase==='running'||b.phase==='stopped';
-      hp.visible=b.phase==='running';fill.scale.x=.93*b.hp/3;fill.position.x=(fill.scale.x-.93)/2;
+      hp.visible=b.phase==='running';fill.scale.x=.93*b.hp/puzzles[i].enemy.maxHp;fill.position.x=(fill.scale.x-.93)/2;
       if(b.phase!=='running'){
         g.position.set(b.x,0,b.z);g.rotation.y=b.yaw??0;
         if(b.phase==='stopped' && !settling[i])bugs[i].pose(1,0,true);
@@ -103,7 +104,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       blanks.push({answer:token.answer,row:row+1});
       return `<input aria-label="Строка ${row+1}, поле ${blanks.length}" spellcheck="false" autocapitalize="off" value="${token.typo}">`;
     }).join('')).join('\n');
-    show(p.name+' · Отладка',`<p>Исправь выделенные слова Python, сохранив смысл программы.</p><form>
+    show(p.enemy.name+' · Отладка',`<p>Исправь выделенные слова Python, сохранив смысл программы.</p><form>
       <pre class="repair-code">${code}</pre>
       <button class="field-primary">Проверить программу</button><p role="status"></p></form>`);
     const form=body.querySelector('form'), inputs=[...form.querySelectorAll('input')];
@@ -178,7 +179,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
     turtle.nod();
     if(!state.met){
       state.met=true;changed();
-      show('Черепаха-механик','<p>«Я разобрала компьютер, чтобы найти баг. А их оказалось двое! Пока я проверяла плату, они унесли пять деталей. Поможешь мне их вернуть?»</p><p>Нажми L для боя. Подойди к жуку и нажимай 1 или ЛКМ. Когда жук остановится, исправь слова в его программе.</p><button class="field-primary">Помогу</button>');
+      show('Черепаха-механик','<p>«Я разобрала компьютер, чтобы найти баг. А их оказалось двое! Пока я проверяла плату, они унесли пять деталей. Поможешь мне их вернуть?»</p><p>Нажми L для боя. Подойди к жуку и бей кулаком (1 или ЛКМ). Когда жук остановится, исправь слова в его программе.</p><button class="field-primary">Помогу</button>');
       body.querySelector('button').onclick=()=>dialog.close();
     } else if(state.parts.includes('bag') || state.parts.every(p=>p==='installed')) assembly();
     else notify(repairBrief(state));
@@ -203,7 +204,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
     if(time-lastHit<.25)return;
     lastHit=time;onHit();
     const b=state.bugs[i], g=bugs[i].g;
-    b.hp--;
+    b.hp=Math.max(0,b.hp-UNARMED_DAMAGE);
     if(b.hp)encounters[i].hit(player.position);
     else{
       b.phase='stopped';b.x=g.position.x;b.z=g.position.z;b.yaw=g.rotation.y;

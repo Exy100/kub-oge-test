@@ -18,7 +18,7 @@ export function createCatalog(definitions) {
     const fail = message => { throw new Error(`Catalog ${id}: ${message}`); };
     if (!nonempty(id) || !/^[a-z][a-z0-9.-]*$/.test(id)) fail('invalid ID');
     if (byId.has(id)) fail('duplicate ID');
-    if (!['tree', 'resource', 'tool', 'key'].includes(type)) fail('unknown type');
+    if (!['tree', 'resource', 'tool', 'key', 'enemy'].includes(type)) fail('unknown type');
     if (!nonempty(name) || !nonempty(description)) fail('name and description are required');
     if (type === 'tree') {
       const { palette, parts } = definition;
@@ -29,6 +29,8 @@ export function createCatalog(definitions) {
           || !part.slice(3,6).every(n => n > 0) || !Number.isInteger(part[6])
           || part[6] < 0 || part[6] >= palette.length || typeof part[7] !== 'boolean' || !nonempty(part[8])) fail('invalid tree part');
       }
+    } else if (type === 'enemy') {
+      if (!Number.isInteger(definition.maxHp) || definition.maxHp <= 0) fail('invalid maximum health');
     } else {
       if (definition.kind !== type || !nonempty(definition.category) || !nonempty(definition.glyph)) fail('invalid item metadata');
     }

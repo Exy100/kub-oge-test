@@ -81,8 +81,13 @@ const {chromium} = require('playwright');
     await press('KeyL');
     const parts=['pc.cpu','pc.ram','pc.ssd','pc.gpu','pc.psu'];
     for(let bug=0;bug<2;bug++){
-      for(let hit=0;hit<3;hit++){
+      const hitsNeeded=bug===0?20:10;
+      for(let hit=0;hit<hitsNeeded;hit++){
         await tick(.4);await near('repair-bug-'+bug);await press('Digit1');
+        const {hp,phase}=await page.evaluate(i=>workTest.state().bugs[i],bug);
+        assert.equal(hp,hitsNeeded-hit-1);
+        assert.equal(phase,hp?'running':'stopped');
+        assert.equal(await dialog.isVisible(),false);
       }
       assert.equal(await dialog.isVisible(),false);
       assert.equal(await page.evaluate(i=>workTest.state().bugs[i].phase,bug),'stopped');

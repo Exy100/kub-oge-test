@@ -1,5 +1,5 @@
 import { timberMaterial } from './world/timber.js';
-import { newRepair, repairBrief, createWorkshop } from './quests/workshop.js?v=9';
+import { newRepair, repairBrief, createWorkshop } from './quests/workshop.js?v=10';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
@@ -13,7 +13,7 @@ import { createForgeState } from './forge-state.js?v=5';
 import { drawQuestDiagram } from './quest-diagram.js?v=2';
 import { createPlayerInventory } from './player-inventory.js?v=4';
 import { equipGatheringWand } from './gathering-wand.js?v=17';
-import { createPlayerPanel } from './player-panel.js?v=39';
+import { createPlayerPanel } from './player-panel.js?v=40';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
