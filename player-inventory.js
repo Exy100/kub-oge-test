@@ -13,6 +13,10 @@ export function equipmentSlots(mode) {
   return [...commonSlots, mode === 'battle' ? ['weapon', 'Оружие', 'weapon'] : ['tool', 'Орудие', 'tool']];
 }
 
+export function fitsEquipment(item,kind) {
+  return item.kind===kind || (item.id==='wand' && kind==='weapon');
+}
+
 // Resources are read from the islands and forge so spending or resetting them is reflected immediately.
 export function createPlayerInventory(readResources, describeItem = itemStack) {
   const capacity = BAG_ROWS * BAG_COLUMNS;
@@ -73,7 +77,7 @@ export function createPlayerInventory(readResources, describeItem = itemStack) {
     if (id === null) { delete loadouts[mode][slot]; return true; }
     const item = items().find(entry=>entry.id===id);
     const used = Object.entries(loadouts[mode]).filter(([key,value]) => key !== slot && value === id).length;
-    if (!item || item.kind !== spec[2] || used >= item.quantity) return false;
+    if (!item || !fitsEquipment(item,spec[2]) || used >= item.quantity) return false;
     loadouts[mode][slot] = id;
     return true;
   }

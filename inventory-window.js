@@ -1,4 +1,4 @@
-import { equipmentSlots } from './player-inventory.js?v=4';
+import { equipmentSlots, fitsEquipment } from './player-inventory.js?v=5';
 
 function element(tag, className, value) {
   const node = document.createElement(tag);
@@ -7,7 +7,7 @@ function element(tag, className, value) {
   return node;
 }
 
-export function createInventoryWindows({ bag, playerAccount, open, mode, setMode }) {
+export function createInventoryWindows({ bag, playerAccount, open, mode, setMode, onEquipmentChange }) {
   function windowFor(id, title) {
     const dialog = element('dialog', 'panel-dialog kit-window');
     dialog.id = id;
@@ -201,10 +201,10 @@ export function createInventoryWindows({ bag, playerAccount, open, mode, setMode
       if (item?.description) button.title = item.description;
       slots.append(button);
       if (slot !== selected) continue;
-      const options = owned.filter(i => i.kind === kind);
+      const options = owned.filter(item => fitsEquipment(item,kind));
       choices.append(element('strong', '', title));
       const apply = id => {
-        if (bag.equip(current, slot, id)) { renderKit(); slots.querySelector('[data-slot="'+slot+'"]').focus(); }
+        if (bag.equip(current, slot, id)) { onEquipmentChange?.(); renderKit(); slots.querySelector('[data-slot="'+slot+'"]').focus(); }
       };
       for (const option of options) {
         if (option.id === equipped) continue;

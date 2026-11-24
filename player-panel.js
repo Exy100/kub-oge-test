@@ -1,4 +1,4 @@
-import { createInventoryWindows } from './inventory-window.js?v=5';
+import { createInventoryWindows } from './inventory-window.js?v=6';
 import { createLiveNavigator } from './navigator-live.js?v=11';
 import { createNavigatorSpeech } from './navigator-speech.js?v=16';
 import { createNavigatorChoice } from './navigator-choice.js?v=12';
@@ -33,6 +33,7 @@ export function createPanelKeys({ switchMode, navigator, camera, inventory, equi
   };
 }
 const paths = {
+  wandStrike:'M8 39l17-19m-4 3c-2-7-1-11 1-15m0 15c7 0 12-3 16-8',
   fist:'M13 39v-6l-6-9v-6a3 3 0 0 1 6 0v5-11a3 3 0 0 1 6 0v9-12a3 3 0 0 1 6 0v12-10a3 3 0 0 1 6 0v10-7a3 3 0 0 1 6 0v11l-5 9v5z M13 24l4-3h10q4 1 1 5l-7 2',
   sword:'M8 34 32 10 38 8 36 14 12 38M8 26l14 14M7 35l6 6',
   shield:'M24 5 39 11v12c0 10-15 18-15 18S9 33 9 23V11ZM24 12v21',
@@ -44,7 +45,7 @@ const paths = {
 };
 const icon = name => `<svg viewBox="0 0 48 48" aria-hidden="true"><path d="${paths[name]}"/></svg>`;
 
-export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, bag, playerAccount }) {
+export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, bag, playerAccount, onEquipmentChange }) {
   const $ = s => document.querySelector(s);
   let live;
   const choice=createNavigatorChoice({onOpen,onChange(id,portrait){
@@ -161,7 +162,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   let mode='build';
   const open=d=>{if(blocked())return;onOpen();d.showModal()};
   function showNavigator(){if(dialog.open){dialog.close();return}$('#navigator-task').textContent=mission().text;$('#navigator-progress').textContent=mission().progress;open(dialog);if(dialog.open)speech.open()}
-  function switchMode(){mode=mode==='build'?'battle':'build';dock.dataset.mode=mode;document.body.classList.toggle('battle-mode',mode==='battle');hotbar.hidden=mode!=='build';battle.hidden=mode!=='battle';$('#dock-mode').textContent=mode==='build'?'СБОРКА':'БОЙ';$('#mode-switch').setAttribute('aria-pressed',String(mode==='battle'));$('#mode-switch .mode-label').textContent=mode==='build'?'Сборка':'Бой';notify(mode==='build'?'Сборка · материалы и постройки':(strike.getAttribute('aria-disabled')==='false'?'Бой · 1 или ЛКМ — удар по багу':'Сражение · навыки пока недоступны'));}
+  function switchMode(){mode=mode==='build'?'battle':'build';dock.dataset.mode=mode;document.body.classList.toggle('battle-mode',mode==='battle');hotbar.hidden=mode!=='build';battle.hidden=mode!=='battle';$('#dock-mode').textContent=mode==='build'?'СБОРКА':'БОЙ';$('#mode-switch').setAttribute('aria-pressed',String(mode==='battle'));$('#mode-switch .mode-label').textContent=mode==='build'?'Сборка':'Бой';notify(mode==='build'?'Сборка · материалы и постройки':(strike.getAttribute('aria-disabled')==='false'?'Бой · 1 или ЛКМ — удар':'Сражение · навыки пока недоступны'));}
   const guideDialog=$('#controls-guide');
   const guideButton=$('#guide-button');
   const guideTabs=[...guideDialog.querySelectorAll('[role="tab"]')];
@@ -194,7 +195,7 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   guideButton.onclick=toggleGuide;
   guideDialog.querySelector('.guide-close').onclick=()=>guideDialog.close();
   guideDialog.addEventListener('close',()=>guideButton.focus({preventScroll:true}));
-  const storage=createInventoryWindows({bag,playerAccount,open,mode:()=>mode,setMode:next=>{if(next!==mode)switchMode()}});
+  const storage=createInventoryWindows({bag,playerAccount,open,onEquipmentChange,mode:()=>mode,setMode:next=>{if(next!==mode)switchMode()}});
   const inventory=()=>storage.toggle('bag'), equipment=()=>storage.toggle('gear');
   $('#inventory-button').onclick=inventory;
   function toggleMode(){if(!blocked())switchMode()}
@@ -229,11 +230,11 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   const strike=battle.querySelector('.combat-slot');
   const lockedStrike=strike.onclick, lockedTitle=strike.title, lockedLabel=strike.getAttribute('aria-label');
   return {
-    setStrike(action){
+    setStrike(action,wand=false){
       strike.onclick=action || lockedStrike;
-      strike.querySelector('svg path').setAttribute('d',action?paths.fist:paths.sword);
-      strike.querySelector('span').textContent=action?'Кулак':'Удар';
-      strike.title=action?'Удар кулаком по ближайшему багу · 1 или ЛКМ':lockedTitle;
+      strike.querySelector('svg path').setAttribute('d',wand?paths.wandStrike:action?paths.fist:paths.sword);
+      strike.querySelector('span').textContent=wand?'Жезл':action?'Кулак':'Удар';
+      strike.title=wand?'Удар жезлом сбора · 1 или ЛКМ':action?'Удар кулаком по ближайшему багу · 1 или ЛКМ':lockedTitle;
       strike.setAttribute('aria-disabled',String(!action));
       strike.setAttribute('aria-label',action?strike.title:lockedLabel);
       strike.querySelector('small').hidden=!!action;

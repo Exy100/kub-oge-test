@@ -1,5 +1,5 @@
 import { timberMaterial } from './world/timber.js';
-import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=15';
+import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=16';
 import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
@@ -12,9 +12,9 @@ import { createSimpleArchEffect } from './world/simple-arch.js';
 import { buildIslandTerrain } from './world/island-terrain.js';
 import { createForgeState } from './forge-state.js?v=5';
 import { drawQuestDiagram } from './quest-diagram.js?v=2';
-import { createPlayerInventory } from './player-inventory.js?v=4';
-import { equipGatheringWand } from './gathering-wand.js?v=17';
-import { createPlayerPanel } from './player-panel.js?v=40';
+import { createPlayerInventory } from './player-inventory.js?v=5';
+import { equipGatheringWand } from './gathering-wand.js?v=18';
+import { createPlayerPanel } from './player-panel.js?v=41';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
@@ -188,7 +188,7 @@ function onCollect(mesh){
   playPickup();
   if(bag.loadouts.build.tool==='wand')gathering.collect(mesh);
 }
-const panel=createPlayerPanel({bag,playerAccount,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:currentQuestBrief(),progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
+const panel=createPlayerPanel({bag,playerAccount,onEquipmentChange:refreshStrike,onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;},mission:()=>({text:currentQuestBrief(),progress:$('#quest-title').textContent+' · '+$('#count').textContent}),notify,camera:toggle,blocked:()=>modalOpen()||!$('#welcome').classList.contains('hidden')});
 $('#skill-slot').onclick = () => {
   if (!modalOpen() && $('#welcome').classList.contains('hidden')) openSkillList();
 };
@@ -305,7 +305,7 @@ function enterIsland(next) {
         select(2);
       },
       notify,pause:pauseForScanMenu,changed:update,collect:playPickup,place:playPlacement,onHit:()=>character.react()});
-    panel.setStrike(()=>{if(!modalOpen())workshop.attack()});
+
 
   }
   if(stage.locationId==='island.three-arches'){
@@ -326,6 +326,7 @@ function enterIsland(next) {
       onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;}});
     cameraObstacles.push(...forge.cameraObstacles);
   }
+  refreshStrike();
   if (character.profile.specialSkills?.length) {
     scanStore.refresh();
     scanner = createScanInteraction({
@@ -336,6 +337,16 @@ function enterIsland(next) {
   }
 }
 
+function refreshStrike(){
+  const wand=bag.loadouts.battle.weapon==='wand';
+  panel.setStrike(wand || workshop?battleStrike:null,wand);
+}
+function battleStrike(){
+  if(!panel.isBattle() || modalOpen())return;
+  if(bag.loadouts.battle.weapon==='wand'){
+    gathering.strike(()=>workshop?.attack(true));
+  }else workshop?.attack();
+}
 function currentQuestBrief() {
   const complete = stage.locationId === 'island.data-forge' ? forgeState.unlocked : stage.unlocked;
   if (complete) return 'Пройди через открытый портал на следующий остров.';
@@ -520,9 +531,9 @@ addEventListener('keydown',e=>{
   if(e.code==='Space'&&!keys.Space)jumpRequested=true;
   keys[e.code]=true;
   if(/^Digit[1-6]$/.test(e.code)){
-    if(panel.isBattle() && workshop && e.code==='Digit1'){
+    if(panel.isBattle() && (workshop || bag.loadouts.battle.weapon==='wand') && e.code==='Digit1'){
       e.preventDefault();
-      if(!e.repeat)workshop.attack();
+      if(!e.repeat)battleStrike();
     }
     else if(panel.isBattle())notify('Боевые навыки пока недоступны.');
     else select(+e.code.slice(-1)-1);
@@ -536,7 +547,7 @@ addEventListener('keyup',e=>{
 document.addEventListener('visibilitychange',()=>{if(document.hidden)scanner?.cancel()});
 addEventListener('blur',()=>{scanner?.cancel();resetBackPress();dragging=false;panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
 function act(button){
-  if(panel.isBattle() && workshop && button===0){workshop.attack();return}
+  if(panel.isBattle() && (workshop || bag.loadouts.battle.weapon==='wand') && button===0){battleStrike();return}
   if(panel.isBattle()){notify('Для строительства нажми L / Д или C + V.');return}
   if (button===0 && scanner?.interact('collect')) return;
   ray.setFromCamera(new THREE.Vector2(),camera);
@@ -690,7 +701,9 @@ simpleArchEffect?.update(now, reducedHandMotion.matches);
 if (returnGlow) returnGlow.material.opacity=.4+Math.sin(now*.002)*.12;
 forge?.update(player.position,now/1000,$('#welcome').classList.contains('hidden')&&!skillList.open&&!scanDialog.open&&!extraDialog?.open&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);
-gathering.update(dt,now/1000,{active,third:player.visible,visible:!showingGift&&!panel.isBattle()&&!!bag.loadouts.build.tool,tool:bag.loadouts.build.tool,dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
+const combatWand=panel.isBattle() && bag.loadouts.battle.weapon==='wand';
+const heldTool=panel.isBattle()?(combatWand?'wand':null):bag.loadouts.build.tool;
+gathering.update(dt,now/1000,{active,third:player.visible,combatWand,visible:!showingGift&&!!heldTool,tool:heldTool,dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
 if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
 
 // Temporary cheats: remove this installation and its import to disable the menu.
