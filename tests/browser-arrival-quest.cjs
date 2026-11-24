@@ -35,8 +35,8 @@ const {chromium} = require('playwright');
           if (forward) {
             if (stage.index === 4) forge.state.unlocked = true;
             else stage.unlocked = true;
-            player.position.set([0,160,200,40,86][stage.index],0,[-1,-6,-6,-2,-4][stage.index]);
-          } else player.position.set(stage.center+6,0,6);
+            player.position.set([0,160,193,40,86][stage.index],0,[-1,-6,-6,-2,-4][stage.index]);
+          } else player.position.set(returnGlow.position.x,0,returnGlow.position.z);
         };
       `}));
     const tick = async ms => { await page.clock.fastForward(ms); await page.evaluate(() => stepGame()); };

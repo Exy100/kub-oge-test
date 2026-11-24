@@ -5,7 +5,7 @@ try{await new Promise(r=>setTimeout(r,400));browser=await chromium.launch({execu
 await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(repo,'game.js'),'utf8')+`
 window.storyTest={
  at(x,z){player.position.set(x,0,z)},
- poweredLab(){stage.unlocked=true;update();player.position.set(stage.center,0,-6)},
+ poweredLab(){stage.unlocked=true;update();player.position.set(exitGlow.position.x,0,exitGlow.position.z)},
  repairedWorkshop(){stage.repair.parts.fill('installed');stage.repair.axe=true;stage.inventory[2]=7;stage.targets.forEach((_,i)=>placeTarget(stage,i,2));update();player.position.set(stage.center,0,-6)},
  currentIslandOnly(){
    const unloaded=stages.filter(s=>s!==stage);
@@ -24,7 +24,7 @@ window.storyTest={
      && solids.every(m=>m.parent===island);
  },
  snapshot(){return {index:stage.index,built:stage.built.size,inventory:stage.inventory.slice(),unlocked:stage.unlocked,pickups:stage.pickups.length}},
- nearGate(){player.position.set(stage.index===0?0:stage.center+6,0,stage.index===0?0:5)},
+ nearGate(){player.position.set(returnGlow?.position.x ?? 0,0,returnGlow?.position.z ?? 0)},
  formerPortal(x){player.position.set(x,0,1)},
  portalSolids(){return solids.filter(b=>Math.abs(Math.abs(b.position.x)-5)<1.6&&Math.abs(b.position.z)<.4&&b.position.y>.1).length},
  collect(){for(const m of [...stage.pickups]){player.position.set(m.position.x,0,m.position.z+2);camera.position.set(m.position.x,2.5,m.position.z);camera.lookAt(m.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)}},
@@ -142,7 +142,7 @@ s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.built===21&&s.un
 await page.evaluate(()=>window.storyTest.remove(8));s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.built===20&&s.inventory[2]===1,'refund wood on removal');
 await page.evaluate(()=>window.storyTest.build(8));
 await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');s=await page.evaluate(()=>window.storyTest.snapshot());await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.index===0&&s.built===7,'return preserves first island');
-await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');await page.evaluate(()=>storyTest.at(160,-6));await page.keyboard.press('e');await page.evaluate(()=>storyTest.at(200,-6));await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).built===21,'return preserves three arches');
+await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');await page.evaluate(()=>storyTest.at(160,-6));await page.keyboard.press('e');await page.evaluate(()=>storyTest.at(193,-6));await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).built===21,'return preserves three arches');
 await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===4,'three arches open forge');
 assert(await page.evaluate(()=>storyTest.currentIslandOnly()),'only forge scenery is mounted');
 await page.screenshot({path:'/tmp/kub-forge-world.png'});

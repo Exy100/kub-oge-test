@@ -22,8 +22,8 @@ const {chromium} = require('playwright');
             player.position.set(86,0,-4);
           }else if(forward){
             stage.unlocked=true;
-            player.position.set(stage.center,0,stage.index===0?-1:stage.index<=2?-6:-2);
-          }else player.position.set(stage.center+6,0,6);
+            player.position.set(exitGlow.position.x,0,exitGlow.position.z);
+          }else player.position.set(returnGlow.position.x,0,returnGlow.position.z);
         };
       `,
     }));
