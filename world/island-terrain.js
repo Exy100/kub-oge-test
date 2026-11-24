@@ -1,4 +1,5 @@
 import * as THREE from '../vendor/three.module.js';
+import { boardMaterial } from './board-material.js';
 import { createTreeRenderer } from './trees.js';
 
 const grassPalette = [0x9cbb76, 0x96b570, 0xa0bd79, 0x91b16b];
@@ -48,7 +49,14 @@ export function buildIslandTerrain(location, index, root, geo, box, solids, came
     const center = location.center;
     box(center,-1.6,0,23,2.5,21,center===80?0x6e7b86:0x9c967b);
     box(center,-3.4,0,20,1.5,18,0x727e80);box(center,-4.7,0,15,1.2,14,0x8c9690);
-    const grassFloor = ['island.turtle','island.processor-lab'].includes(location.id);
+    if (location.scanSurface === 'board') {
+      const board = box(center,-.17,0,23,.36,21,boardMaterial());
+      board.castShadow = false;
+      board.userData.scanSurface = 'board';
+      location.trees.forEach(renderTree);
+      return;
+    }
+    const grassFloor = location.id === 'island.turtle';
     const tiles=[];
     for(let x=-11;x<=11;x++)for(let z=-10;z<=10;z++)if(grassFloor || !(Math.abs(x)>9&&Math.abs(z)>8))tiles.push([center+x,z]);
     const ground=new THREE.InstancedMesh(geo,new THREE.MeshStandardMaterial({roughness:1}),tiles.length);

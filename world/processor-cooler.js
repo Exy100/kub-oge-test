@@ -27,7 +27,7 @@ function copies(parent,geometry,material,poses) {
   return mesh;
 }
 
-function screwHeads(parent,poses) {
+export function addScrewHeads(parent,poses) {
   // A blind cross recess has visible side walls and a dark floor inside the head.
   const radius=.131, head=new THREE.Shape();
   head.absarc(0,0,radius,0,TAU,false);
@@ -68,11 +68,16 @@ function sweptBlade() {
   return g;
 }
 
-export function buildProcessorCooler(box,x,z,baseY,socket) {
-  const contact=box(x,baseY+.10,z,2.15,.20,2.05,0xb47c51,true);
-  box(x,baseY+.28,z,1.76,.17,1.70,0xc8a57b,true);
+export function buildProcessorCooler(box,x,z,baseY) {
+  const scale=1.5;
+  // Physics reads boxes in island coordinates. Scale those around the same seat as the model.
+  function coolerBox(dx,dy,dz,width,height,depth,material,solid=false) {
+    return box(x+dx*scale,baseY+dy*scale,z+dz*scale,width*scale,height*scale,depth*scale,material,solid);
+  }
+  const contact=coolerBox(0,.10,0,2.15,.20,2.05,0xb47c51,true);
+  coolerBox(0,.28,0,1.76,.17,1.70,0xc8a57b,true);
   const model=new THREE.Group();
-  model.name='processor-cooler';model.position.set(x,baseY,z);contact.parent.add(model);
+  model.name='processor-cooler';model.position.set(x,baseY,z);model.scale.setScalar(scale);contact.parent.add(model);
   const nickel=metal(0xb6c2bc,.41,.43), copper=metal(0xca9364,.43,.30);
   const graphite=metal(0x35494f,.24,.48), rubber=metal(0x253a3b,.02,.82);
   const plateOutline=polygon([[-1.16,-.52],[-.86,-.52],[-.78,-.45],[.78,-.45],[.86,-.52],[1.16,-.52],
@@ -81,13 +86,10 @@ export function buildProcessorCooler(box,x,z,baseY,socket) {
   const finBottom=.65, top=3.04,fanY=1.84;
   for(const side of [-1,1]){
     const towerZ=side*.62;
-    box(x,baseY+(top+finBottom)/2,z+towerZ,2.60,top-finBottom,1.04,graphite,true).visible=false;
+    coolerBox(0,(top+finBottom)/2,towerZ,2.60,top-finBottom,1.04,graphite,true).visible=false;
     for(let i=0;i<18;i++)fins.push([0,finBottom+.135*i,towerZ,-Math.PI/2]);
     covers.push([0,top-.09,towerZ,-Math.PI/2]);
     for(const dx of [-.92,-.48,.48,.92])pipeTips.push([dx,top+.028,towerZ]);
-    for(const dx of [-1,1]){
-      screws.push([dx*(socket/2-.22),.24-baseY+.030,side*(socket/2-.22),-Math.PI/2,0,dx*.36,1.18]);
-    }
   }
   copies(model,plate(plateOutline,.042,.009),nickel,fins);
   copies(model,plate(plateOutline,.082,.018),graphite,covers);
@@ -103,7 +105,7 @@ export function buildProcessorCooler(box,x,z,baseY,socket) {
   copies(model,new THREE.TubeGeometry(pipe,56,.073,10,false),copper,[-.92,-.48,.48,.92].map(dx=>[dx,0,0]));
 
   // A crossbar and two spring-loaded screws clamp the contact block onto the lid.
-  box(x,baseY+.24,z,3.24,.12,.38,nickel);
+  coolerBox(0,.24,0,3.24,.12,.38,nickel);
   const springPoints=[];
   for(let i=0;i<=64;i++){
     const turn=TAU*4*i/64;
@@ -128,7 +130,7 @@ export function buildProcessorCooler(box,x,z,baseY,socket) {
   for(const side of [-1,1]){
     const facing=side===1?0:Math.PI;
     const fanZ=side*1.30;
-    box(x,baseY+fanY,z+fanZ,2.30,2.30,.25,graphite,true).visible=false;
+    coolerBox(0,fanY,fanZ,2.30,2.30,.25,graphite,true).visible=false;
     // Four rear spokes tie the motor to the frame while leaving the air channel open.
     for(let i=0;i<4;i++){
       const angle=TAU*i/4+Math.PI/4;
@@ -152,6 +154,6 @@ export function buildProcessorCooler(box,x,z,baseY,socket) {
   copies(model,frame,graphite,frames);
   copies(model,new THREE.TorusGeometry(1.028,.019,8,48),copper,rims);
   copies(model,pad,rubber,pads);
-  screwHeads(model,screws);
+  addScrewHeads(model,screws);
   return rotors;
 }
