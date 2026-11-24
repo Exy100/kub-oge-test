@@ -21,12 +21,14 @@ export function createScanFindings(parent, trunks) {
   const treeRings = new THREE.InstancedMesh(detail,bandMaterial,12);
   treeRings.name = 'tree-scan-rings';
   const transform = new THREE.Matrix4();
+  const outerWidth = 1.92, barWidth = .08, barHeight = .022;
+  const edgeOffset = (outerWidth - barWidth) / 2;
   let bar = 0;
   for (const y of [-.30,-.06,.18]) {
     for (const side of [-1,1]) {
-      transform.makeScale(1.28,.022,.08).setPosition(0,y,side*.60);
+      transform.makeScale(outerWidth,barHeight,barWidth).setPosition(0,y,side*edgeOffset);
       treeRings.setMatrixAt(bar++,transform);
-      transform.makeScale(.08,.022,1.12).setPosition(side*.60,y,0);
+      transform.makeScale(barWidth,barHeight,outerWidth - 2*barWidth).setPosition(side*edgeOffset,y,0);
       treeRings.setMatrixAt(bar++,transform);
     }
   }
