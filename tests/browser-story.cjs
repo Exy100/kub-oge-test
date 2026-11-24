@@ -24,7 +24,7 @@ window.storyTest={
      && solids.every(m=>m.parent===island);
  },
  snapshot(){return {index:stage.index,built:stage.built.size,inventory:stage.inventory.slice(),unlocked:stage.unlocked,pickups:stage.pickups.length}},
- nearGate(){player.position.set(stage.index===0?0:stage.center+6,0,stage.index===0?0:5)},
+ nearGate(){player.position.set(returnGlow?.position.x ?? 0,0,returnGlow?.position.z ?? 0)},
  formerPortal(x){player.position.set(x,0,1)},
  portalSolids(){return solids.filter(b=>Math.abs(Math.abs(b.position.x)-5)<1.6&&Math.abs(b.position.z)<.4&&b.position.y>.1).length},
  collect(){for(const m of [...stage.pickups]){player.position.set(m.position.x,0,m.position.z+2);camera.position.set(m.position.x,2.5,m.position.z);camera.lookAt(m.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)}},

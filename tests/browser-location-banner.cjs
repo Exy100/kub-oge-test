@@ -23,7 +23,7 @@ const {chromium} = require('playwright');
           }else if(forward){
             stage.unlocked=true;
             player.position.set(stage.center,0,stage.index===0?-1:stage.index<=2?-6:-2);
-          }else player.position.set(stage.center+6,0,6);
+          }else player.position.set(returnGlow.position.x,0,returnGlow.position.z);
         };
       `,
     }));

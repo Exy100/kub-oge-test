@@ -313,10 +313,11 @@ function enterIsland(next) {
   }
   if (stage.index > 0) {
     const center = stage.center + 6;
-    for(const x of [center-1.15,center+1.15])box(x,1.5,6,.6,3,.6,0x8bada5,true);
-    box(center,3.1,6,2.9,.5,.6,0x8bada5,true);
+    const z = lab ? 8 : 6;
+    for(const x of [center-1.15,center+1.15])box(x,1.5,z,.6,3,.6,0x8bada5,true);
+    box(center,3.1,z,2.9,.5,.6,0x8bada5,true);
     returnGlow = new THREE.Mesh(new THREE.PlaneGeometry(1.7,2.9),new THREE.MeshBasicMaterial({color:0x74e8d4,transparent:true,opacity:.38,side:THREE.DoubleSide,depthWrite:false}));
-    returnGlow.position.set(center,1.45,6);
+    returnGlow.position.set(center,1.45,z);
     island.add(returnGlow);
     cameraObstacles.push(returnGlow);
   }
@@ -424,7 +425,7 @@ function select(i){
 function nearbyRoute(){
   if(player.position.y>=1)return null;
   const routes=[];
-  if(stage.index>0)routes.push({x:stage.center+6,z:6,to:stage.index-1,ready:true,label:'Вернуться в локацию «'+LOCATIONS[stage.index-1].name+'»'});
+  if(returnGlow)routes.push({x:returnGlow.position.x,z:returnGlow.position.z,to:stage.index-1,ready:true,label:'Вернуться в локацию «'+LOCATIONS[stage.index-1].name+'»'});
   if(stage.index===0)routes.push({x:0,z:-1,to:stage.index+1,ready:stage.unlocked,label:'Перейти в мастерскую черепахи',locked:'Дострой арку, чтобы открыть проход.'});
   if(processorLab)routes.push({x:stage.center,z:-6,to:stage.index+1,ready:stage.unlocked,label:'Перейти на остров трёх арок',locked:'Исправь код на пульте процессора.'});
   if(workshop)routes.push({x:stage.center,z:-6,to:stage.index+1,ready:stage.unlocked,label:'Перейти в лабораторию процессора',locked:stage.repair.axe?'Заверши деревянную арку.':'Помоги черепахе починить компьютер.'});
