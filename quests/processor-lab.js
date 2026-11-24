@@ -16,7 +16,7 @@ export function createProcessorLab({stage, box, player, dialog, pause, changed, 
   box(deskX,1.09,deskZ,1.6,.12,1,0x68817b);
   const display = box(deskX,1.37,deskZ-.24,1.14,.48,.12,0x386376);
   for(let i=0;i<4;i++)box(deskX+(i-1.5)*.29,1.17,deskZ+.16,.2,.07,.18,0xd3b277);
-  const exitArch = {x: x - 7, z: -6};
+  const exitArch = {x: x - 7, z: -7};
   for(const side of [-1,1])box(exitArch.x+side*.83,1.08,exitArch.z,.6,2.16,.65,0x547974,true);
   box(exitArch.x,2.3,exitArch.z,2.26,.28,.65,0x72968a,true);
   function lightCore() {
