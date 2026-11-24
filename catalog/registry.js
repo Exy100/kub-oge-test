@@ -18,7 +18,7 @@ export function createCatalog(definitions) {
     const fail = message => { throw new Error(`Catalog ${id}: ${message}`); };
     if (!nonempty(id) || !/^[a-z][a-z0-9.-]*$/.test(id)) fail('invalid ID');
     if (byId.has(id)) fail('duplicate ID');
-    if (!['tree', 'resource', 'tool', 'key'].includes(type)) fail('unknown type');
+    if (!['tree', 'resource', 'tool', 'key', 'reward'].includes(type)) fail('unknown type');
     if (!nonempty(name) || !nonempty(description)) fail('name and description are required');
     if (type === 'tree') {
       const { palette, parts } = definition;

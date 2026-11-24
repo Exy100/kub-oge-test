@@ -139,6 +139,18 @@
   box-shadow: inset 0 0 0 3px #f0fff64d,inset 0 -5px 12px #58998160,2px 3px 0 #92c5b4,4px 5px 0 #deffecab,0 12px 26px #244b3840;
 }
 .mission[hidden] { display:none; }
+.mission.mission-compact {
+  width:max-content;
+  max-width:calc(100% - 32px);
+  padding:0;
+  border-radius:12px;
+}
+.mission-compact .quest-heading,
+.mission-compact #quest-diagram,
+.mission.mission-compact .progress-label,
+.mission-compact #arch-status,
+.mission.mission-compact .tip { display:none; }
+.mission-compact .quest-instructions { padding:8px 12px; }
 .quest-heading { text-align:center; border-bottom:1px solid #e6fff1b3; position:relative; }
 #quest-close {
   position:absolute; z-index:1; top:-14px; right:-10px; width:44px; height:44px;
@@ -511,3 +523,11 @@ body > header .brand { pointer-events:auto; }
   .pc-inventory button { flex-direction:column; justify-content:center; text-align:center; gap:2px; }
   .pc-inventory img { width:56px; height:30px; }
 }
+
+.processor-lab #quest-diagram { display:none; }
+.processor-bytes fieldset { min-width:0; margin:10px 0; padding:10px; border:1px solid #87ad9c; border-radius:10px; }
+.processor-bytes legend { padding:0 5px; font-size:.9rem; }
+.processor-bytes code { letter-spacing:.12em; color:#285a48; }
+.processor-bytes fieldset div { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:3px; }
+.processor-bytes button { min-width:0; padding:8px 0; background:#dcebe1; border-radius:5px; font:bold 1rem monospace; }
+.processor-bytes button[aria-pressed="true"] { color:white; background:#265c4e; outline:2px solid #264f42; }
