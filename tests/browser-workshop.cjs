@@ -116,6 +116,10 @@ const {chromium} = require('playwright');
       }
       assert.equal((await items()).length,bug?5:2);
       if(!bug){
+        await near('turtle-mechanic');await press('KeyE');await tick(1.1);
+        assert.equal(await dialog.locator('[data-part]:enabled').count(),2);
+        assert.equal(await dialog.locator('[data-part]:disabled').count(),3);
+        await press('Escape');
         await at(166,6);await press('KeyE');assert.equal(await index(),0);
         await at(0,-1);await press('KeyE');assert.equal(await index(),1);
         assert.equal((await items()).length,2);
@@ -126,10 +130,28 @@ const {chromium} = require('playwright');
     assert.equal(await dialog.isVisible(),false);
     await tick(1.1);
     assert.equal(await page.evaluate(()=>workTest.state().acknowledgedParts),5);
+    assert.equal(await dialog.locator('.pc-target').getAttribute('aria-label'),'Сокет процессора');
+    assert.equal(await dialog.locator('.pc-board [data-socket]').count(),4);
+    assert.equal(await dialog.locator('.pc-board .pc-psu').count(),0);
+    for(const width of [360,880]){
+      await page.setViewportSize({width,height:700});
+      assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth));
+      for(const img of await dialog.locator('img').all())await img.evaluate(el=>el.decode());
+    }
     await click('[data-part="0"]');await click('[data-socket="4"]');
+    assert.match(await dialog.locator('[role=status]').innerText(),/другой разъём/);
     assert.equal((await items()).length,5);
     for(let i=0;i<5;i++){
-      await click('[data-part="'+i+'"]');await click('[data-socket="'+i+'"]');
+      const choice=dialog.locator('[data-part="'+i+'"]');
+      await choice.focus();await press('Enter');
+      assert.equal(await dialog.locator(':focus').getAttribute('data-socket'),String(i));
+      await press('Enter');
+      if(i===0){
+        await press('Escape');await press('KeyE');
+        assert.ok(await dialog.locator('[data-part="0"]').isDisabled());
+        assert.ok(await dialog.locator('[data-socket="0"]').isDisabled());
+        assert.equal(await dialog.locator('.pc-target').getAttribute('data-socket'),'1');
+      }
     }
     assert.equal((await items()).length,0);
     const presentation=()=>page.evaluate(()=>workTest.presentation());

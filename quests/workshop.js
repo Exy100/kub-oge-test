@@ -1,3 +1,4 @@
+import {workbenchView,bindWorkbench} from './workbench.js';
 import {Vector3} from '../vendor/three.module.js';
 import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=4';
 import {pcParts} from '../catalog/pc-parts.js';
@@ -140,28 +141,12 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       };
       return;
     }
-    function socket(p,i){
-      const installed=state.parts[i]==='installed';
-      return `<button data-socket="${i}" ${installed?'disabled':''}>${installed?'✓ '+p.name:p.socket}</button>`;
-    }
-    show('Верстак черепахи',`<p>Выбери деталь из рюкзака и укажи её место в корпусе.</p>
-    <div class="repair-case"><div class="repair-board"><strong>Материнская плата</strong>
-    ${pcParts.slice(0,4).map(socket).join('')}</div>${socket(pcParts[4],4)}</div>
-    <div class="repair-parts">${pcParts.map((p,i)=>state.parts[i]==='bag'?'<button data-part="'+i+'" aria-pressed="false">'+p.name+'</button>':'').join('')}</div><p role="status">Блок питания крепится в отдельном отсеке корпуса.</p>`);
-    let selected=-1;
-    const status=body.querySelector('[role=status]');
-    body.querySelectorAll('[data-part]').forEach(btn=>btn.onclick=()=>{
-      selected=Number(btn.dataset.part);
-      body.querySelectorAll('[data-part]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
-      status.textContent=pcParts[selected].description;
-    });
-    body.querySelectorAll('[data-socket]').forEach(btn=>btn.onclick=()=>{
-      if(selected!==Number(btn.dataset.socket)||state.parts[selected]!=='bag'){
-        status.textContent=selected<0?'Сначала выбери деталь из рюкзака.':'Этой детали нужен другой разъём.';return;
-      }
-      state.parts[selected]='installed';place();changed();
+    show('Верстак черепахи',workbenchView(state.parts));
+    bindWorkbench(body,state.parts,i=>{
+      state.parts[i]='installed';place();changed();
       if(repaired()){turtle.nod();sync()}
       assembly();
+      body.querySelector('[data-part][aria-pressed="true"]')?.focus({preventScroll:true});
     });
   }
   function acknowledgeDelivery(){
@@ -180,7 +165,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       state.met=true;changed();
       show('Черепаха-механик','<p>«Я разобрала компьютер, чтобы найти баг. А их оказалось двое! Пока я проверяла плату, они унесли пять деталей. Поможешь мне их вернуть?»</p><p>Нажми L для боя. Подойди к жуку и нажимай 1 или ЛКМ. Когда жук остановится, исправь слова в его программе.</p><button class="field-primary">Помогу</button>');
       body.querySelector('button').onclick=()=>dialog.close();
-    } else if(state.parts.includes('bag') || state.parts.every(p=>p==='installed')) assembly();
+    } else if(state.parts.includes('bag') || state.parts.includes('installed')) assembly();
     else notify(repairBrief(state));
   }
   function target() {
