@@ -6,7 +6,10 @@ import { tools } from './tools.js?v=2';
 import { trees } from './trees.js';
 import { createCatalog } from './registry.js?v=2';
 
-export const catalog = createCatalog([...resources, ...pcParts, ...tools, ...keys, ...trees, orangeBug, greenBug]);
+export const catalog = createCatalog([...resources, ...pcParts, ...tools, ...keys, ...trees, orangeBug, greenBug, {
+  id:'reward.weapon-kit', type:'reward', kind:'reward', category:'Награда', glyph:'▣',
+  name:'Оружейный набор', description:'Закрытый оружейный набор из лаборатории процессора.',
+}]);
 export const BUILD_MATERIALS = Object.freeze(catalog.list('resource')
   .filter(item => item.materialSlot !== undefined).sort((a,b) => a.materialSlot - b.materialSlot));
 

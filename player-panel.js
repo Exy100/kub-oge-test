@@ -76,8 +76,12 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
     </div>`;
   const quest = $('#quest-panel');
   const questTab = $('#quest-tab');
+  let questVisible = true;
+  let questIntro = false;
   function showQuest(visible) {
-    quest.hidden = !visible;
+    if (!questIntro) questVisible = visible;
+    quest.hidden = !visible && !questIntro;
+    quest.classList.toggle('mission-compact', questIntro && !visible);
     questTab.setAttribute('aria-expanded', String(visible));
     questTab.title = (visible ? 'Свернуть задание' : 'Открыть задание') + ' · J / О';
     questTab.setAttribute('aria-label', questTab.title);
@@ -87,7 +91,12 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
     showQuest(false);
     questTab.focus({preventScroll:true});
   };
-  function toggleQuest() { if (!blocked()) showQuest(quest.hidden); }
+  function setQuestIntro(active) {
+    if (active === questIntro) return;
+    questIntro = active;
+    showQuest(active ? false : questVisible);
+  }
+  function toggleQuest() { if (!blocked()) showQuest(questTab.getAttribute('aria-expanded') !== 'true'); }
   questTab.onclick = toggleQuest;
   showQuest(true);
   dock.querySelector('.dock-content').append(hotbar);
@@ -229,7 +238,11 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
       strike.setAttribute('aria-label',action?strike.title:lockedLabel);
       strike.querySelector('small').hidden=!!action;
     },
-    scanResult, updatePortal, enterLocation:speech.enterLocation, start, update,
+    enterLocation(){
+      if (questIntro) showQuest(false);
+      speech.enterLocation();
+    },
+    setQuestIntro, scanResult, updatePortal, start, update,
     storageOpen:storage.isOpen, guideOpen:()=>guideDialog.open,
     isOpen:()=>guideDialog.open || dialog.open || storage.isOpen() || choice.isOpen(),
     isBattle:()=>mode==='battle', toggleMode, input,

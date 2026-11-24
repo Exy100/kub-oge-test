@@ -1,6 +1,12 @@
 import * as THREE from '../vendor/three.module.js';
 import { createTreeRenderer } from './trees.js';
 
+const grassPalette = [0x9cbb76, 0x96b570, 0xa0bd79, 0x91b16b];
+
+function grassColor(x, z) {
+  return grassPalette[Math.abs(x * 13 + z * 7) % grassPalette.length];
+}
+
 export function buildIslandTerrain(location, index, root, geo, box, solids, cameraObstacles) {
   const createTree = createTreeRenderer(box);
   function renderTree(tree) {
@@ -12,7 +18,7 @@ export function buildIslandTerrain(location, index, root, geo, box, solids, came
     // Floating voxel island, with a stepped rocky underside.
     box(0,-1.6,0,23,2.5,21,0x987a55);box(0,-3.4,0,20,1.5,18,0x7d8171);box(0,-4.7,0,15,1.2,14,0x8a8e7d);
     for(let x=-11;x<=11;x++)for(let z=-10;z<=10;z++){
-      const tile=box(x,-.28,z,1,.55,1,[0x9cbb76,0x96b570,0xa0bd79,0x91b16b][Math.abs(x*13+z*7)%4]);
+      const tile=box(x,-.28,z,1,.55,1,grassColor(x,z));
       if (Math.abs(x)>3 || z < -3 || z > 1) tile.userData.scanSurface = 'grass';
     }
     for(let x=-3;x<=3;x++)for(let z=-3;z<=1;z++)box(x,.015,z,.98,.08,.98,0xded9bb);
@@ -42,11 +48,19 @@ export function buildIslandTerrain(location, index, root, geo, box, solids, came
     const center = location.center;
     box(center,-1.6,0,23,2.5,21,center===80?0x6e7b86:0x9c967b);
     box(center,-3.4,0,20,1.5,18,0x727e80);box(center,-4.7,0,15,1.2,14,0x8c9690);
+    const grassFloor = ['island.turtle','island.processor-lab'].includes(location.id);
     const tiles=[];
-    for(let x=-11;x<=11;x++)for(let z=-10;z<=10;z++)if(location.id === 'island.turtle' || !(Math.abs(x)>9&&Math.abs(z)>8))tiles.push([center+x,z]);
+    for(let x=-11;x<=11;x++)for(let z=-10;z<=10;z++)if(grassFloor || !(Math.abs(x)>9&&Math.abs(z)>8))tiles.push([center+x,z]);
     const ground=new THREE.InstancedMesh(geo,new THREE.MeshStandardMaterial({roughness:1}),tiles.length);
     const dummy=new THREE.Object3D();dummy.scale.set(1,.55,1);
-    tiles.forEach(([x,z],i)=>{dummy.position.set(x,-.28,z);dummy.updateMatrix();ground.setMatrixAt(i,dummy.matrix);ground.setColorAt(i,new THREE.Color(center===80?[0x9daeb5,0x91a4af,0xa6b5b9][i%3]:[0xb8c58c,0xa9bd80,0xc7cf9a][i%3]))});
+    const palette = center === 80 ? [0x9daeb5,0x91a4af,0xa6b5b9] : [0xb8c58c,0xa9bd80,0xc7cf9a];
+    tiles.forEach(([x,z],i)=>{
+      dummy.position.set(x,-.28,z);
+      dummy.updateMatrix();
+      ground.setMatrixAt(i,dummy.matrix);
+      const color = grassFloor ? grassColor(x-center,z) : palette[i % palette.length];
+      ground.setColorAt(i,new THREE.Color(color));
+    });
     ground.receiveShadow=true;root.add(ground);
     location.trees.forEach(renderTree);
     if (location.id === 'island.turtle') {

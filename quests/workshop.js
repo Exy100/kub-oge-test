@@ -1,5 +1,6 @@
 import {orangeBug,greenBug,UNARMED_DAMAGE} from '../catalog/bugs.js';
-import {Vector3} from '../vendor/three.module.js';
+import {workbenchView,bindWorkbench} from './workbench.js?v=3';
+import {CanvasTexture, Sprite, SpriteMaterial, SRGBColorSpace, Vector3} from '../vendor/three.module.js';
 import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=4';
 import {pcParts} from '../catalog/pc-parts.js';
 import {workshopModels} from '../world/repair-models.js?v=6';
@@ -7,11 +8,11 @@ import {workshopModels} from '../world/repair-models.js?v=6';
 import {createBugEncounter} from '../world/bug-encounter.js';
 
 const puzzles = [
-  {enemy:orangeBug, parts:[0,1], lines:[
+  {enemy:orangeBug, color:'оранжевого', parts:[0,1], lines:[
     ['name = ', {typo:'inpt', answer:'input'}, '("Как тебя зовут?")'],
     [{typo:'pritn', answer:'print'}, '("Привет,", name)'],
   ]},
-  {enemy:greenBug, parts:[2,3,4], lines:[
+  {enemy:greenBug, color:'зелёного', parts:[2,3,4], lines:[
     [{typo:'fro', answer:'for'}, ' i in ', {typo:'rnage', answer:'range'}, '(3):'],
     ['    ', {typo:'prnit', answer:'print'}, '(i)'],
   ]},
@@ -25,18 +26,71 @@ const repairHints = {
 export function newRepair() {
   return {met:false,axe:false,bugs:puzzles.map(({enemy})=>({hp:enemy.maxHp,phase:'running',x:0,z:0})),parts:pcParts.map(()=>'stolen')};
 }
-export function repairBrief(state) {
+export function hasArchWood(stage) {
+  return stage.inventory[2]+stage.built.size>=stage.targets.length;
+}
+export function repairBrief(stage) {
+  const state=stage.repair;
   if (!state.met) return 'Поговори с черепахой у верстака.';
-  if (state.bugs.some(b=>b.phase==='running'||b.phase==='stopped')) return 'В режиме боя поймай двух багов и исправь их программы.';
-  if (state.axe) return 'Добудь древесину топором и собери деревянную арку на севере.';
+  if (state.axe) return hasArchWood(stage)?'Построй деревянную арку на севере.':'Добудь древесину Листолуном.';
+  const dropped=puzzles.find(p=>p.parts.some(i=>state.parts[i]==='ground'));
+  if(dropped){
+    const found=dropped.parts.filter(i=>state.parts[i]==='bag' || state.parts[i]==='installed').length;
+    return `Подбери детали ${dropped.color} жука · ${found}/${dropped.parts.length}`;
+  }
+  const active=puzzles.filter((_,i)=>['running','stopped'].includes(state.bugs[i].phase));
+  if(active.length===2)return 'В режиме боя поймай двух багов и исправь их программы.';
+  if(active.length===1 && state.bugs[puzzles.indexOf(active[0])].phase==='stopped')return `Исправь программу ${active[0].color} жука.`;
+  if(active.length===1)return `Поймай ${active[0].color} жука и исправь его программу.`;
+  if(state.bugs.some(b=>b.phase==='leaving'))return 'Забери детали у исправленного жука.';
   if (state.parts.every(p=>p==='installed')) return 'Вернись к черепахе за волшебным топором.';
-  if (state.parts.includes('ground') || state.parts.includes('stolen')) return 'Подбери оставленные на траве детали клавишей E.';
   return 'Вернись к черепахе и установи детали компьютера.';
+}
+function fieldLabel(text) {
+  const canvas=document.createElement('canvas');
+  const ctx=canvas.getContext('2d');
+  const font='bold 28px sans-serif';
+  ctx.font=font;
+  canvas.width=Math.ceil(ctx.measureText(text).width)+28;
+  canvas.height=44;
+  ctx.fillStyle='#25483c';ctx.fillRect(0,0,canvas.width,canvas.height);
+  ctx.font=font;ctx.fillStyle='#fff6ce';ctx.textAlign='center';
+  ctx.fillText(text,canvas.width/2,32);
+  const map=new CanvasTexture(canvas);
+  map.colorSpace=SRGBColorSpace;
+  const label=new Sprite(new SpriteMaterial({map,depthWrite:false}));
+  label.scale.set(canvas.width/104,canvas.height/104,1);
+  label.visible=false;
+  return label;
+}
+function createQuestMark() {
+  const canvas=document.createElement('canvas');
+  canvas.width=canvas.height=128;
+  const ctx=canvas.getContext('2d');
+  ctx.font='bold 92px sans-serif';
+  ctx.textAlign='center';
+  ctx.lineJoin='round';
+  ctx.lineWidth=6;
+  ctx.strokeStyle='#5b3815';
+  ctx.shadowColor='#ffd45b';
+  ctx.shadowBlur=10;
+  ctx.strokeText('!',64,96);
+  ctx.fillStyle='#fff397';
+  ctx.fillText('!',64,96);
+  const map=new CanvasTexture(canvas);
+  map.colorSpace=SRGBColorSpace;
+  const mark=new Sprite(new SpriteMaterial({map,depthWrite:false}));
+  mark.name='turtle-quest-mark';
+  mark.position.y=2.45;
+  mark.scale.setScalar(.95);
+  return mark;
 }
 export function createWorkshop({stage,parent,geometry,box,player,camera,canStore,equipAxe,notify,pause,changed,collect,place,onHit}) {
   const state=stage.repair, center=stage.center;
   const models=workshopModels(parent,geometry);
   const turtle=createTurtleMechanic(parent,center-1.85,-.3);
+  const questMark=createQuestMark();
+  turtle.root.add(questMark);
   const worktop=box(center+1.1,.85,-1,1.9,.22,1.2,0xae895d,true);
   worktop.name='turtle-workbench-top';
   for (const dx of [-.7,.7]) box(center+1.1+dx,.4,-1,.17,.8,.96,0x746b54,true);
@@ -51,6 +105,16 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   const settleSeconds=.55, settling=bugs.map(()=>0);
   const helpers=bugs.map(({g})=>models.helper(g.position.x,g.position.z));
   const drops=pcParts.map((p,i)=>models.part(p,i,center,0));
+  const pickupNames=['процессор','оперативную память','SSD','видеокарту','блок питания'];
+  const dropLabels=pickupNames.map((name,i)=>{
+    const label=fieldLabel('E · Подобрать '+name);
+    label.name='pickup-label-'+pcParts[i].id;
+    return label;
+  });
+  const archLabel=fieldLabel('Северная арка');
+  archLabel.name='north-arch-label';
+  archLabel.position.set(stage.arches[0].x,3.55,stage.arches[0].z);
+  parent.add(...dropLabels,archLabel);
   const prompt=document.querySelector('#field-action'), dialog=document.querySelector('#workshop-dialog');
   const title=dialog.querySelector('h2'), body=dialog.querySelector('.field-body');
   let time=0, fade=[0,0], lastHit=-1;
@@ -62,6 +126,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   const byBench=()=>near(turtle.root,3.2) || (state.met && near(worktop,2.2));
   if(repaired() && state.giftShown && !state.axe)turtle.present(1);
   function sync() {
+    questMark.visible=!state.met;
     powerLed.material.color.setHex(repaired()?0x95eead:0x51665a);
     powerLed.material.emissive.setHex(repaired()?0x388958:0);
     state.bugs.forEach((b,i)=>{
@@ -77,7 +142,9 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       puzzles[i].parts.forEach((part,j)=>{
         const obj=drops[part];
         obj.visible=state.parts[part]==='ground';
+        if(!obj.visible)dropLabels[part].visible=false;
         obj.position.set(b.x+(j-(puzzles[i].parts.length-1)/2)*1.0,0,b.z+.35);
+        dropLabels[part].position.copy(obj.position);dropLabels[part].position.y=.96;
       });
     });
   }
@@ -119,12 +186,12 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
         inputs[wrong].focus();inputs[wrong].select();return;
       }
       b.phase='leaving';fade[i]=0;sync();helpers[i].rotation.y=Math.atan2(player.position.x-b.x,player.position.z-b.z);dialog.close();
-      notify('Программа: «Спасибо! Теперь я снова работаю. Возвращаю детали!»');changed();
+      changed();
     };
   }
   function assembly() {
     if(stage.unlocked){
-      show('Компьютер работает','<p>Черепаха: «Мои программы снова запускаются! Портал к трём аркам открыт».</p>');
+      show('Компьютер работает','<p>Черепаха: «Мои программы снова запускаются! Портал в лабораторию открыт».</p>');
       return;
     }
     if(repaired()){
@@ -133,7 +200,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
         return;
       }
       if(state.axe){show('Компьютер работает','<p>«Топором можно добыть древесину из любого ствола. Собери из семи блоков арку на северной стороне острова».</p>');return}
-      show('Подарок черепахи','<img src="./assets/inventory-axe.webp" width="96" height="96" alt="Листолун с нефритовым лезвием"><p>«Компьютер ожил! Спасибо. Держи Листолун — его лезвие снимает древесину, и дерево остаётся целым. Из семи блоков ты построишь арку».</p><button class="field-primary">Принять топор</button>');
+      show('Подарок черепахи','<img src="./assets/inventory-axe.webp" width="96" height="96" alt="Листолун с нефритовым лезвием"><p>«Компьютер работает! Держи Листолун. Этот топор пригодится тебе на протяжении всего приключения. Когда для задания понадобится древесина, ударь им по стволу. Дерево останется целым. Сейчас добудь семь блоков древесины и дострой северную арку. Через неё лежит путь в лабораторию, где ты поможешь починить процессор».</p><button class="field-primary">Принять топор</button>');
       body.querySelector('button').onclick=()=>{
         if(state.axe || !canStore('wood-axe'))return;
         state.axe=true;closingLid=1;turtle.present(1,false);dialog.close();equipAxe();collect();changed();
@@ -141,32 +208,16 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       };
       return;
     }
-    function socket(p,i){
-      const installed=state.parts[i]==='installed';
-      return `<button data-socket="${i}" ${installed?'disabled':''}>${installed?'✓ '+p.name:p.socket}</button>`;
-    }
-    show('Верстак черепахи',`<p>Выбери деталь из рюкзака и укажи её место в корпусе.</p>
-    <div class="repair-case"><div class="repair-board"><strong>Материнская плата</strong>
-    ${pcParts.slice(0,4).map(socket).join('')}</div>${socket(pcParts[4],4)}</div>
-    <div class="repair-parts">${pcParts.map((p,i)=>state.parts[i]==='bag'?'<button data-part="'+i+'" aria-pressed="false">'+p.name+'</button>':'').join('')}</div><p role="status">Блок питания крепится в отдельном отсеке корпуса.</p>`);
-    let selected=-1;
-    const status=body.querySelector('[role=status]');
-    body.querySelectorAll('[data-part]').forEach(btn=>btn.onclick=()=>{
-      selected=Number(btn.dataset.part);
-      body.querySelectorAll('[data-part]').forEach(b=>b.setAttribute('aria-pressed',String(b===btn)));
-      status.textContent=pcParts[selected].description;
-    });
-    body.querySelectorAll('[data-socket]').forEach(btn=>btn.onclick=()=>{
-      if(selected!==Number(btn.dataset.socket)||state.parts[selected]!=='bag'){
-        status.textContent=selected<0?'Сначала выбери деталь из рюкзака.':'Этой детали нужен другой разъём.';return;
-      }
-      state.parts[selected]='installed';place();changed();
+    show('Верстак черепахи',workbenchView(state.parts));
+    bindWorkbench(body,state.parts,i=>{
+      state.parts[i]='installed';place();changed();
       if(repaired()){turtle.nod();sync()}
       assembly();
+      body.querySelector('[data-part][aria-pressed="true"]')?.focus({preventScroll:true});
     });
   }
   function acknowledgeDelivery(){
-    if(!state.parts.includes('bag'))return;
+    if(!state.met || !state.parts.includes('bag'))return;
     const returned=state.parts.filter(p=>p==='bag' || p==='installed').length;
     if(returned<=(state.acknowledgedParts??0))return;
     state.acknowledgedParts=returned;
@@ -174,31 +225,36 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   }
   function talk() {
     if(giftTime!==null)return;
+    if(!state.met){
+      state.met=true;questMark.visible=false;turtle.nod();changed();
+      const hasParts=state.parts.includes('bag');
+      const started=state.bugs.some((b,i)=>b.hp<puzzles[i].enemy.maxHp);
+      const greeting=hasParts?'Это детали моего компьютера! Спасибо, давай установим то, что ты принёс.':
+        started?'Эти жуки унесли детали моего компьютера. Спасибо, что помогаешь их вернуть!':
+        'Я разобрала компьютер, чтобы найти баг. А их оказалось двое! Пока я проверяла плату, они унесли пять деталей. Поможешь мне их вернуть?';
+      const hint=hasParts?'Выбери деталь из рюкзака и установи её в подходящий разъём.':started?repairBrief(stage):'Нажми L для боя. Подойди к жуку и нажимай 1 или ЛКМ. Когда жук остановится, исправь слова в его программе.';
+      show('Черепаха-механик',`<p>«${greeting}»</p><p>${hint}</p><button class="field-primary">${hasParts?'К верстаку':'Помогу'}</button>`);
+      body.querySelector('button').onclick=hasParts?assembly:()=>dialog.close();
+      return;
+    }
     acknowledgeDelivery();
     if(deliveryLeft>0){openAfterNod=true;return}
     turtle.nod();
-    if(!state.met){
-      state.met=true;changed();
-      show('Черепаха-механик','<p>«Я разобрала компьютер, чтобы найти баг. А их оказалось двое! Пока я проверяла плату, они унесли пять деталей. Поможешь мне их вернуть?»</p><p>Нажми L для боя. Подойди к жуку и бей кулаком (1 или ЛКМ). Когда жук остановится, исправь слова в его программе.</p><button class="field-primary">Помогу</button>');
-      body.querySelector('button').onclick=()=>dialog.close();
-    } else if(state.parts.includes('bag') || state.parts.every(p=>p==='installed')) assembly();
-    else notify(repairBrief(state));
+    if(state.parts.includes('bag') || state.parts.includes('installed')) assembly();
+    else notify(repairBrief(stage));
   }
   function target() {
-    if(state.met){
-      const i=closest(drops,j=>state.parts[j]==='ground',2);
-      if(i>=0)return {label:'Подобрать · '+pcParts[i].name,act(){
-        if(!canStore(pcParts[i].id))return;
-        state.parts[i]='bag';collect();sync();changed();notify(pcParts[i].name+' в рюкзаке.');
-      }};
-      const j=closest(bugs.map(b=>b.g),k=>state.bugs[k].phase==='stopped' && !settling[k],3);
-      if(j>=0)return {label:'Исправить программу',act:()=>edit(j)};
-    }
+    const i=closest(drops,j=>state.parts[j]==='ground',2);
+    if(i>=0)return {label:'Подобрать '+pickupNames[i],act(){
+      if(!canStore(pcParts[i].id))return;
+      state.parts[i]='bag';collect();sync();changed();notify(pcParts[i].name+' в рюкзаке.');
+    }};
+    const j=closest(bugs.map(b=>b.g),k=>state.bugs[k].phase==='stopped' && !settling[k],3);
+    if(j>=0)return {label:'Исправить программу',act:()=>edit(j)};
     if(byBench())return {label:state.met?'Верстак черепахи':'Поговорить с черепахой',act:talk};
   }
   function interact(){const t=target();if(t)t.act();return !!t}
   function attack(){
-    if(!state.met){notify('Сначала поговори с черепахой у верстака.');return}
     const i=closest(bugs.map(b=>b.g),j=>state.bugs[j].phase==='running',3.2);
     if(i<0){notify('Подойди ближе к бегущему багу.');return}
     if(time-lastHit<.25)return;
@@ -252,9 +308,23 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       }else if(b.phase==='leaving'){
         fade[i]+=dt;const fraction=Math.min(1,fade[i]/1.35),h=helpers[i];
         h.position.y=reduced?0:fraction*.95;h.scale.setScalar(1-fraction*.94);
-        if(fraction===1){b.phase='gone';puzzles[i].parts.forEach(j=>state.parts[j]='ground');sync();changed()}
+        if(fraction===1){
+          b.phase='gone';puzzles[i].parts.forEach(j=>state.parts[j]='ground');
+          sync();notify(puzzles[i].enemy.name+' говорит: «Вот детали!»');changed();
+        }
       }
     });
+    for(const puzzle of puzzles){
+      let nearest=-1,distance=Infinity;
+      for(const i of puzzle.parts){
+        dropLabels[i].visible=false;
+        if(!drops[i].visible)continue;
+        const d=drops[i].position.distanceToSquared(player.position);
+        if(d<distance){nearest=i;distance=d}
+      }
+      if(nearest>=0)dropLabels[nearest].visible=true;
+    }
+    archLabel.visible=state.axe && hasArchWood(stage) && !stage.unlocked;
     const t=target();
     prompt.hidden=!t;
     if(t && prompt.textContent!=='E · '+t.label)prompt.textContent='E · '+t.label;

@@ -9,12 +9,16 @@ const {chromium} = require('playwright');
   const server=spawn('python3',['-m','http.server','8179','--bind','127.0.0.1'],{cwd:root,stdio:'ignore'});
   const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox']});
   try {
-    const page=await browser.newPage({viewport:{width:880,height:700}});
+    const page=await browser.newPage({viewport:{width:880,height:700},hasTouch:true});
     const errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.addInitScript(()=>{requestAnimationFrame=()=>0;localStorage.setItem('kub.navigator.v1','27')});
     await page.route('**/game.js*',r=>r.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(root,'game.js'),'utf8')+`
+      window.bagForTest=()=>bag.items().find(item=>item.id===WEAPON_KIT)?.quantity??0;
       window.workTest={
+        pickupMarkers:()=>island.children.filter(o=>o.name.startsWith('pickup-label-') && o.visible).map(o=>o.name),
+        archMarked:()=>island.getObjectByName('north-arch-label').visible,
+        marked:()=>island.getObjectByName('turtle-quest-mark').visible,
         arrive(){stage.unlocked=true;player.position.set(0,0,-1);travel()},
         at(x,z){player.position.set(x,0,z)},
         near(name){const o=island.getObjectByName(name);player.position.set(o.position.x,0,o.position.z+.7)},
@@ -68,20 +72,35 @@ const {chromium} = require('playwright');
     const at=(x,z)=>page.evaluate(([x,z])=>workTest.at(x,z),[x,z]);
     const tick=seconds=>page.evaluate(t=>workTest.tick(t),seconds);
     const index=()=>page.evaluate(()=>workTest.index());
+    const objective=()=>page.locator('#quest-action').textContent();
+    const progress=()=>page.locator('.mission .progress-label').innerText();
+    const archMarked=()=>page.evaluate(()=>workTest.archMarked());
     const items=()=>page.evaluate(()=>workTest.items());
     const dialog=page.locator('#workshop-dialog');
     await click('#play');await page.evaluate(()=>workTest.arrive());
     assert.equal(await index(),1);
+    const questTab=page.locator('#quest-tab');
+    const questDiagram=page.locator('#quest-diagram');
+    assert.equal(await questTab.getAttribute('aria-expanded'),'false');
+    assert.equal(await questDiagram.isVisible(),false);
+    assert.equal(await page.locator('#quest-panel').innerText(),'Поговори с черепахой у верстака.');
+    await press('KeyJ');
+    assert.equal(await questDiagram.isVisible(),true);
+    await press('KeyJ');
+    assert.equal(await questDiagram.isVisible(),false);
+    assert.equal(await page.evaluate(()=>workTest.marked()),true);
     const gap=await page.evaluate(()=>workTest.workbenchGap());
     assert.ok(gap>.55,'Animated turtle clears the workbench by '+gap);
     await at(160,-6);await press('KeyE');assert.equal(await index(),1);
     await near('turtle-mechanic');await press('KeyE');
     assert.match(await dialog.innerText(),/пять деталей/);
+    assert.equal(await page.evaluate(()=>workTest.marked()),false);
     await dialog.getByText('Помогу').click();
+    assert.equal(await questDiagram.isVisible(),true);
     await press('KeyL');
     const parts=['pc.cpu','pc.ram','pc.ssd','pc.gpu','pc.psu'];
-    for(let bug=0;bug<2;bug++){
-      const hitsNeeded=bug===0?20:10;
+    const hitsByBug=[20,10];
+    for(const [bug,hitsNeeded] of hitsByBug.entries()){
       for(let hit=0;hit<hitsNeeded;hit++){
         await tick(.4);await near('repair-bug-'+bug);await press('Digit1');
         const {hp,phase}=await page.evaluate(i=>workTest.state().bugs[i],bug);
@@ -116,11 +135,22 @@ const {chromium} = require('playwright');
       assert.equal(await dialog.isVisible(),false);
       assert.equal(await page.evaluate(i=>workTest.state().bugs[i].phase,bug),'leaving');
       await tick(1.5);
+      await at(167,7);await tick(.05);
+      assert.equal((await page.evaluate(()=>workTest.pickupMarkers())).length,1);
+      assert.match(await page.locator('#message').textContent(),/Вот детали/);
+      assert.match(await objective(),bug?/зелёного жука · 0\/3/:/оранжевого жука · 0\/2/);
       for(const part of bug?parts.slice(2):parts.slice(0,2)){
         await near(part);await press('KeyE');
       }
       assert.equal((await items()).length,bug?5:2);
       if(!bug){
+        assert.match(await objective(),/зелёного жука/);
+        assert.match(await progress(),/Найдено 2\/5/);
+        assert.match(await progress(),/Установлено 0\/5/);
+        await near('turtle-mechanic');await press('KeyE');await tick(1.1);
+        assert.equal(await dialog.locator('[data-part]:enabled').count(),2);
+        assert.equal(await dialog.locator('[data-part]:disabled').count(),3);
+        await press('Escape');
         await at(166,6);await press('KeyE');assert.equal(await index(),0);
         await at(0,-1);await press('KeyE');assert.equal(await index(),1);
         assert.equal((await items()).length,2);
@@ -131,10 +161,62 @@ const {chromium} = require('playwright');
     assert.equal(await dialog.isVisible(),false);
     await tick(1.1);
     assert.equal(await page.evaluate(()=>workTest.state().acknowledgedParts),5);
-    await click('[data-part="0"]');await click('[data-socket="4"]');
+    assert.equal(await dialog.locator('.pc-target').getAttribute('aria-label'),'Сокет процессора');
+    assert.equal(await dialog.locator('.pc-board [data-socket]').count(),4);
+    assert.equal(await dialog.locator('.pc-board .pc-psu').count(),0);
+    for(const width of [360,880]){
+      await page.setViewportSize({width,height:700});
+      assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth));
+      for(const img of await dialog.locator('img').all())await img.evaluate(el=>el.decode());
+    }
+    const board=await dialog.locator('.pc-board').boundingBox();
+    const backpack=await dialog.locator('.pc-inventory').boundingBox();
+    assert.ok(board.x>backpack.x+backpack.width && board.width>=400);
+    await dialog.locator('[data-part="0"]').dragTo(dialog.locator('[data-socket="4"]'));
+    assert.match(await dialog.locator('[role=status]').innerText(),/другой разъём/);
     assert.equal((await items()).length,5);
     for(let i=0;i<5;i++){
-      await click('[data-part="'+i+'"]');await click('[data-socket="'+i+'"]');
+      const choice=dialog.locator('[data-part="'+i+'"]');
+      const socket=dialog.locator('[data-socket="'+i+'"]');
+      if(i===0){
+        await choice.dragTo(socket);
+      }else if(i===1){
+        await page.setViewportSize({width:390,height:800});
+        const center=async locator=>{
+          const {x,y,width,height}=await locator.boundingBox();
+          return {x:x+width/2,y:y+height/2};
+        };
+        const touch=await page.context().newCDPSession(page);
+        const start=await center(choice),end=await center(socket);
+        await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[start]});
+        await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[end]});
+        await touch.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+        assert.equal(await dialog.locator('.pc-drag-preview').count(),0);
+        assert.equal((await items()).length,4);
+        await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[start]});
+        await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[end]});
+        await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+        await touch.detach();
+        await page.setViewportSize({width:880,height:700});
+      }else{
+        await choice.focus();await press('Enter');
+        assert.equal(await dialog.locator('.pc-target').count(),0);
+        await dialog.getByRole('button',{name:'Показать разъём'}).click();
+        assert.equal(await dialog.locator(':focus').getAttribute('data-socket'),String(i));
+        await press('Enter');
+      }
+      assert.equal((await items()).length,4-i);
+      if(i===0){
+        await press('Escape');await press('KeyE');
+        assert.ok(await dialog.locator('[data-part="0"]').isDisabled());
+        assert.ok(await dialog.locator('[data-socket="0"]').isDisabled());
+        assert.match(await progress(),/Найдено 5\/5/);
+        assert.match(await progress(),/Установлено 1\/5/);
+        assert.equal(await dialog.locator('.pc-target').count(),0);
+        assert.match(await dialog.locator('.pc-instruction').innerText(),/длинная и узкая/);
+        await dialog.getByRole('button',{name:'Показать разъём'}).click();
+        assert.equal(await dialog.locator('.pc-target').getAttribute('data-socket'),'1');
+      }
     }
     assert.equal((await items()).length,0);
     const presentation=()=>page.evaluate(()=>workTest.presentation());
@@ -161,8 +243,13 @@ const {chromium} = require('playwright');
     await press('KeyB');
     assert.equal(await page.locator('[data-item="wood-axe"]').count(),1);
     await press('Escape');
+    assert.match(await objective(),/Добудь древесину/);
+    assert.equal(await page.locator('#count').textContent(),'0 / 7');
     for(let j=1;j<=7;j++){
       assert.equal(await page.evaluate(()=>workTest.chop()),j);
+      if(j===1)assert.match(await page.locator('#message').textContent(),/ещё раз по этому стволу/);
+      await tick(.01);
+      assert.equal(await archMarked(),j===7);
       if(j<7)await page.waitForTimeout(360);
     }
     for(let j=0;j<6;j++)assert.equal(await page.evaluate(i=>workTest.build(i),j),j+1);
@@ -171,17 +258,62 @@ const {chromium} = require('playwright');
     await at(0,-1);await press('KeyE');
     assert.equal(await page.evaluate(()=>workTest.build(6)),7);
     await at(160,-6);await press('KeyE');assert.equal(await index(),2);
+    await at(200,-6);await press('KeyE');assert.equal(await index(),2);
+    await at(202.25,1.8);await press('KeyE');
+    assert.match(await dialog.innerText(),/UTF-8/);
+    const launch=dialog.getByRole('button',{name:'Запустить процессор'});
+    await launch.click();
+    assert.match(await dialog.locator('[role=status]').innerText(),/Сверь байт 1/);
+    const code=dialog.locator('.processor-bytes button');
+    await code.nth(2).dragTo(code.nth(3));
+    await press('Escape');await press('KeyE');
+    assert.equal(await code.nth(3).innerText(),'1');
+    await code.nth(14).press('Enter');await code.nth(15).press('Enter');
+    await launch.click();assert.match(await dialog.innerText(),/Спасибо/);
+    await dialog.getByText('Продолжить').click();
+    const kits=()=>page.evaluate(()=>bagForTest());
+    assert.equal(await kits(),1);
+    await press('KeyE');assert.match(await dialog.innerText(),/Процессор запущен/);
+    await press('Escape');assert.equal(await kits(),1);
+    await at(200,-6);await press('KeyE');assert.equal(await index(),3);
     await at(40,2);await press('KeyE');
     const bits=dialog.locator('.signal-bits button');
     await bits.nth(1).click();assert.match(await dialog.innerText(),/Песчаник/);
     await bits.nth(1).click();await bits.nth(0).click();
     assert.match(await dialog.locator('[role=status]').innerText(),/Дерево · сигнал принят/);
-    await press('Escape');await at(40,-2);await press('KeyE');assert.equal(await index(),2);
-    await at(46,6);await press('KeyE');assert.equal(await index(),1);
+    await press('Escape');await at(40,-2);await press('KeyE');assert.equal(await index(),3);
+    await at(46,6);await press('KeyE');assert.equal(await index(),2);
+    assert.equal(await kits(),1);
+    await click('#reset');await click('#restart-confirm');
+    assert.equal(await kits(),0);
+    await at(200,-6);await press('KeyE');assert.equal(await index(),2);
+    await at(206,6);await press('KeyE');assert.equal(await index(),1);
     await click('#reset');await click('#restart-confirm');
     assert.equal(await page.evaluate(()=>workTest.state().met),false);
     assert.equal(await page.evaluate(()=>workTest.tool()),'wand');
     await at(160,-6);await press('KeyE');assert.equal(await index(),1);
+    assert.equal(await page.evaluate(()=>workTest.marked()),true);
+    await press('KeyL');
+    for(const [bug,hitsNeeded] of hitsByBug.entries()){
+      for(let hit=0;hit<hitsNeeded;hit++){
+        await tick(.4);await near('repair-bug-'+bug);await press('Digit1');
+      }
+      await tick(.6);
+      await press('Escape');await press('KeyE');
+      const fields=dialog.locator('input');
+      const answers=bug?['for','range','print']:['input','print'];
+      for(let i=0;i<answers.length;i++)await fields.nth(i).fill(answers[i]);
+      await dialog.getByText('Проверить программу').click();await tick(1.5);
+      for(const part of bug?parts.slice(2):parts.slice(0,2)){await near(part);await press('KeyE')}
+    }
+    assert.equal((await items()).length,5);
+    assert.equal(await page.evaluate(()=>workTest.state().met),false);
+    assert.match(await page.locator('#quest-action').textContent(),/Поговори с черепахой/);
+    await near('turtle-mechanic');await tick(.2);await press('KeyE');
+    assert.equal(await page.evaluate(()=>workTest.marked()),false);
+    await dialog.getByText('К верстаку').click();
+    assert.equal(await dialog.locator('[data-part]:enabled').count(),5);
+    await press('Escape');
     await page.evaluate(()=>workTest.finishEarlierRepair());
     await near('turtle-mechanic');await press('KeyE');
     await page.evaluate(()=>workTest.tickReduced(.36));
