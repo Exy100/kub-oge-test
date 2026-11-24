@@ -99,9 +99,14 @@ const {chromium} = require('playwright');
     assert.equal(await questDiagram.isVisible(),true);
     await press('KeyL');
     const parts=['pc.cpu','pc.ram','pc.ssd','pc.gpu','pc.psu'];
-    for(let bug=0;bug<2;bug++){
-      for(let hit=0;hit<3;hit++){
+    const hitsByBug=[20,10];
+    for(const [bug,hitsNeeded] of hitsByBug.entries()){
+      for(let hit=0;hit<hitsNeeded;hit++){
         await tick(.4);await near('repair-bug-'+bug);await press('Digit1');
+        const {hp,phase}=await page.evaluate(i=>workTest.state().bugs[i],bug);
+        assert.equal(hp,hitsNeeded-hit-1);
+        assert.equal(phase,hp?'running':'stopped');
+        assert.equal(await dialog.isVisible(),false);
       }
       assert.equal(await dialog.isVisible(),false);
       assert.equal(await page.evaluate(i=>workTest.state().bugs[i].phase,bug),'stopped');
@@ -293,8 +298,8 @@ const {chromium} = require('playwright');
     await at(160,-6);await press('KeyE');assert.equal(await index(),1);
     assert.equal(await page.evaluate(()=>workTest.marked()),true);
     await press('KeyL');
-    for(let bug=0;bug<2;bug++){
-      for(let hit=0;hit<3;hit++){
+    for(const [bug,hitsNeeded] of hitsByBug.entries()){
+      for(let hit=0;hit<hitsNeeded;hit++){
         await tick(.4);await near('repair-bug-'+bug);await press('Digit1');
       }
       await tick(.6);

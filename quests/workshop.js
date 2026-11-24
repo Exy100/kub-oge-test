@@ -1,3 +1,4 @@
+import {orangeBug,greenBug,UNARMED_DAMAGE} from '../catalog/bugs.js';
 import {workbenchView,bindWorkbench} from './workbench.js?v=3';
 import {CanvasTexture, Sprite, SpriteMaterial, SRGBColorSpace, Vector3} from '../vendor/three.module.js';
 import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=4';
@@ -7,11 +8,11 @@ import {workshopModels} from '../world/repair-models.js?v=6';
 import {createBugEncounter} from '../world/bug-encounter.js';
 
 const puzzles = [
-  {name:'Оранжевый Баг', color:'оранжевого', parts:[0,1], lines:[
+  {enemy:orangeBug, color:'оранжевого', parts:[0,1], lines:[
     ['name = ', {typo:'inpt', answer:'input'}, '("Как тебя зовут?")'],
     [{typo:'pritn', answer:'print'}, '("Привет,", name)'],
   ]},
-  {name:'Зелёный Баг', color:'зелёного', parts:[2,3,4], lines:[
+  {enemy:greenBug, color:'зелёного', parts:[2,3,4], lines:[
     [{typo:'fro', answer:'for'}, ' i in ', {typo:'rnage', answer:'range'}, '(3):'],
     ['    ', {typo:'prnit', answer:'print'}, '(i)'],
   ]},
@@ -23,7 +24,7 @@ const repairHints = {
   range:'Здесь нужна последовательность чисел.',
 };
 export function newRepair() {
-  return {met:false,axe:false,bugs:puzzles.map(()=>({hp:3,phase:'running',x:0,z:0})),parts:pcParts.map(()=>'stolen')};
+  return {met:false,axe:false,bugs:puzzles.map(({enemy})=>({hp:enemy.maxHp,phase:'running',x:0,z:0})),parts:pcParts.map(()=>'stolen')};
 }
 export function hasArchWood(stage) {
   return stage.inventory[2]+stage.built.size>=stage.targets.length;
@@ -131,7 +132,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
     state.bugs.forEach((b,i)=>{
       const {g,hp,fill}=bugs[i];
       g.visible=b.phase==='running'||b.phase==='stopped';
-      hp.visible=b.phase==='running';fill.scale.x=.93*b.hp/3;fill.position.x=(fill.scale.x-.93)/2;
+      hp.visible=b.phase==='running';fill.scale.x=.93*b.hp/puzzles[i].enemy.maxHp;fill.position.x=(fill.scale.x-.93)/2;
       if(b.phase!=='running'){
         g.position.set(b.x,0,b.z);g.rotation.y=b.yaw??0;
         if(b.phase==='stopped' && !settling[i])bugs[i].pose(1,0,true);
@@ -170,7 +171,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
       blanks.push({answer:token.answer,row:row+1});
       return `<input aria-label="Строка ${row+1}, поле ${blanks.length}" spellcheck="false" autocapitalize="off" value="${token.typo}">`;
     }).join('')).join('\n');
-    show(p.name+' · Отладка',`<p>Исправь выделенные слова Python, сохранив смысл программы.</p><form>
+    show(p.enemy.name+' · Отладка',`<p>Исправь выделенные слова Python, сохранив смысл программы.</p><form>
       <pre class="repair-code">${code}</pre>
       <button class="field-primary">Проверить программу</button><p role="status"></p></form>`);
     const form=body.querySelector('form'), inputs=[...form.querySelectorAll('input')];
@@ -227,7 +228,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
     if(!state.met){
       state.met=true;questMark.visible=false;turtle.nod();changed();
       const hasParts=state.parts.includes('bag');
-      const started=state.bugs.some(b=>b.hp<3);
+      const started=state.bugs.some((b,i)=>b.hp<puzzles[i].enemy.maxHp);
       const greeting=hasParts?'Это детали моего компьютера! Спасибо, давай установим то, что ты принёс.':
         started?'Эти жуки унесли детали моего компьютера. Спасибо, что помогаешь их вернуть!':
         'Я разобрала компьютер, чтобы найти баг. А их оказалось двое! Пока я проверяла плату, они унесли пять деталей. Поможешь мне их вернуть?';
@@ -259,7 +260,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
     if(time-lastHit<.25)return;
     lastHit=time;onHit();
     const b=state.bugs[i], g=bugs[i].g;
-    b.hp--;
+    b.hp=Math.max(0,b.hp-UNARMED_DAMAGE);
     if(b.hp)encounters[i].hit(player.position);
     else{
       b.phase='stopped';b.x=g.position.x;b.z=g.position.z;b.yaw=g.rotation.y;
@@ -309,7 +310,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
         h.position.y=reduced?0:fraction*.95;h.scale.setScalar(1-fraction*.94);
         if(fraction===1){
           b.phase='gone';puzzles[i].parts.forEach(j=>state.parts[j]='ground');
-          sync();notify(puzzles[i].name+' говорит: «Вот детали!»');changed();
+          sync();notify(puzzles[i].enemy.name+' говорит: «Вот детали!»');changed();
         }
       }
     });

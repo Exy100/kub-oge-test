@@ -33,6 +33,7 @@ export function createPanelKeys({ switchMode, navigator, camera, inventory, equi
   };
 }
 const paths = {
+  fist:'M13 39v-6l-6-9v-6a3 3 0 0 1 6 0v5-11a3 3 0 0 1 6 0v9-12a3 3 0 0 1 6 0v12-10a3 3 0 0 1 6 0v10-7a3 3 0 0 1 6 0v11l-5 9v5z M13 24l4-3h10q4 1 1 5l-7 2',
   sword:'M8 34 32 10 38 8 36 14 12 38M8 26l14 14M7 35l6 6',
   shield:'M24 5 39 11v12c0 10-15 18-15 18S9 33 9 23V11ZM24 12v21',
   spark:'m27 5-16 23h12l-2 15 16-24H25Z',
@@ -230,7 +231,9 @@ export function createPlayerPanel({ onOpen, mission, notify, camera, blocked, ba
   return {
     setStrike(action){
       strike.onclick=action || lockedStrike;
-      strike.title=action?'Удар по ближайшему багу · 1 или ЛКМ':lockedTitle;
+      strike.querySelector('svg path').setAttribute('d',action?paths.fist:paths.sword);
+      strike.querySelector('span').textContent=action?'Кулак':'Удар';
+      strike.title=action?'Удар кулаком по ближайшему багу · 1 или ЛКМ':lockedTitle;
       strike.setAttribute('aria-disabled',String(!action));
       strike.setAttribute('aria-label',action?strike.title:lockedLabel);
       strike.querySelector('small').hidden=!!action;
