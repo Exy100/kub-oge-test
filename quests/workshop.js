@@ -1,4 +1,4 @@
-import {workbenchView,bindWorkbench} from './workbench.js';
+import {workbenchView,bindWorkbench} from './workbench.js?v=2';
 import {Vector3} from '../vendor/three.module.js';
 import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=4';
 import {pcParts} from '../catalog/pc-parts.js';

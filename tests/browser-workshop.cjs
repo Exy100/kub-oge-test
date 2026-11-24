@@ -9,7 +9,7 @@ const {chromium} = require('playwright');
   const server=spawn('python3',['-m','http.server','8179','--bind','127.0.0.1'],{cwd:root,stdio:'ignore'});
   const browser=await chromium.launch({executablePath:'/usr/bin/chromium',args:['--no-sandbox']});
   try {
-    const page=await browser.newPage({viewport:{width:880,height:700}});
+    const page=await browser.newPage({viewport:{width:880,height:700},hasTouch:true});
     const errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     await page.addInitScript(()=>{requestAnimationFrame=()=>0;localStorage.setItem('kub.navigator.v1','27')});
@@ -138,14 +138,41 @@ const {chromium} = require('playwright');
       assert.ok(await dialog.evaluate(el=>el.scrollWidth<=el.clientWidth));
       for(const img of await dialog.locator('img').all())await img.evaluate(el=>el.decode());
     }
-    await click('[data-part="0"]');await click('[data-socket="4"]');
+    const board=await dialog.locator('.pc-board').boundingBox();
+    const backpack=await dialog.locator('.pc-inventory').boundingBox();
+    assert.ok(board.x>backpack.x+backpack.width && board.width>=400);
+    await dialog.locator('[data-part="0"]').dragTo(dialog.locator('[data-socket="4"]'));
     assert.match(await dialog.locator('[role=status]').innerText(),/другой разъём/);
     assert.equal((await items()).length,5);
     for(let i=0;i<5;i++){
       const choice=dialog.locator('[data-part="'+i+'"]');
-      await choice.focus();await press('Enter');
-      assert.equal(await dialog.locator(':focus').getAttribute('data-socket'),String(i));
-      await press('Enter');
+      const socket=dialog.locator('[data-socket="'+i+'"]');
+      if(i===0){
+        await choice.dragTo(socket);
+      }else if(i===1){
+        await page.setViewportSize({width:390,height:800});
+        const center=async locator=>{
+          const {x,y,width,height}=await locator.boundingBox();
+          return {x:x+width/2,y:y+height/2};
+        };
+        const touch=await page.context().newCDPSession(page);
+        const start=await center(choice),end=await center(socket);
+        await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[start]});
+        await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[end]});
+        await touch.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
+        assert.equal(await dialog.locator('.pc-drag-preview').count(),0);
+        assert.equal((await items()).length,4);
+        await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[start]});
+        await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[end]});
+        await touch.send('Input.dispatchTouchEvent',{type:'touchEnd',touchPoints:[]});
+        await touch.detach();
+        await page.setViewportSize({width:880,height:700});
+      }else{
+        await choice.focus();await press('Enter');
+        assert.equal(await dialog.locator(':focus').getAttribute('data-socket'),String(i));
+        await press('Enter');
+      }
+      assert.equal((await items()).length,4-i);
       if(i===0){
         await press('Escape');await press('KeyE');
         assert.ok(await dialog.locator('[data-part="0"]').isDisabled());
