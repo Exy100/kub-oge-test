@@ -142,7 +142,7 @@ s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.built===21&&s.un
 await page.evaluate(()=>window.storyTest.remove(8));s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.built===20&&s.inventory[2]===1,'refund wood on removal');
 await page.evaluate(()=>window.storyTest.build(8));
 await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');s=await page.evaluate(()=>window.storyTest.snapshot());await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');s=await page.evaluate(()=>window.storyTest.snapshot());assert(s.index===0&&s.built===7,'return preserves first island');
-await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');await page.evaluate(()=>storyTest.at(160,-6));await page.keyboard.press('e');await page.evaluate(()=>storyTest.at(193,-6));await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).built===21,'return preserves three arches');
+await page.evaluate(()=>window.storyTest.nearGate());await page.keyboard.press('e');await page.evaluate(()=>storyTest.at(160,-6));await page.keyboard.press('e');await page.evaluate(()=>storyTest.at(193,-7));await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).built===21,'return preserves three arches');
 await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===4,'three arches open forge');
 assert(await page.evaluate(()=>storyTest.currentIslandOnly()),'only forge scenery is mounted');
 await page.screenshot({path:'/tmp/kub-forge-world.png'});
