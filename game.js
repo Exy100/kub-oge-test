@@ -87,6 +87,10 @@ function equippedSkill() {
 }
 function refreshSkillSlot() {
   const slot = $('#skill-slot');
+  const groundChoice = skillList.querySelector('[data-skill="grass"]');
+  const board = LOCATIONS[stage.index].scanSurface === 'board';
+  groundChoice.querySelector('strong').textContent = board ? 'Скан платы' : 'Скан травы';
+  groundChoice.querySelector('small').textContent = board ? 'Клетка материнской платы' : 'Клетка Острова мечтателей';
   const equipped = equippedSkill();
   slot.hidden = !equipped;
   if (!equipped) return;
@@ -264,14 +268,6 @@ function enterIsland(next) {
   buildIslandTerrain(LOCATIONS[stage.index], stage.index, island, geo, box, solids, cameraObstacles);
   trunks=solids.filter(mesh=>mesh.name==='island-tree-trunk' || mesh.name==='tree-trunk');
   if(stage.locationId==='island.turtle')timber=timberMaterial();
-  if (character.profile.specialSkills?.length) {
-    scanStore.refresh();
-    scanner = createScanInteraction({
-      location:LOCATIONS[stage.index], island, solids, obstacles:cameraObstacles, stage, camera, player,
-      store:scanStore, dialog:scanDialog, progress:$('#scan-progress'), say:panel.scanResult, notify,
-      pause:pauseForScanMenu, onCoin(){playPickup();character.react();notify('Золото +1')},
-    });
-  }
   stage.placed = [];
   stage.pickups = [];
   stage.collected ??= new Set();
@@ -329,6 +325,14 @@ function enterIsland(next) {
       canStore:hasBagRoom, onCollect, onPlace:playPlacement, notify, onChange:update,
       onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;}});
     cameraObstacles.push(...forge.cameraObstacles);
+  }
+  if (character.profile.specialSkills?.length) {
+    scanStore.refresh();
+    scanner = createScanInteraction({
+      location:LOCATIONS[stage.index], island, solids, obstacles:cameraObstacles, stage, camera, player,
+      store:scanStore, dialog:scanDialog, progress:$('#scan-progress'), say:panel.scanResult, notify,
+      pause:pauseForScanMenu, onCoin(){playPickup();character.react();notify('Золото +1')},
+    });
   }
 }
 
@@ -425,8 +429,10 @@ function travel(){
   return true;
 }
 function goToIsland(index, message){
-  enterIsland(stages[index]);followState=createFollowState();player.position.set(stage.center,0,stage.index===0?2:stage.locationId==='island.data-forge'?4:3);
-  Object.assign(physics,createPhysicsState());Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;selected=stage.repair?.axe?2:0;yaw=0;
+  enterIsland(stages[index]);followState=createFollowState();
+  const arrival = LOCATIONS[index].arrival;
+  player.position.set(stage.center+(arrival?.x ?? 0),0,arrival?.z ?? (index===0?2:stage.locationId==='island.data-forge'?4:3));
+  Object.assign(physics,createPhysicsState());Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;selected=stage.repair?.axe?2:0;yaw=arrival?.yaw ?? 0;
   sun.position.set(stage.center-10,25,10);sun.target.position.set(stage.center,0,0);sun.target.updateMatrixWorld();
   refreshMission();announceLocation(message);
 }
@@ -676,7 +682,7 @@ const showingGift=workshop?.presenting() && !customizer.isOpen();
 workshop?.tick(dt,active,reducedHandMotion.matches);
 if(showingGift){workshop.frameGift();player.visible=false}
 signalStation?.tick(dt,active,reducedHandMotion.matches);
-processorLab?.tick(active);
+processorLab?.tick(active,dt,reducedHandMotion.matches);
 scanner?.update(now,active && !document.hidden && !third && !panel.isBattle(),reducedHandMotion.matches);
 panel.updatePortal(nearbyRoute(),active&&!document.hidden,now);
 simpleArchEffect?.update(now, reducedHandMotion.matches);
