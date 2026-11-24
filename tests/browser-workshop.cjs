@@ -104,7 +104,24 @@ const {chromium} = require('playwright');
     const hitsByBug=[20,10];
     for(const [bug,hitsNeeded] of hitsByBug.entries()){
       for(let hit=0;hit<hitsNeeded;hit++){
-        await tick(.4);await near('repair-bug-'+bug);await press('Digit1');
+        await tick(.4);await near('repair-bug-'+bug);
+        if(bug===0 && hit===0){
+          const gear=page.locator('#weapons-dialog'), weapon=gear.locator('[data-slot=weapon]');
+          await press('KeyC');await weapon.click();
+          await gear.getByRole('button',{name:'Надеть · Жезл сбора'}).click();
+          await press('Escape');
+          const bar=page.locator('.combat-slot').first();
+          assert.match(await bar.innerText(),/Жезл/);
+          await bar.click();
+          await page.evaluate(()=>workTest.runFrames(6));
+          assert.equal(await page.evaluate(()=>workTest.state().bugs[0].hp),20,'no damage during windup');
+          await press('KeyV');await press('Digit1');
+          await page.evaluate(()=>workTest.runFrames(8));
+          assert.equal(await page.evaluate(()=>workTest.state().bugs[0].hp),19,'contact survives camera switch and repeated input');
+          await press('KeyV');await press('KeyC');await weapon.click();
+          await gear.getByRole('button',{name:'Снять · Жезл сбора'}).click();
+          await press('Escape');assert.match(await bar.innerText(),/Кулак/);
+        }else await press('Digit1');
         if(bug===0 && hit===2){
           const before=await page.evaluate(()=>workTest.actor(-1));
           await press('Digit1'); // duplicate during the strike cooldown

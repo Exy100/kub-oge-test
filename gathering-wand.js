@@ -103,12 +103,24 @@ export function equipGatheringWand({character,camera,scene,renderer}){
   const origin=new THREE.Vector3(),bend=new THREE.Vector3(),wrist=new THREE.Vector3(),seam=new THREE.Vector3(),cuffEnd=new THREE.Vector3(),direction=new THREE.Vector3(),up=new THREE.Vector3(0,1,0);
   function link(mesh,a,b,radius){mesh.position.copy(a).lerp(b,.5);direction.subVectors(b,a);mesh.scale.set(radius,direction.length(),radius);mesh.quaternion.setFromUnitVectors(up,direction.normalize())}
   const handMotion=createHandMotion();let armClock=0;
-  function poseArm(motion,power){
+  // Times in seconds. The forearm leads the diagonal cut, the wrist follows
+  // through a little later. Both cameras sample the same clock.
+  const contactTime=.27, strikeDuration=.64;
+  let strikeTime=strikeDuration,contact=null;
+  const smooth=THREE.MathUtils.smoothstep;
+  function poseArm(motion,power,wind=0,cut=0,wristCut=0){
     const narrow=Math.min(1,camera.aspect/1.42),size=.42*Math.max(.6,Math.min(1,camera.aspect/1.1));
     viewRig.scale.setScalar(size);viewRig.position.set(.28*narrow+motion.x,-.1+motion.y+power*.025,-.83+motion.z-power*.055);
     viewRig.rotation.set(-.2-power*.13,.12,.16+motion.roll-power*.035);
+    viewRig.position.x+=narrow*(.075*wind-.25*cut);
+    viewRig.position.y+=.075*wind-.045*cut;
+    viewRig.position.z+=.065*wind-.13*cut;
+    viewRig.rotation.x+=.36*wind-.76*wristCut;
+    viewRig.rotation.z+=-.48*wind+.96*wristCut;
+    viewRig.rotation.y+=.34*wind-.3*cut;
     viewRig.updateMatrixWorld(true);wrist.set(.05,-.065,.09);viewRig.localToWorld(wrist);
     origin.set(.72*Math.max(.5,narrow),-.38,-.04);bend.set(.58*Math.max(.5,narrow),-.25,-.34);
+    bend.x+=narrow*(.035*wind-.15*cut);bend.y+=.055*wind-.015*cut;
     seam.copy(bend).lerp(wrist,.64);cuffEnd.copy(bend).lerp(wrist,.73);
     link(upper,origin,bend,.075);link(lower,bend,seam,.05);link(cuff,seam,cuffEnd,.048);link(forearm,cuffEnd,wrist,.033);
     elbowCap.position.copy(bend);
@@ -117,24 +129,50 @@ export function equipGatheringWand({character,camera,scene,renderer}){
   for(let i=0;i<3;i++){const finger=new THREE.Mesh(handGeometry,glove);finger.scale.set(.025,.025,.055);finger.position.set(-.035,-.065+i*.035,-.014);viewRig.add(finger)}
   const flights=[];const endpoint=new THREE.Vector3();let elapsed=1,enabled=true,firstPerson=false;
   function destination(){if(firstPerson){viewScene.updateMatrixWorld(true);viewWand.tip.getWorldPosition(endpoint);camera.updateMatrixWorld(true);camera.localToWorld(endpoint)}else{character.root.updateMatrixWorld(true);wand.tip.getWorldPosition(endpoint)}return endpoint}
-  function clear(){for(const f of flights)scene.remove(f.mesh);flights.length=0;elapsed=1}
+  function clear(){strikeTime=strikeDuration;contact=null;for(const f of flights)scene.remove(f.mesh);flights.length=0;elapsed=1}
   return {wand,viewWand,viewScene,
+    strike(onContact){
+      if(strikeTime<strikeDuration)return;
+      strikeTime=0;contact=onContact;
+    },
     chop(){elapsed=0},
     collect(mesh){elapsed=0;const start=mesh.position.clone(),scale=mesh.scale.clone();scene.add(mesh);flights.push({mesh,start,scale,age:0});if(flights.length>24)scene.remove(flights.shift().mesh)},
-    update(dt,time,{active,third,visible=true,tool='wand',dx=0,dz=0,yaw=0,pitch=0,grounded=true,reducedMotion=false}){
+    update(dt,time,{active,third,visible=true,combatWand=false,tool='wand',dx=0,dz=0,yaw=0,pitch=0,grounded=true,reducedMotion=false}){
       firstPerson=!third;enabled=visible;
       const chopping=visible && tool==='wood-axe';
       if(chopping && !axe)equipAxe();
       wand.root.visible=viewWand.root.visible=visible && !chopping;
       if(axe)axe.visible=viewAxe.visible=chopping;
-      if(active)elapsed=Math.min(1,elapsed+Math.max(0,dt));const power=Math.sin(Math.PI*elapsed);
+      if(active)elapsed=Math.min(1,elapsed+Math.max(0,dt));const power=combatWand?0:Math.sin(Math.PI*elapsed);
+      if(!combatWand || !visible){strikeTime=strikeDuration;contact=null}
+      if(active && strikeTime<strikeDuration){
+        strikeTime=Math.min(strikeDuration,strikeTime+Math.max(0,dt));
+        if(contact && strikeTime>=contactTime){const apply=contact;contact=null;apply()}
+      }
+      let wind=0,cut=0,wristCut=0;
+      if(strikeTime<strikeDuration){
+        const t=strikeTime,amplitude=reducedMotion?.32:1;
+        wind=(smooth(t,0,.15)-smooth(t,.15,contactTime))*amplitude;
+        cut=(smooth(t,.15,.31)-smooth(t,.36,strikeDuration))*amplitude;
+        wristCut=(smooth(t,.18,.34)-smooth(t,.39,strikeDuration))*amplitude;
+      }
       if(visible){shoulder.rotation.x=THREE.MathUtils.lerp(shoulder.rotation.x,.25+power*.6,.85);elbow.rotation.x=.4+power*.2;wand.root.rotation.x=-.85-power*.7}
+      wand.root.rotation.z=-.15;
+      if(combatWand && visible){
+        body.rotation.y+=.22*wind-.34*cut;
+        shoulder.rotation.x+=-.09*wind+1.03*cut;
+        shoulder.rotation.y+=-.8*wind+.24*cut;
+        shoulder.rotation.z+=.76*wind-.76*cut;
+        elbow.rotation.x+=.62*wind-.54*cut;
+        wand.root.rotation.x-=.20*wind+1.83*wristCut;
+        wand.root.rotation.z+=-.73*wind+.24*wristCut;
+      }
       if(chopping){
         const swing=reducedMotion?0:Math.sin(Math.PI*Math.min(1,elapsed*2.6));
         axe.rotation.x=-.85-swing*.9;viewAxe.rotation.x=-swing*.82;
       }
       if(active)armClock+=Math.max(0,dt);
-      poseArm(handMotion({dt,dx,dz,yaw,pitch,grounded,active,reducedMotion}),power);
+      poseArm(handMotion({dt,dx,dz,yaw,pitch,grounded,active,reducedMotion}),power,wind,cut,wristCut);
       wand.animate(time,power);viewWand.animate(armClock,power);
       const target=destination();
       for(let i=flights.length-1;i>=0;i--){const f=flights[i];if(active)f.age+=Math.max(0,dt);const t=Math.min(1,f.age),travel=t*t*(3-2*t);f.mesh.position.lerpVectors(f.start,target,travel);f.mesh.position.y+=Math.sin(t*Math.PI)*.22;f.mesh.scale.copy(f.scale).multiplyScalar(1-.98*travel);f.mesh.rotation.y+=active?dt*3:0;if(t===1){scene.remove(f.mesh);flights.splice(i,1)}}

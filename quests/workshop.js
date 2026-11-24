@@ -260,11 +260,16 @@ export function createWorkshop({stage,parent,geometry,box,solids,player,camera,c
     if(byBench())return {label:state.met?'Верстак черепахи':'Поговорить с черепахой',act:talk};
   }
   function interact(){const t=target();if(t)t.act();return !!t}
-  function attack(){
-    const i=closest(bugs.map(b=>b.g),j=>state.bugs[j].phase==='running',3.2);
-    if(i<0){notify('Подойди ближе к бегущему багу.');return}
+  function attack(withWand=false){
+    const i=closest(bugs.map(b=>b.g),j=>{
+      if(state.bugs[j].phase!=='running')return false;
+      if(!withWand)return true;
+      const dx=bugs[j].g.position.x-player.position.x,dz=bugs[j].g.position.z-player.position.z;
+      return -Math.sin(player.rotation.y)*dx-Math.cos(player.rotation.y)*dz>=.35*Math.hypot(dx,dz);
+    },withWand?2:3.2);
+    if(i<0){if(!withWand)notify('Подойди ближе к бегущему багу.');return}
     if(time-lastHit<.25)return;
-    lastHit=time;onHit();
+    lastHit=time;if(!withWand)onHit();
     const b=state.bugs[i], g=bugs[i].g;
     b.hp=Math.max(0,b.hp-UNARMED_DAMAGE);
     const hits=(puzzles[i].enemy.maxHp-b.hp)/UNARMED_DAMAGE;

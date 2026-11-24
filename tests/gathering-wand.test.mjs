@@ -10,3 +10,31 @@ test('first-person motion follows actual travel, settles against walls and pause
  assert.deepEqual(move({dt:.1,dx:.4,reducedMotion:true}),{x:0,y:0,z:0,roll:0});
  const turn=createHandMotion();turn({dt:.016,yaw:Math.PI-.01});const wrapped=turn({dt:.016,yaw:-Math.PI+.01});assert(Math.abs(wrapped.x)<.01,'yaw wrap does not kick the hand');const right=createHandMotion();right({dt:.016,yaw:0});assert(right({dt:.016,yaw:-.2}).x<0,'hand lags to the left when turning right');
 });
+
+test('a wand cut winds up, crosses the body once and recovers in both cameras',()=>{
+  const character=createCharacter(),scene=new THREE.Scene(),camera=new THREE.PerspectiveCamera();
+  const tool=equipGatheringWand({character,scene,camera,renderer:{}});
+  const tip=new THREE.Vector3();
+  let time=0,hits=0;
+  function sample(dt,third,active=true,combatWand=true){
+    time+=dt;
+    character.animate(dt,{time});
+    tool.update(dt,time,{active,third,combatWand});
+    return [tool.viewWand,tool.wand].map(model=>model.tip.getWorldPosition(tip).clone());
+  }
+  const ready=sample(0,true);
+  tool.strike(()=>hits++);
+  const wind=sample(.15,true);
+  assert.deepEqual(sample(.2,false,false)[0],wind[0]);
+  tool.strike(()=>hits+=100);
+  const contact=sample(.16,false);
+  assert.equal(hits,1);
+  for(let i=0;i<2;i++){
+    assert.ok(wind[i].x>ready[i].x);
+    assert.ok(contact[i].x<wind[i].x-.15);
+  }
+  sample(.4,true);
+  tool.strike(()=>hits++);sample(.12,false);sample(.05,true,true,false);sample(.6,true);
+  assert.equal(hits,1,'switching out of combat cancels a pending hit');
+  tool.dispose();character.dispose();
+});

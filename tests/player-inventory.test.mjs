@@ -36,7 +36,7 @@ test('both wrist slots respect owned quantity within each loadout', () => {
   assert.ok(bag.equip('battle', 'rightWrist', 'amber'));
   bag.add(bracelet);
   assert.ok(bag.equip('build', 'rightWrist', 'amber'));
-  assert.equal(bag.equip('battle', 'weapon', 'wand'), false);
+  assert.equal(bag.equip('battle', 'weapon', 'wand'), true);
   assert.ok(bag.equip('build', 'tool', null));
   assert.ok(bag.equip('build', 'tool', 'wand'));
 });

@@ -41,7 +41,7 @@ test('definitions are deeply immutable and inventory state cannot overwrite thei
   const bag = createPlayerInventory(() => [resource]);
   assert.equal(bag.items().find(item => item.id === 'bit').name, catalog.get('bit').name);
   assert.ok(bag.add({id:'wand', quantity:1, name:'Outdated wand', kind:'weapon'}));
-  assert.equal(bag.equip('battle', 'weapon', 'wand'), false);
+  assert.equal(bag.equip('battle', 'weapon', 'wand'), true);
   assert.ok(bag.equip('build', 'tool', 'wand'));
   const item = bag.items().find(item => item.id === 'wand');
   item.quantity = 999; item.name = 'Changed';
