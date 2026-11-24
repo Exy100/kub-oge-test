@@ -190,7 +190,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
   }
   function assembly() {
     if(stage.unlocked){
-      show('Компьютер работает','<p>Черепаха: «Мои программы снова запускаются! Портал к трём аркам открыт».</p>');
+      show('Компьютер работает','<p>Черепаха: «Мои программы снова запускаются! Портал в лабораторию открыт».</p>');
       return;
     }
     if(repaired()){
@@ -199,7 +199,7 @@ export function createWorkshop({stage,parent,geometry,box,player,camera,canStore
         return;
       }
       if(state.axe){show('Компьютер работает','<p>«Топором можно добыть древесину из любого ствола. Собери из семи блоков арку на северной стороне острова».</p>');return}
-      show('Подарок черепахи','<img src="./assets/inventory-axe.webp" width="96" height="96" alt="Листолун с нефритовым лезвием"><p>«Компьютер работает! Теперь откроем тебе дорогу. Держи Листолун. Ударь по стволу — он даст древесину и останется цел. Из семи блоков ты построишь северную арку».</p><button class="field-primary">Принять топор</button>');
+      show('Подарок черепахи','<img src="./assets/inventory-axe.webp" width="96" height="96" alt="Листолун с нефритовым лезвием"><p>«Компьютер работает! Держи Листолун. Этот топор пригодится тебе на протяжении всего приключения. Когда для задания понадобится древесина, ударь им по стволу. Дерево останется целым. Сейчас добудь семь блоков древесины и дострой северную арку. Через неё лежит путь в лабораторию, где ты поможешь починить процессор».</p><button class="field-primary">Принять топор</button>');
       body.querySelector('button').onclick=()=>{
         if(state.axe || !canStore('wood-axe'))return;
         state.axe=true;closingLid=1;turtle.present(1,false);dialog.close();equipAxe();collect();changed();

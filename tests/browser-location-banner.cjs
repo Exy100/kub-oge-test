@@ -17,12 +17,12 @@ const {chromium} = require('playwright');
       contentType:'text/javascript',
       body:fs.readFileSync(path.join(repo,'game.js'),'utf8') + `
         window.atGate = forward => {
-          if(forward && stage.index===3){
+          if(forward && stage.index===4){
             forge.state.unlocked=true;
             player.position.set(86,0,-4);
           }else if(forward){
             stage.unlocked=true;
-            player.position.set(stage.center,0,stage.index===0?-1:stage.index===1?-6:-2);
+            player.position.set(stage.center,0,stage.index===0?-1:stage.index<=2?-6:-2);
           }else player.position.set(stage.center+6,0,6);
         };
       `,
@@ -102,6 +102,8 @@ const {chromium} = require('playwright');
       assert(fits,'centered and clear of other controls at '+width);
     }
     await page.emulateMedia({reducedMotion:'reduce'});
+    await page.evaluate(()=>window.atGate(true));
+    await page.keyboard.press('e');
     assert.equal(await banner.evaluate(el=>getComputedStyle(el).getPropertyValue('--arrival-shift').trim()),'0px');
     await page.evaluate(()=>window.atGate(true));
     await page.keyboard.press('e');

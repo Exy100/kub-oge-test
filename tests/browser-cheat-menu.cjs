@@ -43,7 +43,7 @@ const {chromium} = require('playwright');
     await chord('KeyQ','KeyA');assert.equal(await menu.count(),0);
     await page.keyboard.press('Escape');
     const names=await page.evaluate(()=>cheatTest.names);
-    for(const i of [4,3,1,0,2]){
+    for(const i of [5,4,3,1,0,2]){
       await chord('KeyQ','KeyA');
       await menu.getByRole('button',{name:names[i],exact:true}).click();
       assert.equal(await page.evaluate(()=>cheatTest.index()),i);

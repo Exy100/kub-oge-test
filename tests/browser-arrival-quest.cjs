@@ -33,9 +33,9 @@ const {chromium} = require('playwright');
         window.stepGame = () => frame(performance.now());
         window.atGate = forward => {
           if (forward) {
-            if (stage.index === 3) forge.state.unlocked = true;
+            if (stage.index === 4) forge.state.unlocked = true;
             else stage.unlocked = true;
-            player.position.set([0,160,40,86][stage.index],0,[-1,-6,-2,-4][stage.index]);
+            player.position.set([0,160,200,40,86][stage.index],0,[-1,-6,-6,-2,-4][stage.index]);
           } else player.position.set(stage.center+6,0,6);
         };
       `}));
@@ -81,6 +81,7 @@ const {chromium} = require('playwright');
     await tick(100);
     await gate(true);
     await tick(100);
+    await gate(true);
     await gate(true);
     await gate(true);
     await button('#guide-button');
