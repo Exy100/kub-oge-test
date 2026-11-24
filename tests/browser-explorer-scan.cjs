@@ -321,13 +321,13 @@ const {chromium} = require('playwright');
     assert.match(await slot.innerText(),/Скан платы/);
     const gridVisible=()=>page.evaluate(()=>scanTest.gridVisible());
     assert.equal(await gridVisible(),false);
-    await aim(197,5);await press('Digit0');await tick(1500);
+    await aim(211,10);await press('Digit0');await tick(1500);
     assert.equal(await gridVisible(),true);
     await press('KeyV');await tick(20);
     assert.equal(await gridVisible(),false);
-    await press('KeyV');await aim(197,5);await press('Digit0');await tick(3001);
+    await press('KeyV');await aim(211,10);await press('Digit0');await tick(3001);
     assert.equal(await gridVisible(),false);
-    await page.waitForFunction(()=>scanTest.saved().locations['island.processor-lab']?.cells['197,5'],null,{polling:50});
+    await page.waitForFunction(()=>scanTest.saved().locations['island.processor-lab']?.cells['211,10'],null,{polling:50});
     assert.deepEqual(errors,[]);
     console.log('PASS skill menu, videos, grass and tree targets, one prize tree, pickup, Excel, travel, reload and midnight');
   } finally {await browser?.close();server.kill()}
