@@ -1,5 +1,5 @@
 import { timberMaterial } from './world/timber.js';
-import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=14';
+import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=15';
 import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
@@ -298,7 +298,7 @@ function enterIsland(next) {
   }
   if (stage.locationId==='island.turtle') {
     stage.repair ??= newRepair();
-    workshop=createWorkshop({stage,parent:island,geometry:geo,box,player,camera,canStore:hasBagRoom,
+    workshop=createWorkshop({stage,parent:island,geometry:geo,box,solids,player,camera,canStore:hasBagRoom,
       equipAxe(){
         bag.equip('build','tool','wood-axe');
         if(panel.isBattle())panel.toggleMode();
@@ -664,7 +664,8 @@ if(active && !workshop?.presenting()){
   let vz=-Math.cos(yaw)*forward-Math.sin(yaw)*right;
   const length=Math.hypot(vx,vz);
   if(length){vx=vx/length*4;vz=vz/length*4}
-  movePlayer(player.position,physics,{dt,vx,vz,jump:jumpRequested,limits:{x:[stage.center-10,stage.center+10],z:[-9,9]}},solids);
+  const shove=workshop?.shoveVelocity(dt);
+  movePlayer(player.position,physics,{dt,vx:shove?.vx??vx,vz:shove?.vz??vz,jump:jumpRequested,limits:{x:[stage.center-10,stage.center+10],z:[-9,9]}},solids);
 }
 jumpRequested=false;
 player.rotation.y=yaw;

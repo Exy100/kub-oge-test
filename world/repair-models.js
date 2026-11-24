@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 
-import {createBugBody} from './workshop-bugs.js?v=4';
+import {createBugBody} from './workshop-bugs.js?v=5';
 export function workshopModels(parent, geometry) {
   const palette = new Map();
   function cube(group,x,y,z,w,h,d,color) {
