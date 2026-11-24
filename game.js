@@ -1,5 +1,5 @@
 import { timberMaterial } from './world/timber.js';
-import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=16';
+import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=17';
 import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';

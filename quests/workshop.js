@@ -23,6 +23,14 @@ const repairHints = {
   for:'Здесь нужно ключевое слово, с которого начинается цикл перебора.',
   range:'Здесь нужна последовательность чисел.',
 };
+export function inWandArc(origin,yaw,target){
+  const cellX=Math.round(target.x)-Math.round(origin.x);
+  const cellZ=Math.round(target.z)-Math.round(origin.z);
+  if(Math.abs(cellX)>1 || Math.abs(cellZ)>1)return false;
+  const dx=target.x-origin.x,dz=target.z-origin.z;
+  return -Math.sin(yaw)*dx-Math.cos(yaw)*dz>=.35*Math.hypot(dx,dz);
+}
+
 export function newRepair() {
   return {met:false,axe:false,bugs:puzzles.map(({enemy})=>({hp:enemy.maxHp,phase:'running',x:0,z:0})),parts:pcParts.map(()=>'stolen')};
 }
@@ -263,10 +271,8 @@ export function createWorkshop({stage,parent,geometry,box,solids,player,camera,c
   function attack(withWand=false){
     const i=closest(bugs.map(b=>b.g),j=>{
       if(state.bugs[j].phase!=='running')return false;
-      if(!withWand)return true;
-      const dx=bugs[j].g.position.x-player.position.x,dz=bugs[j].g.position.z-player.position.z;
-      return -Math.sin(player.rotation.y)*dx-Math.cos(player.rotation.y)*dz>=.35*Math.hypot(dx,dz);
-    },withWand?2:3.2);
+      return !withWand || inWandArc(player.position,player.rotation.y,bugs[j].g.position);
+    },withWand?Infinity:3.2);
     if(i<0){if(!withWand)notify('Подойди ближе к бегущему багу.');return}
     if(time-lastHit<.25)return;
     lastHit=time;if(!withWand)onHit();
