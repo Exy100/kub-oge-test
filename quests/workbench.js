@@ -24,18 +24,18 @@ export function workbenchView(parts) {
     const unavailable=parts[i]!=='bag';
     const detail=installed?'Установлено':unavailable?'Нужно найти':'';
     return `<button type="button" data-part="${i}" aria-pressed="false" ${unavailable?'disabled':''}>
-      <img src="${artDirectory}${part.id.slice(3)}.webp" alt="">
+      <img src="${artDirectory}${part.id.slice(3)}.webp" alt="" draggable="false">
       <span>${part.name}${part.id==='pc.ssd'?' M.2':''}${detail?`<small>${detail}</small>`:''}</span></button>`;
   }).join('');
   return `<div class="pc-workbench">
     <p class="pc-instruction"></p>
     <div class="pc-layout">
+      <section class="pc-inventory"><h3>В рюкзаке</h3>${choices}</section>
       <section class="pc-chassis" aria-label="Корпус компьютера">
         <h3>Материнская плата</h3>
         <div class="pc-board">${boardParts.map(socket).join('')}</div>
         ${socket(powerSupply)}
       </section>
-      <section class="pc-inventory"><h3>В рюкзаке</h3>${choices}</section>
     </div><p class="pc-status" role="status"></p></div>`;
 }
 
@@ -53,17 +53,52 @@ export function bindWorkbench(body,parts,install) {
       prompts[pcParts[i].id];
     status.textContent=i<0?'Установленные детали останутся в корпусе.':pcParts[i].description;
   }
-  choices.forEach((btn,i)=>btn.onclick=event=>{
-    select(i);
-    if(event.detail===0)sockets.find(s=>Number(s.dataset.socket)===i)?.focus();
-  });
-  sockets.forEach(btn=>btn.onclick=()=>{
+  function trySocket(btn) {
     const i=Number(btn.dataset.socket);
     if(selected!==i || parts[i]!=='bag'){
       status.textContent=selected<0?'Сначала найди деталь и принеси её к верстаку.':'Этой детали нужен другой разъём.';
       return;
     }
     install(i);
+  }
+  const bench=body.querySelector('.pc-workbench');
+  let drag=null;
+  function clearDrag() {
+    drag?.preview?.remove();
+    drag=null;
+  }
+  choices.forEach((btn,i)=>{
+    btn.onclick=event=>{
+      if(event.detail===0 || selected!==i)select(i);
+      if(event.detail===0)sockets.find(s=>Number(s.dataset.socket)===i)?.focus();
+    };
+    btn.onpointerdown=event=>{
+      if(!event.isPrimary || event.button!==0 || drag || btn.disabled)return;
+      btn.setPointerCapture(event.pointerId);
+      drag={id:event.pointerId,x:event.clientX,y:event.clientY,preview:null};
+    };
+    btn.onpointermove=event=>{
+      if(drag?.id!==event.pointerId)return;
+      if(!drag.preview){
+        if(Math.hypot(event.clientX-drag.x,event.clientY-drag.y)<5)return;
+        select(i);
+        drag.preview=btn.querySelector('img').cloneNode();
+        drag.preview.className='pc-drag-preview';
+        bench.append(drag.preview);
+      }
+      drag.preview.style.left=event.clientX+'px';
+      drag.preview.style.top=event.clientY+'px';
+    };
+    btn.onpointerup=event=>{
+      if(drag?.id!==event.pointerId)return;
+      const target=drag.preview && document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-socket]');
+      clearDrag();
+      if(sockets.includes(target) && !target.disabled)trySocket(target);
+    };
+    btn.onlostpointercapture=btn.onpointercancel=event=>{
+      if(drag?.id===event.pointerId)clearDrag();
+    };
   });
+  sockets.forEach(btn=>btn.onclick=()=>trySocket(btn));
   select(parts.indexOf('bag'));
 }
