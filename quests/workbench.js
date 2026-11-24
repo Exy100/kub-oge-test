@@ -4,11 +4,11 @@ const artDirectory='./assets/workbench/';
 const boardParts=pcParts.filter(part=>part.id!=='pc.psu');
 const powerSupply=pcParts.find(part=>part.id==='pc.psu');
 const prompts={
-  'pc.cpu':'Выбери сокет для процессора',
-  'pc.ram':'Выбери слот для оперативной памяти',
-  'pc.ssd':'Выбери разъём для SSD',
-  'pc.gpu':'Выбери слот для видеокарты',
-  'pc.psu':'Выбери отсек для блока питания',
+  'pc.cpu':'Найди квадратный сокет процессора на материнской плате.',
+  'pc.ram':'Планка ОЗУ длинная и узкая. Найди длинный слот рядом с процессором.',
+  'pc.ssd':'У SSD M.2 маленький разъём. Ищи на плате место для узкой карты с креплением на конце.',
+  'pc.gpu':'Видеокарте нужен длинный слот расширения ниже процессора.',
+  'pc.psu':'Найди отдельный отсек в корпусе для блока, который питает весь компьютер.',
 };
 
 export function workbenchView(parts) {
@@ -28,7 +28,7 @@ export function workbenchView(parts) {
       <span>${part.name}${part.id==='pc.ssd'?' M.2':''}${detail?`<small>${detail}</small>`:''}</span></button>`;
   }).join('');
   return `<div class="pc-workbench">
-    <p class="pc-instruction"></p>
+    <p class="pc-instruction"></p><button type="button" class="field-primary" data-reveal>Показать разъём</button>
     <div class="pc-layout">
       <section class="pc-inventory"><h3>В рюкзаке</h3>${choices}</section>
       <section class="pc-chassis" aria-label="Корпус компьютера">
@@ -44,11 +44,19 @@ export function bindWorkbench(body,parts,install) {
   const sockets=[...body.querySelectorAll('[data-socket]')];
   const status=body.querySelector('.pc-status');
   const instruction=body.querySelector('.pc-instruction');
+  const reveal=body.querySelector('[data-reveal]');
+  const guided=!parts.includes('installed');
   let selected=-1;
+  function highlight(){
+    sockets.forEach(btn=>btn.classList.toggle('pc-target',Number(btn.dataset.socket)===selected));
+  }
+  reveal.onclick=()=>{highlight();sockets[selected]?.focus()};
   function select(i) {
     selected=i;
     choices.forEach((btn,j)=>btn.setAttribute('aria-pressed',String(j===i)));
-    sockets.forEach(btn=>btn.classList.toggle('pc-target',Number(btn.dataset.socket)===i));
+    sockets.forEach(btn=>btn.classList.remove('pc-target'));
+    if(guided)highlight();
+    reveal.hidden=guided || i<0;
     instruction.textContent=i<0?'Подбери остальные детали на острове':
       prompts[pcParts[i].id];
     status.textContent=i<0?'Установленные детали останутся в корпусе.':pcParts[i].description;
@@ -70,7 +78,7 @@ export function bindWorkbench(body,parts,install) {
   choices.forEach((btn,i)=>{
     btn.onclick=event=>{
       if(event.detail===0 || selected!==i)select(i);
-      if(event.detail===0)sockets.find(s=>Number(s.dataset.socket)===i)?.focus();
+      if(event.detail===0 && guided)sockets.find(s=>Number(s.dataset.socket)===i)?.focus();
     };
     btn.onpointerdown=event=>{
       if(!event.isPrimary || event.button!==0 || drag || btn.disabled)return;

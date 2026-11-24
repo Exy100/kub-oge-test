@@ -1,5 +1,5 @@
 import { timberMaterial } from './world/timber.js';
-import { newRepair, repairBrief, createWorkshop } from './quests/workshop.js?v=12';
+import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=13';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
@@ -331,7 +331,7 @@ function enterIsland(next) {
 function currentQuestBrief() {
   const complete = stage.locationId === 'island.data-forge' ? forgeState.unlocked : stage.unlocked;
   if (complete) return 'Пройди через открытый портал на следующий остров.';
-  if(stage.repair)return repairBrief(stage.repair);
+  if(stage.repair)return repairBrief(stage);
   if(signalStation && stage.sentWood)return 'Построй три арки из песчаника, дерева и камня.';
   return LOCATIONS[stage.index].quest.brief;
 }
@@ -374,7 +374,8 @@ function update(){
   if(stage.repair){
     const building=!!stage.repair.axe;
     document.body.classList.toggle('forge-mode',!building);
-    $('.progress-label > span').textContent=building?'Блоки в деревянной арке':'Детали в компьютере';
+    $('.progress-label > span').textContent=building?(hasArchWood(stage)?'Блоки в деревянной арке':'Древесина для арки'):
+      'Найдено '+stage.repair.parts.filter(p=>p==='bag' || p==='installed').length+'/'+pcParts.length;
     stage.ghosts.forEach((mesh,i)=>{mesh.visible=building && !stage.built.has(i)});
     if(building)$('.tip').textContent='В режиме сборки ударь ЛКМ по стволу. Клавиша 3 — дерево, ЛКМ по контуру — поставить блок.';
   }
@@ -383,7 +384,9 @@ function update(){
   const repairing=stage.repair && !stage.repair.axe;
   const n=repairing?stage.repair.parts.filter(p=>p==='installed').length:stage.arches.length?stage.built.size:forgeState.cells.filter(Boolean).length;
   const total=repairing?pcParts.length:stage.arches.length?stage.targets.length:4;
-  $('#count').textContent=`${n} / ${total}`;
+  if(repairing)$('#count').textContent=`Установлено ${n}/${total}`;
+  else if(stage.repair && !hasArchWood(stage))$('#count').textContent=`${stage.inventory[2]+stage.built.size} / ${total}`;
+  else $('#count').textContent=`${n} / ${total}`;
   drawQuestDiagram($('#quest-diagram'),stage,forgeState.cells);
   document.querySelectorAll('.slot b').forEach((el,i)=>el.textContent=isLimited(stage,i)?stage.inventory[i]:'∞');
   if (exitGlow) exitGlow.visible = stage.unlocked;
@@ -530,7 +533,10 @@ function act(button){
       if(closer?.object===hit.object){
         if(performance.now()-lastChop<350 || !hasBagRoom(BUILD_MATERIALS[2].id))return;
         lastChop=performance.now();stage.inventory[2]++;gathering.chop();playPickup();character.react();
-        notify('Древесина +1');update();return;
+        if(workshop && !stage.repair.chopped){
+          stage.repair.chopped=true;notify('Древесина +1. Можно ударить ещё раз по этому стволу.');
+        }else notify('Древесина +1');
+        update();return;
       }
     }
   }
