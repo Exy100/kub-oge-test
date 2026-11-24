@@ -34,7 +34,7 @@ const {chromium} = require('playwright');
       window.scanTest={
         step(){frame(performance.now())},
         aim(x,z){
-          const px = Math.max(-10,Math.min(10,x)), pz = z > 7 ? z-2 : z+2;
+          const px = Math.max(stage.center-10,Math.min(stage.center+10,x)), pz = z > 7 ? z-2 : z+2;
           player.position.set(px,0,pz);
           yaw=Math.atan2(px-x,pz-z);pitch=Math.atan2(1.5,Math.hypot(px-x,pz-z));this.step();
         },
@@ -59,6 +59,7 @@ const {chromium} = require('playwright');
           }
           return {color:rings.material.color.getHex(),levels:[...levels],origin:rings.position.toArray()};
         },
+        gridVisible:()=>island.getObjectByName('board-scan-grid').visible,
         saved:()=>scanStore.state,
         solve:correct=>scanner.submitVerifiedAnswer(correct),
         travel:index=>goToIsland(index,'Переход'),
@@ -316,6 +317,17 @@ const {chromium} = require('playwright');
     assert.equal(await balance(),63);
     await tick(86400000);
     assert.deepEqual(await markers(),[]);
+    await page.evaluate(()=>scanTest.travel(2));
+    assert.match(await slot.innerText(),/Скан платы/);
+    const gridVisible=()=>page.evaluate(()=>scanTest.gridVisible());
+    assert.equal(await gridVisible(),false);
+    await aim(197,5);await press('Digit0');await tick(1500);
+    assert.equal(await gridVisible(),true);
+    await press('KeyV');await tick(20);
+    assert.equal(await gridVisible(),false);
+    await press('KeyV');await aim(197,5);await press('Digit0');await tick(3001);
+    assert.equal(await gridVisible(),false);
+    await page.waitForFunction(()=>scanTest.saved().locations['island.processor-lab']?.cells['197,5'],null,{polling:50});
     assert.deepEqual(errors,[]);
     console.log('PASS skill menu, videos, grass and tree targets, one prize tree, pickup, Excel, travel, reload and midnight');
   } finally {await browser?.close();server.kill()}
