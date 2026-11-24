@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {Box3,BoxGeometry,Group,Raycaster,Vector3} from '../vendor/three.module.js';
+import {inWandArc} from '../quests/workshop.js';
 import {createBugPatrol} from '../world/bug-patrol.js';
 import turtleIsland from '../locations/turtle.js';
 import {workshopModels} from '../world/repair-models.js';
@@ -71,4 +72,19 @@ test('workshop patrols stay on walkable ground clear of props and keep continuou
     }
     assert.ok(bounds.max.z-bounds.min.z>11 && bounds.max.x-bounds.min.x>4.5);
   }
+});
+
+test('wand checks occupied tiles and facing at contact',()=>{
+  const facing=(a,b)=>-Math.atan2(b.x-a.x,a.z-b.z);
+  for(let x=-2;x<=2;x++)for(let z=-2;z<=2;z++){
+    const a={x:160,z:-3},b={x:160+x,z:-3+z};
+    assert.equal(inWandArc(a,facing(a,b),b),Math.max(Math.abs(x),Math.abs(z))<=1);
+  }
+  // Two centers on opposite edges of diagonally adjoining tiles can be >2 apart.
+  const a={x:159.51,z:-3.49},diagonal={x:161.49,z:-1.51};
+  assert.ok(inWandArc(a,facing(a,diagonal),diagonal));
+  // The far tile begins at the half-integer even if the centers are only 1.01 apart.
+  const edge={x:160.49,z:-2},beyond={x:161.5,z:-2};
+  assert.ok(!inWandArc(edge,facing(edge,beyond),beyond));
+  assert.ok(!inWandArc({x:160,z:0},0,{x:160,z:1}),'the swing still faces forward');
 });
