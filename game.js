@@ -1,6 +1,6 @@
 import { timberMaterial } from './world/timber.js';
 import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=17';
-import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=3';
+import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=4';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
@@ -290,9 +290,13 @@ function enterIsland(next) {
   simpleArchEffect = exitGlow = returnGlow = null;
   const lab = stage.locationId === 'island.processor-lab';
   if (lab) processorLab=createProcessorLab({stage,box,player,dialog:fieldDialog,pause:pauseForScanMenu,changed:update,canStore:hasBagRoom});
-  if (stage.arches.length || lab) {
+  if (lab) {
+    exitGlow = processorLab.exitSurface;
+  } else if (stage.arches.length) {
     simpleArchEffect = createSimpleArchEffect();
-    exitGlow = simpleArchEffect.createSurface(lab ? processorLab.exitArch : stage.arches[stage.arches.length===1?0:1]);
+    exitGlow = simpleArchEffect.createSurface(stage.arches[stage.arches.length===1?0:1]);
+  }
+  if (exitGlow) {
     island.add(exitGlow);
     cameraObstacles.push(exitGlow);
   }
