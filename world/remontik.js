@@ -2,6 +2,7 @@ import * as THREE from '../vendor/three.module.js';
 import {paintedPart} from './painted-part.js';
 
 const green=0x426c52, ivory=0xe1d6ac, brass=0xd2a452, graphite=0x344447;
+const shoulderX=side=>side<0?-.55:.65;
 const ease=t=>t*t*(3-2*t);
 const clamp=t=>Math.max(0,Math.min(1,t));
 
@@ -24,6 +25,10 @@ export function createRemontik(parent,x,z) {
     block(.54,.01,0,.04,.18,.21,graphite);
     block(.565,.01,0,.02,.10,.13,0x71dacf);
     for(const side of [-1,1]){
+      // Fixed bearing seats the moving shoulder beyond the side casing.
+      const outer=shoulderX(side);
+      block((side*.41+outer)/2,-.14,.13,Math.abs(outer)-.41,.15,.16,graphite,.025);
+      block(outer,-.14,.13,.075,.17,.17,brass,.034);
       block(side*.30,-.36,0,.19,.11,.33,graphite);
       block(side*.30,-.425,0,.14,.032,.24,0x75e6de);
       for(let i=0;i<4;i++)block(side*.445,.15-i*.079,-.14,.018,.033,.15,graphite);
@@ -60,7 +65,7 @@ export function createRemontik(parent,x,z) {
     return joint(parent,dx,dy,dz);
   }
   function arm(side){
-    const shoulder=joint(body,side*.40,-.12,.015);
+    const shoulder=joint(shell,shoulderX(side),-.14,.13);
     const elbow=link(shoulder,side*.23,-.21,.11,'remontik-upper-arm');
     part(elbow,'remontik-elbow',({block})=>{
       block(0,0,0,.18,.18,.18,graphite,.055);
@@ -110,11 +115,12 @@ export function createRemontik(parent,x,z) {
     const inspect = reduced ? 0 : (1-waveAmount)*(.5+.5*Math.sin(time*.95));
     shell.rotation.x=.13*inspect;
     grip.shoulder.rotation.x=-.22+idle*.11;
-    grip.elbow.rotation.z=-.65*inspect;
+    grip.elbow.rotation.z=-.26*inspect;
+    grip.elbow.rotation.x=.23*inspect;
     grip.wrist.rotation.y=.28*inspect;
     grip.wrist.rotation.z=-.18+idle*.12;
-    hand.shoulder.rotation.z=-.88+waveAmount*.92;
-    hand.elbow.rotation.z=.16+waveAmount*(.18+.10*Math.sin(time*9-.42));
+    hand.shoulder.rotation.z=-.33+waveAmount*.81;
+    hand.elbow.rotation.z=.06+waveAmount*(.03+.09*Math.sin(time*9-.42));
     hand.wrist.rotation.z=.20+waveAmount*.33*Math.sin(waveAge<2.7?waveAge*9:0);
     eyes.scale.y=reduced?1:1-.93*Math.pow(Math.max(0,Math.cos(time*1.35+2)),140);
   }
