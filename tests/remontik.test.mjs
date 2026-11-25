@@ -60,3 +60,30 @@ test('both moving arms, fingers and the held chip clear the casing throughout in
     }
   }
 });
+
+test('the domed lens stays clear of the recessed eyes throughout a blink',()=>{
+  const robot=createRemontik(new Group(),0,0);
+  const lens=robot.root.getObjectByName('remontik-lens');
+  const eyes=robot.root.getObjectByName('remontik-eyes');
+  lens.geometry.computeBoundingBox();
+  eyes.geometry.computeBoundingBox();
+  const glass=lens.geometry.boundingBox;
+  assert.equal(lens.parent,eyes.parent);
+  assert.ok(glass.min.z-eyes.geometry.boundingBox.max.z>.02);
+  assert.ok(glass.max.z-glass.min.z>.08);
+  assert.ok(lens.material.transparent && !lens.material.depthWrite);
+  const normals=lens.geometry.attributes.normal;
+  const n=new Vector3();
+  for(let i=0;i<normals.count;i++){
+    n.fromBufferAttribute(normals,i);
+    assert.ok(n.z>0 && Math.abs(n.length()-1)<1e-5);
+  }
+  let smallest=1,largest=0;
+  for(let i=0;i<300;i++){
+    robot.update(1/60,true,false,{x:2,z:1});
+    smallest=Math.min(smallest,eyes.scale.y);
+    largest=Math.max(largest,eyes.scale.y);
+    assert.equal(lens.scale.y,1);
+  }
+  assert.ok(smallest<.1 && largest>.99);
+});

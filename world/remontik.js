@@ -6,6 +6,82 @@ const shoulderX=side=>side<0?-.55:.65;
 const ease=t=>t*t*(3-2*t);
 const clamp=t=>Math.max(0,Math.min(1,t));
 
+function rim(w,h,k){
+  return [[-w+k,-h],[w-k,-h],[w,-h+k],[w,h-k],[w-k,h],[-w+k,h],[-w,h-k],[-w,-h+k]];
+}
+
+function createLens(seat){
+  const w=seat[2][0],h=seat[4][1],rise=.095;
+  const positions=[],normals=[],radii=[],indices=[];
+  function vertex(x,y,radius){
+    radii.push(radius);
+    const u=x/w,v=y/h;
+    positions.push(x,y,.408+rise*(1-u*u)*(1-v*v));
+    const n=new THREE.Vector3(2*rise*u*(1-v*v)/w,2*rise*v*(1-u*u)/h,1).normalize();
+    normals.push(n.x,n.y,n.z);
+  }
+  // Shared rings follow the octagonal gasket. The extra points along each
+  // flat side let the glass bow in both axes without rounding off the bezel.
+  vertex(0,0,0);
+  const segments=seat.length*4;
+  for(let ring=1;ring<=5;ring++){
+    const radius=ring/5;
+    for(let i=0;i<segments;i++){
+      const edge=Math.floor(i/4),a=seat[edge],b=seat[(edge+1)%seat.length],t=(i%4)/4;
+      vertex(radius*(a[0]+(b[0]-a[0])*t),radius*(a[1]+(b[1]-a[1])*t),radius);
+      const j=1+(ring-1)*segments+i,next=1+(ring-1)*segments+(i+1)%segments;
+      if(ring===1)indices.push(0,j,next);
+      else indices.push(j-segments,j,next,next,next-segments,j-segments);
+    }
+  }
+  const geometry=new THREE.BufferGeometry();
+  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
+  geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
+  geometry.setAttribute('radius',new THREE.Float32BufferAttribute(radii,1));
+  geometry.setIndex(indices);
+  // A sky gradient and a soft strip of light form a small, analytic
+  // environment reflection. It needs no scene capture or refraction pass.
+  const material=new THREE.ShaderMaterial({
+    transparent:true,depthWrite:false,
+    vertexShader:`
+      attribute float radius;
+      varying float vRadius;
+      varying vec3 vNormal;
+      varying vec3 vToEye;
+      void main(){
+        vec4 world=modelMatrix*vec4(position,1.0);
+        vRadius=radius;
+        vNormal=mat3(modelMatrix)*normal;
+        vToEye=cameraPosition-world.xyz;
+        gl_Position=projectionMatrix*viewMatrix*world;
+      }`,
+    fragmentShader:`
+      varying float vRadius;
+      varying vec3 vNormal;
+      varying vec3 vToEye;
+      void main(){
+        vec3 n=normalize(vNormal),eye=normalize(vToEye);
+        vec3 reflected=reflect(-eye,n);
+        float grazing=1.0-clamp(dot(n,eye),0.0,1.0);
+        float sky=smoothstep(-0.18,0.70,reflected.y);
+        float edge=smoothstep(0.78,1.0,vRadius);
+        float strip=reflected.y-0.38*reflected.x;
+        float glint=(1.0-smoothstep(0.018,0.13,abs(strip-0.38)))*
+          (1.0-smoothstep(-0.12,0.70,reflected.x))*
+          (0.26+0.74*smoothstep(-0.25,0.85,reflected.z));
+        vec3 glass=mix(vec3(0.022,0.09,0.15),vec3(0.28,0.49,0.59),sky);
+        glass=mix(glass,vec3(0.10,0.25,0.32),edge*0.65);
+        gl_FragColor=vec4(mix(glass,vec3(0.76,0.92,0.95),0.85*glint),
+          0.045+0.18*sky+0.16*edge+0.42*grazing*grazing+0.42*glint);
+        #include <tonemapping_fragment>
+        #include <colorspace_fragment>
+      }`,
+  });
+  const lens=new THREE.Mesh(geometry,material);
+  lens.name='remontik-lens';
+  return lens;
+}
+
 export function createRemontik(parent,x,z) {
   const root=new THREE.Group();
   root.name='Ремонтик, модель 1';
@@ -36,19 +112,21 @@ export function createRemontik(parent,x,z) {
     block(0,-.04,-.33,.55,.49,.055,0x668573);
     for(let i=0;i<5;i++)block(0,.11-i*.075,-.366,.39,.028,.018,graphite);
   });
-  function rim(w,h,k,z) {
-    return [[-w+k,-h],[w-k,-h],[w,-h+k],[w,h-k],[w-k,h],[-w+k,h],[-w,h-k],[-w,-h+k]].map(([x,y])=>[x,y,z]);
-  }
-  part(shell,'remontik-lens',({band,face})=>{
-    const outer=rim(.435,.365,.095,.332), lip=rim(.410,.341,.089,.399);
-    const bezel=rim(.357,.294,.075,.406), glass=rim(.334,.273,.065,.427);
-    band(outer,lip,0xb78b48);band(lip,bezel,brass);band(bezel,glass,graphite);
-    const pane=rim(.30,.241,.055,.451);
-    band(glass,pane,0x456d73);face(pane,0x274c56);
-    face([[-.29,.16,.452],[-.16,.23,.452],[-.095,.23,.452],[-.27,.13,.452]],0x669293);
+  const seat=rim(.384,.314,.078);
+  part(shell,'remontik-bezel',({band,face})=>{
+    const outer=rim(.435,.365,.095), lip=rim(.419,.349,.089);
+    const gasket=rim(.397,.327,.082);
+    const at=(ring,z)=>ring.map(([x,y])=>[x,y,z]);
+    band(at(outer,.321),at(lip,.404),0xa98148);
+    band(at(lip,.404),at(gasket,.414),brass);
+    band(at(gasket,.414),at(seat,.408),graphite);
+    band(at(seat,.408),at(seat,.354),0x243b40);
+    face(at(seat,.354),0x243d47);
   });
+  const lens=createLens(seat);
+  shell.add(lens);
   const eyes=part(shell,'remontik-eyes',({block})=>{
-    for(const side of [-1,1])block(side*.137,0,.456,.075,.142,.016,0x7fffee,.01);
+    for(const side of [-1,1])block(side*.137,0,.374,.075,.142,.016,0x7fffee,.01);
   },glow);
 
   function joint(parent,x,y,z){
