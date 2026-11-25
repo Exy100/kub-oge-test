@@ -1,5 +1,5 @@
 import { buildKeycapArch } from '../world/keycap-arch.js';
-import { createRemontik } from '../world/remontik.js?v=2';
+import { createRemontik } from '../world/remontik.js?v=3';
 import { buildProcessorSocket } from '../world/processor-socket.js';
 
 const reference = Array.from(new TextEncoder().encode('Б'), byte => byte.toString(2).padStart(8,'0'));
