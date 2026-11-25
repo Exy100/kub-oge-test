@@ -525,9 +525,30 @@ body > header .brand { pointer-events:auto; }
 }
 
 .processor-lab #quest-diagram { display:none; }
-.processor-bytes fieldset { min-width:0; margin:10px 0; padding:10px; border:1px solid #87ad9c; border-radius:10px; }
-.processor-bytes legend { padding:0 5px; font-size:.9rem; }
-.processor-bytes code { letter-spacing:.12em; color:#285a48; }
-.processor-bytes fieldset div { display:grid; grid-template-columns:repeat(8,minmax(0,1fr)); gap:3px; }
-.processor-bytes button { min-width:0; padding:8px 0; background:#dcebe1; border-radius:5px; font:bold 1rem monospace; }
-.processor-bytes button[aria-pressed="true"] { color:white; background:#265c4e; outline:2px solid #264f42; }
+/* Transparent controls pick up the cubes drawn in the island scene underneath. */
+body:has(#workshop-dialog.bit-wall-mode[open]) > :not(#world):not(#workshop-dialog) { visibility:hidden; }
+#workshop-dialog.bit-wall-mode {
+  position:fixed; inset:0; width:100vw; max-width:none; height:100dvh; max-height:none;
+  margin:0; padding:0; border:0; background:transparent; box-shadow:none; overflow:hidden;
+}
+#workshop-dialog.bit-wall-mode::backdrop { background:transparent; backdrop-filter:none; }
+#workshop-dialog.bit-wall-mode .paths-heading {
+  position:absolute; z-index:2; top:10px; left:12px; right:12px; padding:0; background:none; border:0; pointer-events:none;
+}
+#workshop-dialog.bit-wall-mode h2 { margin:0; font-size:1rem; color:#173d39; }
+#workshop-dialog.bit-wall-mode .paths-heading button { pointer-events:auto; }
+.wall-controls { position:absolute; inset:0; touch-action:none; }
+.wall-controls button {
+  position:absolute; transform:translate(-50%,-50%); opacity:1; border:0; border-radius:5px;
+  margin:0; padding:0; background:transparent; box-shadow:none; cursor:grab;
+}
+.wall-controls button:disabled { cursor:default; }
+.wall-controls button:focus-visible { outline:3px solid #ffe9a7; }
+.wall-reference {
+  position:absolute; left:50%; bottom:2%; transform:translateX(-50%); display:grid;
+  grid-template-columns:auto auto; align-items:center; gap:3px 14px; max-width:96vw;
+  padding:8px 14px; border:1px solid #70978b; border-radius:9px; background:#183e3deb; color:#f3efdb;
+}
+.wall-reference small,.wall-reference code { display:block; white-space:pre; }
+.wall-reference code { font:bold clamp(12px,2vw,17px) monospace; }
+.wall-reference [role=status] { grid-column:1/-1; font-size:.78rem; }

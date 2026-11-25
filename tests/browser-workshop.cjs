@@ -303,14 +303,41 @@ const {chromium} = require('playwright');
     await press('Escape');
     await at(202.25,1.8);await press('KeyE');
     assert.match(await dialog.innerText(),/UTF-8/);
-    const launch=dialog.getByRole('button',{name:'Запустить процессор'});
+    const launch=dialog.getByRole('button',{name:'Пуск',exact:true});
+    const slot=i=>dialog.locator('[data-wall-slot="'+i+'"]');
     await launch.click();
-    assert.match(await dialog.locator('[role=status]').innerText(),/Сверь байт 1/);
-    const code=dialog.locator('.processor-bytes button');
-    await code.nth(2).dragTo(code.nth(3));
-    await press('Escape');await press('KeyE');
-    assert.equal(await code.nth(3).innerText(),'1');
-    await code.nth(14).press('Enter');await code.nth(15).press('Enter');
+    assert.match(await dialog.locator('[role=status]').innerText(),/Сверь байт/);
+    assert.equal(await dialog.locator('.wall-controls button:disabled').count(),6);
+    const target='1101000010010001';
+    const dropOffWall=async cube=>{
+      const rect=await cube.boundingBox();
+      await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);
+      await page.mouse.down();
+      await page.mouse.move(2,2);
+      await page.mouse.up();
+    };
+    const firstCube=slot(16);
+    const label=await firstCube.getAttribute('aria-label');
+    await dropOffWall(firstCube);
+    assert.equal(await firstCube.getAttribute('aria-label'),label);
+    let placed=0;
+    for(let i=0;i<16;i++){
+      if(await slot(i).isDisabled())continue;
+      const cube=dialog.getByRole('button',{name:new RegExp('^Лоток .* · '+target[i]+'$')}).first();
+      const home=slot(Number(await cube.getAttribute('data-wall-slot')));
+      await cube.dragTo(slot(i));
+      assert.match(await slot(i).getAttribute('aria-label'),new RegExp(target[i]+'$'));
+      if(++placed===1){
+        await slot(i).dragTo(home);
+        assert.match(await slot(i).getAttribute('aria-label'),/пусто$/);
+        await home.press('Enter');await slot(i).press('Enter');
+        await press('Escape');
+        await at(206,8);await press('KeyE');assert.equal(await index(),1);
+        await at(160,-6);await press('KeyE');assert.equal(await index(),2);
+        await at(206.6,-3.5);await press('KeyE');
+        assert.match(await slot(i).getAttribute('aria-label'),new RegExp(target[i]+'$'));
+      }
+    }
     await launch.click();assert.match(await dialog.innerText(),/Спасибо/);
     await dialog.getByText('Продолжить').click();
     const kits=()=>page.evaluate(()=>bagForTest());
