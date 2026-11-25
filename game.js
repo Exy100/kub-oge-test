@@ -1,6 +1,6 @@
 import { timberMaterial } from './world/timber.js';
 import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=17';
-import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=4';
+import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=5';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
