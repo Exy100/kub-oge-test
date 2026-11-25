@@ -1,6 +1,6 @@
 import { timberMaterial } from './world/timber.js';
 import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=17';
-import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=7';
+import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=8';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
@@ -13,7 +13,7 @@ import { buildIslandTerrain } from './world/island-terrain.js';
 import { createForgeState } from './forge-state.js?v=5';
 import { drawQuestDiagram } from './quest-diagram.js?v=2';
 import { createPlayerInventory } from './player-inventory.js?v=5';
-import { equipGatheringWand } from './gathering-wand.js?v=18';
+import { equipGatheringWand } from './gathering-wand.js?v=19';
 import { createPlayerPanel } from './player-panel.js?v=41';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
@@ -289,7 +289,7 @@ function enterIsland(next) {
   }
   simpleArchEffect = exitGlow = returnGlow = null;
   const lab = stage.locationId === 'island.processor-lab';
-  if (lab) processorLab=createProcessorLab({stage,box,player,dialog:fieldDialog,pause:pauseForScanMenu,changed:update,canStore:hasBagRoom});
+  if (lab) processorLab=createProcessorLab({stage,box,player,dialog:fieldDialog,pause:pauseForScanMenu,changed:update,canStore:hasBagRoom,notify});
   if (lab) {
     exitGlow = processorLab.exitSurface;
   } else if (stage.arches.length) {
@@ -355,6 +355,7 @@ function battleStrike(){
 function currentQuestBrief() {
   const complete = stage.locationId === 'island.data-forge' ? forgeState.unlocked : stage.unlocked;
   if (complete) return 'Пройди через открытый портал на следующий остров.';
+  if(processorLab && stage.metRemontik)return 'Собери букву Б из кубов на стенде справа от процессора.';
   if(stage.repair)return repairBrief(stage);
   if(signalStation && stage.sentWood)return 'Построй три арки из песчаника, дерева и камня.';
   return LOCATIONS[stage.index].quest.brief;
@@ -392,7 +393,7 @@ function refreshMission(){
   controlStrip.querySelector('.forge-hint').hidden=stage.locationId!=='island.data-forge';
   const interact=controlStrip.querySelector('.interact-hint');
   interact.hidden=stage.arches.length>0 && !workshop;
-  interact.lastElementChild.textContent=workshop?'Черепаха / детали / портал':processorLab?'Пульт / портал':stage.locationId==='island.data-forge'?'Верстак / портал':'Вернуться через портал';
+  interact.lastElementChild.textContent=workshop?'Черепаха / детали / портал':processorLab?'Ремонтик / портал':stage.locationId==='island.data-forge'?'Верстак / портал':'Вернуться через портал';
   select(selected);update();
 }
 function update(){
@@ -431,7 +432,7 @@ function nearbyRoute(){
   const routes=[];
   if(returnGlow)routes.push({x:returnGlow.position.x,z:returnGlow.position.z,to:stage.index-1,ready:true,label:'Вернуться в локацию «'+LOCATIONS[stage.index-1].name+'»'});
   if(stage.index===0)routes.push({x:0,z:-1,to:stage.index+1,ready:stage.unlocked,label:'Перейти в мастерскую черепахи',locked:'Дострой арку, чтобы открыть проход.'});
-  if(processorLab)routes.push({...processorLab.exitArch,to:stage.index+1,ready:stage.unlocked,label:'Перейти на остров трёх арок',locked:'Исправь код на пульте процессора.'});
+  if(processorLab)routes.push({...processorLab.exitArch,to:stage.index+1,ready:stage.unlocked,label:'Перейти на остров трёх арок',locked:currentQuestBrief()});
   if(workshop)routes.push({x:stage.center,z:-6,to:stage.index+1,ready:stage.unlocked,label:'Перейти в лабораторию процессора',locked:stage.repair.axe?'Заверши деревянную арку.':'Помоги черепахе починить компьютер.'});
   if(stage.locationId==='island.three-arches')routes.push({x:40,z:-2,to:stage.index+1,ready:stage.unlocked,label:'Отправиться в кузницу',locked:stage.sentWood?'Собери все три арки, чтобы открыть кузницу.':'Включи на пульте указатель к дереву.'});
   if(stage.locationId==='island.data-forge')routes.push({x:86,z:-4,to:stage.index+1,ready:forgeState.unlocked,label:'Пройти сквозь врата',locked:'Выложи четыре байта на площадку у арки.'});
@@ -441,7 +442,7 @@ function travel(){
   const route=nearbyRoute();if(!route)return false;
   if(!route.ready)return true;
   const labReady=stages[route.to].locationId==='island.processor-lab' && stages[route.to].unlocked;
-  goToIsland(route.to, labReady?'Процессор работает. Северный портал открыт.':['Ты вернулся на первый остров.','Черепаха ждёт у разобранного компьютера.','Процессор остановлен. Рядом с ним стоит пульт управления.','Станция кодирования и три арки ждут тебя.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][route.to]);
+  goToIsland(route.to, labReady?'Процессор работает. Северный портал открыт.':['Ты вернулся на первый остров.','Черепаха ждёт у разобранного компьютера.','Процессор остановлен. Поговори с Ремонтиком.','Станция кодирования и три арки ждут тебя.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][route.to]);
   return true;
 }
 function goToIsland(index, message){
@@ -454,9 +455,21 @@ function goToIsland(index, message){
 }
 $('#portal-go').onclick=()=>{if(!modalOpen())travel()};
 document.querySelectorAll('.slot').forEach((s,i)=>{s.setAttribute('role','button');s.tabIndex=0;s.setAttribute('aria-label',MATERIAL_NAMES[i]);s.title=MATERIAL_NAMES[i]+' · '+BUILD_MATERIALS[i].description;s.onclick=()=>select(i);s.onkeydown=e=>{if(e.code==='Enter'||e.code==='Space'){e.preventDefault();e.stopPropagation();select(i)}}});function toggle(){third=!third;followState=createFollowState()}
-$('#play').onclick=()=>{ $('#welcome').classList.add('hidden');panel.start();announceLocation('Маленький остров. Безграничные возможности.');renderer.domElement.requestPointerLock?.()};renderer.domElement.onclick=()=>{if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
+$('#play').onclick=()=>{ $('#welcome').classList.add('hidden');panel.start();announceLocation('Маленький остров. Безграничные возможности.');renderer.domElement.requestPointerLock?.()};renderer.domElement.onclick=()=>{if(skipWallClick){skipWallClick=false;return}if(!modalOpen()&&!document.pointerLockElement&&$('#welcome').classList.contains('hidden'))renderer.domElement.requestPointerLock?.()};document.addEventListener('pointerlockerror',()=>notify('Захват мыши недоступен: удерживай мышь для обзора.'));
 
-let dragging=false;
+let dragging=false, skipWallClick=false;
+const centerAim=new THREE.Vector2(), wallPointer=new THREE.Vector2(), wallCaster=new THREE.Raycaster();
+function worldWall(){
+  if(!processorLab || !processorLab.wall.ready() || modalOpen() || panel.isBattle() || !$('#welcome').classList.contains('hidden'))return null;
+  return processorLab.wall;
+}
+function wallRay(event){
+  if(document.pointerLockElement===renderer.domElement)wallPointer.set(0,0);
+  else if(event)wallPointer.set(2*event.clientX/innerWidth-1,1-2*event.clientY/innerHeight);
+  camera.updateMatrixWorld();
+  wallCaster.setFromCamera(wallPointer,camera);
+  return wallCaster.ray;
+}
 function mouseControlsCamera(){
   return (document.pointerLockElement===renderer.domElement || dragging)
     && $('#welcome').classList.contains('hidden') && !modalOpen();
@@ -481,7 +494,7 @@ function backUp(e){
   if(consumeBackPress)e.preventDefault();
 }
 function resetBackPress(){backHeld=false;consumeBackPress=false}
-document.addEventListener('pointerlockchange',()=>{dragging=false});
+document.addEventListener('pointerlockchange',()=>{dragging=false;processorLab?.wall.cancel()});
 document.addEventListener('pointerdown',backDown,true);
 document.addEventListener('mousedown',backDown,true);
 document.addEventListener('pointerup',backUp,true);
@@ -492,11 +505,24 @@ document.addEventListener('auxclick',e=>{
 },true);
 renderer.domElement.addEventListener('mousedown',e=>{
   if(e.button!==0 && e.button!==2)return;
+  skipWallClick=false;
+  if(e.button===0 && worldWall()?.begin(wallRay(e))){
+    skipWallClick=true;
+    dragging=false;
+    e.preventDefault();
+    return;
+  }
   dragging=true;
   if(!modalOpen()&&document.pointerLockElement)act(e.button);
 });
-document.addEventListener('mouseup',e=>{if(!(e.buttons & 3))dragging=false});
-renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('mousemove',e=>{if(mouseControlsCamera()){yaw-=e.movementX*.003;pitch=THREE.MathUtils.clamp(pitch+e.movementY*.003,-.7,1.1)}});
+document.addEventListener('mouseup',e=>{
+  if(e.button===0 && processorLab?.wall.holding){
+    if(worldWall() && (document.pointerLockElement || e.target===renderer.domElement))processorLab.wall.drop(wallRay(e));
+    else processorLab.wall.cancel();
+  }
+  if(!(e.buttons & 3))dragging=false;
+});
+renderer.domElement.addEventListener('contextmenu',e=>e.preventDefault());document.addEventListener('mousemove',e=>{if(processorLab?.wall.holding && !document.pointerLockElement)wallRay(e);if(mouseControlsCamera()){yaw-=e.movementX*.003;pitch=THREE.MathUtils.clamp(pitch+e.movementY*.003,-.7,1.1)}});
 addEventListener('keydown',e=>{
   if(!$('#welcome').classList.contains('hidden'))return;
   if(e.code==='KeyP'){
@@ -527,6 +553,13 @@ addEventListener('keydown',e=>{
   }
   if(panel.input.down(e))return;
   if(e.code==='KeyE'&&!e.repeat){
+    const wall=worldWall();
+    if(wall){
+      wallPointer.set(0,0);
+      if(wall.holding)wall.drop(wallRay());
+      else if(!wall.begin(wallRay()))wall.verify();
+      e.preventDefault();return;
+    }
     if (workshop?.interact() || signalStation?.interact() || processorLab?.interact()){e.preventDefault();return}
     if (!panel.isBattle() && scanner?.interact('open')) return;
     if(!travel()&&stage.locationId==='island.data-forge')forge.open(player.position);
@@ -550,7 +583,7 @@ addEventListener('keyup',e=>{
   else panel.input.clear();
 });
 document.addEventListener('visibilitychange',()=>{if(document.hidden)scanner?.cancel()});
-addEventListener('blur',()=>{scanner?.cancel();resetBackPress();dragging=false;panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
+addEventListener('blur',()=>{processorLab?.wall.cancel();scanner?.cancel();resetBackPress();dragging=false;panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
 function act(button){
   if(panel.isBattle() && (workshop || bag.loadouts.battle.weapon==='wand') && button===0){battleStrike();return}
   if(panel.isBattle()){notify('Для строительства нажми L / Д или C + V.');return}
@@ -707,10 +740,17 @@ if (returnGlow) returnGlow.material.opacity=.4+Math.sin(now*.002)*.12;
 forge?.update(player.position,now/1000,$('#welcome').classList.contains('hidden')&&!skillList.open&&!scanDialog.open&&!extraDialog?.open&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
 panel.update(dt,now/1000,active);
 const combatWand=panel.isBattle() && bag.loadouts.battle.weapon==='wand';
-const heldTool=panel.isBattle()?(combatWand?'wand':null):bag.loadouts.build.tool;
+const nearbyWall=worldWall();
+if(processorLab){
+  if(!nearbyWall)processorLab.wall.cancel();
+  camera.updateMatrixWorld();
+  wallCaster.setFromCamera(centerAim,camera);
+  processorLab.wall.showSample(!!nearbyWall && (nearbyWall.holding || nearbyWall.facesBoard(wallCaster.ray)));
+}
+const heldTool=nearbyWall?'wand':panel.isBattle()?(combatWand?'wand':null):bag.loadouts.build.tool;
 gathering.update(dt,now/1000,{active,third:player.visible,combatWand,visible:!showingGift&&!!heldTool,tool:heldTool,dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
-if(processorLab?.wall.camera){player.visible=false;renderer.render(scene,processorLab.wall.camera)}
-else if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
+if(nearbyWall?.holding)nearbyWall.move(wallRay(),gathering.tipPosition());
+if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
 
 // Temporary cheats: remove this installation and its import to disable the menu.
 extraDialog = installCheatMenu({

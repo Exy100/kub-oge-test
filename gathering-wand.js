@@ -130,7 +130,7 @@ export function equipGatheringWand({character,camera,scene,renderer}){
   const flights=[];const endpoint=new THREE.Vector3();let elapsed=1,enabled=true,firstPerson=false;
   function destination(){if(firstPerson){viewScene.updateMatrixWorld(true);viewWand.tip.getWorldPosition(endpoint);camera.updateMatrixWorld(true);camera.localToWorld(endpoint)}else{character.root.updateMatrixWorld(true);wand.tip.getWorldPosition(endpoint)}return endpoint}
   function clear(){strikeTime=strikeDuration;contact=null;for(const f of flights)scene.remove(f.mesh);flights.length=0;elapsed=1}
-  return {wand,viewWand,viewScene,
+  return {wand,viewWand,viewScene,tipPosition:destination,
     strike(onContact){
       if(strikeTime<strikeDuration)return;
       strikeTime=0;contact=onContact;

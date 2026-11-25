@@ -16,6 +16,21 @@ const {chromium} = require('playwright');
     await page.route('**/game.js*',r=>r.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(root,'game.js'),'utf8')+`
       window.bagForTest=()=>bag.items().find(item=>item.id===WEAPON_KIT)?.quantity??0;
       window.workTest={
+        wallState(){return {
+          cubes:island.children.filter(m=>m.name.startsWith('repair-bit-')).length,
+          layout:stage.bitWall, holding:processorLab.wall.holding,
+          hand:gathering.viewWand.root.visible,
+        }},
+        aimWall(slot){
+          const col=slot%8, tray=slot>=16;
+          const x=stage.center+6.6+(tray?(slot-20.5)*.64:(col-3.5)*.73+(col<4?-.09:.09));
+          const y=tray?1.03+((slot%2)*2-1)*.09:2.94-Math.floor(slot/8)*.97;
+          const z=-4.8+(tray?.85:.53);
+          third=false;
+          player.position.set(x,0,-.9);
+          yaw=0; pitch=-Math.atan2(y-1.5,player.position.z-z);
+          frame(last+25);
+        },
         actor(i){return (i===-1?player:island.getObjectByName('repair-bug-'+i)).position.toArray()},
         runFrames(n){for(let i=0;i<n;i++)frame(last+25)},
         pickupMarkers:()=>island.children.filter(o=>o.name.startsWith('pickup-label-') && o.visible).map(o=>o.name),
@@ -229,7 +244,7 @@ const {chromium} = require('playwright');
         await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[start]});
         await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[end]});
         await touch.send('Input.dispatchTouchEvent',{type:'touchCancel',touchPoints:[]});
-        assert.equal(await dialog.locator('.pc-drag-preview').count(),0);
+        await dialog.locator('.pc-drag-preview').waitFor({state:'detached'});
         assert.equal((await items()).length,4);
         await touch.send('Input.dispatchTouchEvent',{type:'touchStart',touchPoints:[start]});
         await touch.send('Input.dispatchTouchEvent',{type:'touchMove',touchPoints:[end]});
@@ -297,52 +312,54 @@ const {chromium} = require('playwright');
     assert.equal(await page.evaluate(()=>workTest.build(6)),7);
     await at(160,-6);await press('KeyE');assert.equal(await index(),2);
     await at(193,-7);await press('KeyE');assert.equal(await index(),2);
+    const wallState=()=>page.evaluate(()=>workTest.wallState());
+    const aim=slot=>page.evaluate(i=>workTest.aimWall(i),slot);
+    const sample=page.locator('#wall-sample');
+    await aim(17);
+    assert.equal((await wallState()).cubes,0);
+    await press('KeyE');assert(await dialog.isHidden());
+    assert(await sample.isHidden());
     await at(200.6,3.45);await press('KeyE');
     assert.equal(await dialog.locator('h2').innerText(),'Ремонтик, модель 1');
     assert.match(await dialog.innerText(),/два байта/);
     await press('Escape');
-    await at(202.25,1.8);await press('KeyE');
-    assert.match(await dialog.innerText(),/UTF-8/);
-    const launch=dialog.getByRole('button',{name:'Пуск',exact:true});
-    const slot=i=>dialog.locator('[data-wall-slot="'+i+'"]');
-    await launch.click();
-    assert.match(await dialog.locator('[role=status]').innerText(),/Сверь байт/);
-    assert.equal(await dialog.locator('.wall-controls button:disabled').count(),6);
-    const target='1101000010010001';
-    const dropOffWall=async cube=>{
-      const rect=await cube.boundingBox();
-      await page.mouse.move(rect.x+rect.width/2,rect.y+rect.height/2);
-      await page.mouse.down();
-      await page.mouse.move(2,2);
-      await page.mouse.up();
-    };
-    const firstCube=slot(16);
-    const label=await firstCube.getAttribute('aria-label');
-    await dropOffWall(firstCube);
-    assert.equal(await firstCube.getAttribute('aria-label'),label);
-    let placed=0;
-    for(let i=0;i<16;i++){
-      if(await slot(i).isDisabled())continue;
-      const cube=dialog.getByRole('button',{name:new RegExp('^Лоток .* · '+target[i]+'$')}).first();
-      const home=slot(Number(await cube.getAttribute('data-wall-slot')));
-      await cube.dragTo(slot(i));
-      assert.match(await slot(i).getAttribute('aria-label'),new RegExp(target[i]+'$'));
-      if(++placed===1){
-        await slot(i).dragTo(home);
-        assert.match(await slot(i).getAttribute('aria-label'),/пусто$/);
-        await home.press('Enter');await slot(i).press('Enter');
-        await press('Escape');
+    await aim(17);
+    assert(await sample.isVisible());
+    assert.match(await sample.textContent(),/1101 0000 · 1001 0001/);
+    const {layout,cubes,hand}=await wallState();
+    assert.equal(cubes,16);
+    assert.equal(layout.fixed.length,6);
+    assert(hand,'the gathering wand is shown at the board');
+    await aim(layout.fixed[0]);await press('KeyE');
+    assert.equal((await wallState()).holding,false);
+    const loose=layout.places.map((home,i)=>({home,i})).filter(({home})=>home>=16);
+    for(const [n,{home,i}] of loose.entries()){
+      await aim(home);
+      if(n===0){
+        const center=await page.evaluate(()=>({x:innerWidth/2,y:innerHeight/2}));
+        await page.mouse.move(center.x,center.y);await page.mouse.down();
+        assert((await wallState()).holding,'actual canvas pick');
+        await aim(i);await page.mouse.up();
+        assert.equal((await wallState()).layout.places[i],i);
+        await aim(i);await press('KeyE');await aim(home);await press('KeyE');
+        assert.equal((await wallState()).layout.places[i],home);
+        await aim(home);
+      }
+      await press('KeyE');assert((await wallState()).holding);
+      await aim(i);await press('KeyE');
+      assert.equal((await wallState()).layout.places[i],i);
+      if(n===0){
+        assert(await dialog.isHidden(),'normal game view while assembling');
         await at(206,8);await press('KeyE');assert.equal(await index(),1);
         await at(160,-6);await press('KeyE');assert.equal(await index(),2);
-        await at(206.6,-3.5);await press('KeyE');
-        assert.match(await slot(i).getAttribute('aria-label'),new RegExp(target[i]+'$'));
+        assert.equal((await wallState()).layout.places[i],i);
       }
     }
-    await launch.click();assert.match(await dialog.innerText(),/Спасибо/);
+    assert.match(await dialog.innerText(),/Спасибо/);
     await dialog.getByText('Продолжить').click();
     const kits=()=>page.evaluate(()=>bagForTest());
     assert.equal(await kits(),1);
-    await press('KeyE');assert.match(await dialog.innerText(),/Процессор запущен/);
+    await at(200.6,3.45);await press('KeyE');assert.match(await dialog.innerText(),/Процессор запущен/);
     await press('Escape');assert.equal(await kits(),1);
     await at(200,-6);await press('KeyE');assert.equal(await index(),2);
     await at(193,-7);await press('KeyE');assert.equal(await index(),3);
@@ -356,6 +373,7 @@ const {chromium} = require('playwright');
     assert.equal(await kits(),1);
     await click('#reset');await click('#restart-confirm');
     assert.equal(await kits(),0);
+    assert.equal((await wallState()).cubes,0,'reset returns the stand to blank');
     await at(193,-7);await press('KeyE');assert.equal(await index(),2);
     await at(206,6);await press('KeyE');assert.equal(await index(),2);
     await at(206,8);await press('KeyE');assert.equal(await index(),1);

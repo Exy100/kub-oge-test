@@ -1,5 +1,4 @@
 import * as THREE from '../vendor/three.module.js';
-import {createGatheringWand} from '../gathering-wand.js?v=18';
 
 const bytes = Array.from(new TextEncoder().encode('Б'), n => n.toString(2).padStart(8,'0'));
 const bits = bytes.join('');
@@ -43,9 +42,9 @@ function numberMaterial(bit, fixed) {
   return new THREE.MeshStandardMaterial({map,roughness:.6});
 }
 
-export function buildBitWall({stage,box,dialog,launch}) {
+export function buildBitWall({stage,box,player,launch,notify}) {
   const x=stage.center+6.6, z=-4.8;
-  const layout=stage.bitWall ??= newLayout();
+
   const plate=box(x,2.12,z,7.35,3.24,.36,0x24484a,true);
   for(const dx of [-3.38,3.38]) {
     box(x+dx,.65,z,.42,1.3,.65,0x345959,true);
@@ -69,174 +68,118 @@ export function buildBitWall({stage,box,dialog,launch}) {
     }
     return {dx:(i-20.5)*.64,y:1.03+((i%2)*2-1)*.09};
   });
-  const materials = new Map();
-  const cubes=Array.from(bits,(bit,i)=>{
-    const fixed=layout.fixed.includes(i), key=bit+fixed;
-    if(!materials.has(key))materials.set(key,numberMaterial(bit,fixed));
-    const cube=box(x,0,z,.49,.49,.49,materials.get(key));
-    cube.rotation.set(-.075,.095,0);
-    return cube;
-  });
-  const rims=places.slice(0,16).map(p=>{
-    const rim=box(x+p.dx,p.y,z+.21,.65,.65,.10,0x73a89c);
-    box(x+p.dx,p.y,z+.28,.59,.59,.09,0x193c40);
-    return rim;
-  });
+  let layout, cubes=[], rims=[];
+  function reveal(){
+    if(layout)return;
+    layout=stage.bitWall ??= newLayout();
+    const materials=new Map();
+    cubes=Array.from(bits,(bit,i)=>{
+      const fixed=layout.fixed.includes(i), key=bit+fixed;
+      if(!materials.has(key))materials.set(key,numberMaterial(bit,fixed));
+      const cube=box(x,0,z,.49,.49,.49,materials.get(key));
+      cube.name='repair-bit-'+i;
+      cube.rotation.set(-.075,.095,0);
+      return cube;
+    });
+    rims=places.slice(0,16).map(p=>{
+      const rim=box(x+p.dx,p.y,z+.21,.65,.65,.10,0x73a89c);
+      box(x+p.dx,p.y,z+.28,.59,.59,.09,0x193c40);
+      return rim;
+    });
+    for(const p of places.slice(16))box(x+p.dx,p.y,z+.56,.56,.56,.04,0x26464b);
+    cubes.forEach((_,i)=>settle(i));
+  }
   function settle(i) {
     const at=layout.places[i], p=places[at];
     cubes[i].position.set(x+p.dx,p.y,z+(at<16?.42:.73));
     cubes[i].rotation.z=at<16?0:((i%5)-2)*.035;
   }
-  cubes.forEach((_,i)=>settle(i));
-  const camera=new THREE.OrthographicCamera(-4,4,3,-3,2,60);
-  camera.position.set(x,3.12,z+5.6);
-  camera.lookAt(x,2.10,z+.4);
-  camera.updateMatrixWorld();
+  if(stage.metRemontik || stage.unlocked)reveal();
+  const sample=document.querySelector('#wall-sample');
+  sample.querySelector('code').textContent=bytes.map(b=>b.slice(0,4)+' '+b.slice(4)).join(' · ');
   const point=new THREE.Vector3();
-  const pointerRay=new THREE.Raycaster();
-  const dragPlane=new THREE.Plane(new THREE.Vector3(0,0,1),-(z+.99));
-  const wand=createGatheringWand();
-  plate.parent.add(wand.root);
-  wand.root.visible=false;
-  wand.root.rotation.z=.55;
-  wand.root.scale.setScalar(1.45);
-  const beamShape=new THREE.BufferGeometry().setFromPoints([
-    new THREE.Vector3(0,.65,0),new THREE.Vector3(-.17,.99,-.16)
-  ]);
-  const beam=new THREE.Line(beamShape,new THREE.LineBasicMaterial({color:0x8cf6ea}));
+  const plane=new THREE.Plane(new THREE.Vector3(0,0,1),0);
+  const beamGeometry=new THREE.BufferGeometry();
+  const ends=new THREE.Float32BufferAttribute(new Float32Array(6),3);
+  beamGeometry.setAttribute('position',ends);
+  const beam=new THREE.Line(beamGeometry,new THREE.LineBasicMaterial({color:0x8cf6ea}));
   beam.visible=false;
-  wand.root.add(beam);
-  let buttons=[], unit=1, selected=-1, pointer=null, status, layer, active=false;
-  let highlighted=-1;
+  beam.frustumCulled=false;
+  plate.parent.add(beam);
+  let held=-1, highlighted=-1;
+  function ready(){
+    const p=player.position;
+    return !!layout && !stage.unlocked && p.y<2 && Math.abs(p.x-x)<4.7 && p.z>z+.55 && p.z<z+5.2;
+  }
   function highlight(slot){
+    if(highlighted===slot)return;
     if(highlighted>=0)rims[highlighted].material.emissive.setHex(0);
-    highlighted=slot>=0 && slot<16 && !layout.places.includes(slot) ? slot : -1;
-    if(highlighted>=0)rims[highlighted].material.emissive.setHex(0x58dbc5);
-  }
-  function resize(){
-    unit=Math.min(innerWidth/8.4,innerHeight/5.9);
-    camera.left=-innerWidth/(2*unit); camera.right=-camera.left;
-    camera.top=innerHeight/(2*unit); camera.bottom=-camera.top;
-    camera.updateProjectionMatrix();
-    buttons.forEach((btn,j)=>{
-      const p=places[j];
-      point.set(x+p.dx,p.y,z+(j<16?.60:.93)).project(camera);
-      btn.style.left=((point.x+1)*50)+'%';
-      btn.style.top=((1-point.y)*50)+'%';
-      btn.style.width=btn.style.height=(unit*.61)+'px';
-    });
-  }
-  function labels(){
-    buttons.forEach((btn,j)=>{
-      const i=layout.places.indexOf(j);
-      const name=j<16?'Байт '+(1+Math.floor(j/8))+', ячейка '+(1+j%8):'Лоток '+(1+j-16);
-      btn.setAttribute('aria-label',name+(i<0?' пусто':' · '+bits[i]));
-      btn.disabled=layout.fixed.includes(i);
-    });
-  }
-  function aim(dx,y){
-    wand.root.position.set(x+dx+.94,y-1.09,z+1.38);
-    if(selected>=0)cubes[selected].position.set(x+dx,y,z+.99);
+    highlighted=slot;
+    if(slot>=0)rims[slot].material.emissive.setHex(0x58dbc5);
   }
   function cancel(){
+    if(held>=0)settle(held);
+    held=-1;
     highlight(-1);
-    if(selected>=0)settle(selected);
-    selected=-1;
-    pointer=null;
     beam.visible=false;
-    wand.animate(0,0);
   }
-  function take(slot){
-    const i=layout.places.indexOf(slot);
-    if(i<0 || layout.fixed.includes(i))return false;
-    cancel();
-    selected=i;
-    aim(places[slot].dx,places[slot].y);
-    beam.visible=true;
-    wand.animate(0,1);
-    status.textContent='';
+  function begin(ray){
+    if(!ready() || held>=0 || ray.direction.z>=0)return false;
+    plate.parent.updateMatrixWorld(true);
+    const hits=new THREE.Raycaster(ray.origin,ray.direction).intersectObjects(cubes,false);
+    if(!hits.length)return false;
+    const i=cubes.indexOf(hits[0].object);
+    if(layout.fixed.includes(i))return false;
+    held=i;
     return true;
   }
-  function drop(slot){
-    if(selected<0)return;
-    if(slot>=0 && !layout.places.includes(slot))layout.places[selected]=slot;
-    cancel();
-    labels();
-  }
-  function slotAt(event){
-    const target=document.elementFromPoint(event.clientX,event.clientY)?.closest('[data-wall-slot]');
-    return target ? Number(target.dataset.wallSlot) : -1;
-  }
-  function close(){
-    cancel();
-    active=false;
-    wand.root.visible=false;
-    dialog.classList.remove('bit-wall-mode');
-    window.removeEventListener('resize',resize);
-    window.removeEventListener('blur',cancel);
-    buttons=[];
-  }
-  function afterClose(){if(!dialog.open)close()}
-  dialog.addEventListener('close',afterClose);
-  function open(){
-    cancel();
-    active=true;
-    dialog.classList.add('bit-wall-mode');
-    dialog.querySelector('h2').textContent='Ремонт ядра';
-    const body=dialog.querySelector('.field-body');
-    body.innerHTML='<div class="wall-controls"></div><div class="wall-reference"><div><small>Образец · Б · UTF-8</small><code></code></div><button type="button" class="field-primary">Пуск</button><span role="status"></span></div>';
-    body.querySelector('code').textContent=bytes.map(b=>b.slice(0,4)+' '+b.slice(4)).join('  ·  ');
-    status=body.querySelector('[role=status]');
-    status.textContent='Перетащи кубы жезлом в гнёзда.';
-    layer=body.querySelector('.wall-controls');
-    buttons=places.map((_,i)=>{
-      const btn=document.createElement('button');
-      btn.type='button';btn.dataset.wallSlot=i;
-      btn.onclick=e=>{
-        if(e.detail!==0)return;
-        if(selected<0)take(i);else drop(i);
-      };
-      layer.append(btn);
-      return btn;
+  function target(ray){
+    if(ray.direction.z>=-.04)return -1;
+    // The wall sockets and the shelf have different depths in the player's view.
+    return places.findIndex((p,j)=>{
+      plane.constant=-(z+(j<16?.53:.85));
+      return ray.intersectPlane(plane,point) &&
+        Math.abs(point.x-x-p.dx)<.33 && Math.abs(point.y-p.y)<.34;
     });
-    labels();
-    resize();
-    wand.root.visible=true;
-    aim(3.1,.8);
-    layer.onpointerdown=e=>{
-      if(e.button!==0 || pointer!==null)return;
-      const slot=slotAt(e);
-      if(!take(slot))return;
-      pointer=e.pointerId;
-      layer.setPointerCapture(pointer);
-      e.preventDefault();
-    };
-    layer.onpointermove=e=>{
-      if(pointer!==null && pointer!==e.pointerId)return;
-      pointerRay.setFromCamera({x:2*e.clientX/innerWidth-1,y:1-2*e.clientY/innerHeight},camera);
-      pointerRay.ray.intersectPlane(dragPlane,point);
-      aim(point.x-x,point.y);
-      if(selected>=0)highlight(slotAt(e));
-    };
-    layer.onpointerup=e=>{if(pointer===e.pointerId)drop(slotAt(e))};
-    layer.onlostpointercapture=layer.onpointercancel=cancel;
-    body.querySelector('.field-primary').onclick=()=>{
-      cancel();
-      const bad=Array.from(bits).findIndex((bit,slot)=>bits[layout.places.indexOf(slot)]!==bit);
-      if(bad>=0){status.textContent='Сверь байт '+(1+Math.floor(bad/8))+' с образцом.';return}
-      launch(status,close);
-    };
-    window.addEventListener('resize',resize);
-    window.addEventListener('blur',cancel);
-    dialog.showModal();
   }
-  function inReach(position){
-    return position.y<2 && Math.abs(position.x-x)<3.65 && position.z>z && position.z<z+2.6;
+  function move(ray,tip){
+    if(held<0)return;
+    if(!ready()){cancel();return}
+    const slot=target(ray);
+    highlight(slot>=0 && slot<16 && !layout.places.includes(slot)?slot:-1);
+    plane.constant=-(z+1.03);
+    if(ray.direction.z>=-.04 || !ray.intersectPlane(plane,point)){
+      cancel();return;
+    }
+    point.x=THREE.MathUtils.clamp(point.x,x-3.65,x+3.65);
+    point.y=THREE.MathUtils.clamp(point.y,.55,3.55);
+    cubes[held].position.copy(point);
+    ends.setXYZ(0,tip.x,tip.y,tip.z);
+    ends.setXYZ(1,point.x,point.y,point.z);
+    ends.needsUpdate=true;
+    beam.visible=true;
   }
-  return {open,inReach,get camera(){return active?camera:null},dispose(){
-    close();
-    dialog.removeEventListener('close',afterClose);
-    beamShape.dispose();beam.material.dispose();
-    wand.root.removeFromParent();wand.dispose();
-  }};
+  function verify(){
+    if(!ready() || layout.places.some(j=>j>=16))return;
+    const bad=Array.from(bits).findIndex((bit,j)=>bits[layout.places.indexOf(j)]!==bit);
+    if(bad>=0){notify('Сверь байт '+(1+Math.floor(bad/8))+' с образцом.');return}
+    launch();
+  }
+  function drop(ray){
+    if(held<0)return;
+    const slot=ready()?target(ray):-1;
+    if(slot>=0 && !layout.places.includes(slot))layout.places[held]=slot;
+    cancel();
+    if(slot>=0)verify();
+  }
+  function facesBoard(ray){
+    plane.constant=-z;
+    return ray.direction.z<0 && ray.intersectPlane(plane,point) &&
+      Math.abs(point.x-x)<4.8 && point.y>-.5 && point.y<4.5;
+  }
+  function showSample(show){
+    if(sample.hidden===show)sample.hidden=!show;
+  }
+  return {reveal,ready,facesBoard,begin,move,drop,cancel,verify,showSample,get holding(){return held>=0},
+    dispose(){cancel();showSample(false)}};
 }
