@@ -1,25 +1,20 @@
-import { buildBitWall } from './processor-bit-wall.js';
+import { buildBitWall } from './processor-bit-wall.js?v=2';
 import { buildKeycapArch } from '../world/keycap-arch.js';
 import { createRemontik } from '../world/remontik.js?v=3';
 import { buildProcessorSocket } from '../world/processor-socket.js';
 
 export const WEAPON_KIT = 'reward.weapon-kit';
 
-export function createProcessorLab({stage, box, player, dialog, pause, changed, canStore}) {
+export function createProcessorLab({stage, box, player, dialog, pause, changed, canStore, notify}) {
   const x = stage.center;
   const {core,lights,rotors} = buildProcessorSocket(box,x);
   const robot = createRemontik(core.parent,x+.6,2.25);
   const robotCollider = box(robot.root.position.x,1.10,robot.root.position.z,.88,.82,.76,0x426c52,true);
   robotCollider.visible=false;
-  const deskX = x+3.45, deskZ = 1;
-  box(deskX,.54,deskZ,1.36,1.08,.85,0x45665f,true);
-  box(deskX,1.09,deskZ,1.6,.12,1,0x68817b);
-  const display = box(deskX,1.37,deskZ-.24,1.14,.48,.12,0x386376);
-  for(let i=0;i<4;i++)box(deskX+(i-1.5)*.29,1.17,deskZ+.16,.2,.07,.18,0xd3b277);
   const exitArch = {x: x - 7, z: -7};
   const exitSurface = buildKeycapArch(box,exitArch);
   function lightCore() {
-    for (const mesh of [...lights,display]) {
+    for (const mesh of lights) {
       mesh.material.color.setHex(stage.unlocked ? 0x81f1cd : 0xe89b62);
       mesh.material.emissive.setHex(stage.unlocked ? 0x228f77 : 0x623824);
     }
@@ -28,43 +23,43 @@ export function createProcessorLab({stage, box, player, dialog, pause, changed, 
   lightCore();
   const prompt = document.querySelector('#field-action');
   const body = dialog.querySelector('.field-body');
-  function near() {
-    return wall.inReach(player.position) || (player.position.y < 2 && Math.hypot(player.position.x-deskX,player.position.z-deskZ)<2.35);
-  }
   function success() {
     dialog.querySelector('h2').textContent = 'Процессор запущен';
     body.innerHTML = '<p>«Снова читаю команды! Спасибо, что восстановил мой код. Оружейный набор теперь у тебя в рюкзаке».</p><p>Северный портал открыт. За ним — Остров трёх арок.</p><button type="button" class="field-primary">Продолжить</button>';
     body.querySelector('button').onclick = ()=>dialog.close();
   }
-  const wall = buildBitWall({stage,box,dialog,launch(status,closeWall){
+  const wall = buildBitWall({stage,box,player,notify,launch(){
     if(!canStore(WEAPON_KIT)){
-      status.textContent='Освободи место в рюкзаке для оружейного набора и повтори запуск.';
+      notify('Освободи место в рюкзаке и нажми E у доски.');
       return;
     }
-    closeWall();
+    wall.showSample(false);
+    pause();
     stage.unlocked=true;
     robot.wave();
     lightCore();
     changed();
     success();
+    dialog.showModal();
     body.querySelector('button').focus();
   }});
   function nearRobot(){
     return player.position.y<2 && Math.hypot(player.position.x-robot.root.position.x,player.position.z-robot.root.position.z)<2;
   }
   function interact(){
-    if(!near()){
-      if(!nearRobot())return false;
-      pause();robot.wave();
-      dialog.querySelector('h2').textContent=robot.root.name;
-      body.innerHTML=stage.unlocked
-        ? '<p>Спасибо! Слышишь, как заработал кулер? Через северный портал можно идти дальше.</p>'
-        : '<p>Привет! Я Ремонтик, модель 1. Чип я проверил. Теперь поможешь с кодом? В UTF-8 у каждой буквы русского алфавита два байта. Собери букву Б на стене из кубов: в каждом ряду восемь битов.</p>';
-      dialog.showModal();
-      return true;
-    }
+    if(!nearRobot())return false;
     pause();
-    if(stage.unlocked){success();dialog.showModal()}else wall.open();
+    robot.wave();
+    if(stage.unlocked){
+      success();
+    }else{
+      stage.metRemontik=true;
+      wall.reveal();
+      changed();
+      dialog.querySelector('h2').textContent=robot.root.name;
+      body.innerHTML='<p>Процессор ждёт букву Б. В UTF-8 это два байта — по восемь битов. Я подготовил кубы на стенде справа. Подойди к нему и перетащи кубы жезлом по образцу. Когда код совпадёт, процессор запустится.</p>';
+    }
+    dialog.showModal();
     return true;
   }
   prompt.onclick=interact;
@@ -73,7 +68,7 @@ export function createProcessorLab({stage, box, player, dialog, pause, changed, 
       for (const rotor of rotors) rotor.rotation.z -= dt*4;
     }
     robot.update(dt,active,reduced,player.position);
-    prompt.hidden=!active || !(near() || nearRobot());
-    if(!prompt.hidden)prompt.textContent=near()?'E · Ремонт процессора':'E · Ремонтик, модель 1';
+    prompt.hidden=!active || !nearRobot();
+    if(!prompt.hidden)prompt.textContent='E · Ремонтик, модель 1';
   },dispose(){wall.dispose();prompt.hidden=true;prompt.onclick=null;dialog.close()}};
 }
