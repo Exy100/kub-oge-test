@@ -1,6 +1,6 @@
 import { timberMaterial } from './world/timber.js';
 import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=17';
-import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=6';
+import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=7';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
@@ -709,7 +709,8 @@ panel.update(dt,now/1000,active);
 const combatWand=panel.isBattle() && bag.loadouts.battle.weapon==='wand';
 const heldTool=panel.isBattle()?(combatWand?'wand':null):bag.loadouts.build.tool;
 gathering.update(dt,now/1000,{active,third:player.visible,combatWand,visible:!showingGift&&!!heldTool,tool:heldTool,dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
-if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
+if(processorLab?.wall.camera){player.visible=false;renderer.render(scene,processorLab.wall.camera)}
+else if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);
 
 // Temporary cheats: remove this installation and its import to disable the menu.
 extraDialog = installCheatMenu({
