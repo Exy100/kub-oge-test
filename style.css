@@ -535,3 +535,41 @@ body > header .brand { pointer-events:auto; }
 /* Keep the working area clear while the player is looking at the board. */
 body:has(#wall-sample:not([hidden])) #quest-panel,
 body:has(#wall-sample:not([hidden])) .bottom > :not(#wall-sample):not(#message) { display:none; }
+
+#workshop-dialog:has(.work-order) {
+  box-sizing:border-box; width:min(634px,calc(100vw - 24px)); min-height:min(530px,calc(100dvh - 24px));
+  max-height:calc(100dvh - 24px); padding:0; overflow:auto; border:5px solid #50615b;
+  border-radius:13px; color:#332e24; background:#f6ead2;
+  box-shadow:0 22px 65px #102e2c88,0 0 0 2px #b5ad88,inset 0 0 0 2px #c0ad89;
+}
+#workshop-dialog:has(.work-order) .paths-heading {
+  align-items:center; padding:14px clamp(16px,4vw,32px); gap:12px;
+  background:linear-gradient(105deg,#e4c48e,#f6e4bd 65%,#e0c79b);
+  border-bottom:3px double #9a896b;
+}
+#workshop-dialog:has(.work-order) .paths-heading::before {
+  content:''; flex:none; width:14px; height:14px; border-radius:50%; border:1px solid #8e723e;
+  background:linear-gradient(135deg,transparent 40%,#776337 43% 54%,transparent 57%),radial-gradient(circle at 32% 25%,#f6d996,#b4985c);
+  box-shadow:1px 2px 2px #5b4f3444;
+}
+#workshop-dialog:has(.work-order) .paths-heading h2 {
+  flex:1; margin:0; font:bold clamp(19px,4vw,25px)/1.15 Georgia,serif; text-transform:uppercase; letter-spacing:.035em;
+}
+#workshop-dialog:has(.work-order) .paths-heading button { flex:none; background:#f8efd9; color:#4f5145; }
+.work-order { margin:0; padding:18px clamp(16px,4vw,33px) 22px; }
+.work-order-identity { display:flex; flex-wrap:wrap; align-items:baseline; gap:6px 12px; color:#474638; }
+.work-order h4,.work-order-identity span { margin:0; font:bold 12px/1.4 monospace; letter-spacing:.07em; text-transform:uppercase; }
+.work-order-identity strong { font-size:15px; }
+.work-order h3 { margin:16px 0 8px; font:bold clamp(25px,5vw,36px)/1.12 Georgia,serif; color:#313d35; }
+.field-body .work-order p { margin:5px 0 0; color:#403e34; font-size:clamp(15px,2vw,17px); line-height:1.46; }
+.work-order-letter p + p { margin-top:8px; }
+.work-order-task { border-top:1px solid #c9b99b; padding-top:13px; margin-top:16px; }
+.work-order-memo { margin:12px 0 0; padding:10px 14px; background:#f0dfaf; border-left:3px solid #a17e35; }
+.field-body .work-order-memo p { font-size:15px; }
+.work-order footer { display:flex; align-items:center; justify-content:space-between; gap:12px 22px; border-top:1px solid #c9b99b; padding-top:14px; margin-top:16px; }
+.field-body .work-order footer p { font-size:15px; }
+.field-body .work-order footer button {
+  flex:none; padding:9px 14px; background:#f0eddb; border:3px double #36705a; border-radius:4px;
+  font:bold 16px/1.15 monospace; color:#245a47; text-transform:uppercase; transform:rotate(-2deg);
+}
+@media (max-width:440px) { .work-order footer { flex-wrap:wrap; } }
