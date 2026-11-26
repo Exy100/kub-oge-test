@@ -14,7 +14,13 @@ const {chromium} = require('playwright');
     page.on('pageerror',e=>errors.push(e.message));
     await page.addInitScript(()=>{requestAnimationFrame=()=>0;localStorage.setItem('kub.navigator.v1','27')});
     await page.route('**/game.js*',r=>r.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(root,'game.js'),'utf8')+`
-      window.bagForTest=()=>bag.items().find(item=>item.id===WEAPON_KIT)?.quantity??0;
+      window.addTestCoins=n=>{playerAccount.coins+=n};
+      window.rewardForTest=()=>({
+        weapons:bag.items().filter(item=>item.kind==='weapon').map(item=>[item.id,item.quantity]),
+        coins:playerAccount.coins,
+      });
+      const canStoreItem=bag.canStore;
+      window.blockStaffSlot=blocked=>{bag.canStore=id=>!(blocked && id===STAFF_ID) && canStoreItem(id)};
       window.workTest={
         wallState(){return {
           cubes:island.children.filter(m=>m.name.startsWith('repair-bit-')).length,
@@ -323,6 +329,12 @@ const {chromium} = require('playwright');
     assert.equal(await dialog.locator('h2').textContent(),'Наряд на ремонт');
     assert.match(await dialog.locator('.work-order-identity').innerText(),/Ремонтик, модель 1/);
     assert.match(await dialog.locator('.work-order-task + .work-order-memo').innerText(),/UTF-8.*два байта.*8 бит/s);
+    assert.match(await dialog.locator('footer p').innerText(),/Импульсный посох, 15 золотых монет/);
+    await page.evaluate(()=>{addTestCoins(7);blockStaffSlot(true)});
+    const reward=()=>page.evaluate(()=>rewardForTest());
+    const before=await reward();
+    assert.deepEqual(before.weapons,[]);
+    const earned={weapons:[['weapon.pulse-staff',1]],coins:before.coins+15};
     await dialog.getByRole('button',{name:'К стенду'}).click();
     await aim(17);
     assert(await sample.isVisible());
@@ -356,12 +368,20 @@ const {chromium} = require('playwright');
         assert.equal((await wallState()).layout.places[i],i);
       }
     }
-    assert.match(await dialog.innerText(),/Спасибо/);
+    assert(await dialog.isHidden());
+    assert.match(await page.locator('#message').textContent(),/Освободи место/);
+    assert.deepEqual(await reward(),before);
+    await page.evaluate(()=>blockStaffSlot(false));
+    await aim(16);await press('KeyE');
+    assert.match(await dialog.innerText(),/импульсный посох и 15 золотых монет/);
     await dialog.getByText('Продолжить').click();
-    const kits=()=>page.evaluate(()=>bagForTest());
-    assert.equal(await kits(),1);
+    assert.deepEqual(await reward(),earned);
+    await press('KeyB');
+    assert.equal(await page.locator('[data-item="weapon.pulse-staff"]').count(),1);
+    assert.equal(await page.locator('.balance-amount').textContent(),String(earned.coins));
+    await press('Escape');
     await at(200.6,3.45);await press('KeyE');assert.match(await dialog.innerText(),/Процессор запущен/);
-    await press('Escape');assert.equal(await kits(),1);
+    await press('Escape');assert.deepEqual(await reward(),earned);
     await at(200,-6);await press('KeyE');assert.equal(await index(),2);
     await at(193,-7);await press('KeyE');assert.equal(await index(),3);
     await at(40,2);await press('KeyE');
@@ -371,9 +391,9 @@ const {chromium} = require('playwright');
     assert.match(await dialog.locator('[role=status]').innerText(),/Дерево · сигнал принят/);
     await press('Escape');await at(40,-2);await press('KeyE');assert.equal(await index(),3);
     await at(46,6);await press('KeyE');assert.equal(await index(),2);
-    assert.equal(await kits(),1);
+    assert.deepEqual(await reward(),earned);
     await click('#reset');await click('#restart-confirm');
-    assert.equal(await kits(),0);
+    assert.deepEqual(await reward(),before);
     assert.equal((await wallState()).cubes,0,'reset returns the stand to blank');
     await at(193,-7);await press('KeyE');assert.equal(await index(),2);
     await at(206,6);await press('KeyE');assert.equal(await index(),2);

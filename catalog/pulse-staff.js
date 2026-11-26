@@ -1,3 +1,4 @@
+// Legacy reward ID retained for saved bag layouts.
 export const WEAPON_KIT = 'reward.weapon-kit';
 export const STAFF_ID = 'weapon.pulse-staff';
 export const pulseStaff = {

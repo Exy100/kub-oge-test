@@ -1,5 +1,5 @@
 import { STAFF_ID } from './catalog/pulse-staff.js';
-import { createInventoryWindows } from './inventory-window.js?v=7';
+import { createInventoryWindows } from './inventory-window.js?v=8';
 import { createLiveNavigator } from './navigator-live.js?v=11';
 import { createNavigatorSpeech } from './navigator-speech.js?v=16';
 import { createNavigatorChoice } from './navigator-choice.js?v=12';

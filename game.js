@@ -1,7 +1,7 @@
 import { STAFF_ID, STAFF_ATTACK, STAFF_SOUNDS } from './catalog/pulse-staff.js?v=3';
 import { timberMaterial } from './world/timber.js';
 import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=19';
-import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=10';
+import { createProcessorLab, LAB_REWARD_COINS } from './quests/processor-lab.js?v=11';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
@@ -13,9 +13,9 @@ import { createSimpleArchEffect } from './world/simple-arch.js';
 import { buildIslandTerrain } from './world/island-terrain.js';
 import { createForgeState } from './forge-state.js?v=5';
 import { drawQuestDiagram } from './quest-diagram.js?v=2';
-import { createPlayerInventory } from './player-inventory.js?v=6';
+import { createPlayerInventory } from './player-inventory.js?v=7';
 import { equipGatheringWand } from './gathering-wand.js?v=25';
-import { createPlayerPanel } from './player-panel.js?v=42';
+import { createPlayerPanel } from './player-panel.js?v=43';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
@@ -61,9 +61,12 @@ let scanner = null;
 const scanDialog = $('#scan-dialog');
 const scanStore = createScanStore(save => scanner?.sync(save));
 let sessionCoins = 0;
+const labRewardEarned = () => stages.some(s=>s.locationId==='island.processor-lab' && s.unlocked);
+// The staff and lab gold follow the same completion flag across travel and island resets.
+const earnedCoins = () => scanStore.state.coins + (labRewardEarned() ? LAB_REWARD_COINS : 0);
 const playerAccount = {
-  get coins(){return scanStore.state.coins + sessionCoins},
-  set coins(value){sessionCoins = value - scanStore.state.coins},
+  get coins(){return earnedCoins() + sessionCoins},
+  set coins(value){sessionCoins = value - earnedCoins()},
 };
 scanDialog.querySelector('button').onclick = () => scanDialog.close();
 function pauseForScanMenu(){
@@ -160,7 +163,7 @@ skillList.addEventListener('keydown',e=>{
   }
 });
 const bag=createPlayerInventory(()=>[
-  {id:WEAPON_KIT,quantity:stages.some(s=>s.locationId==='island.processor-lab' && s.unlocked)?1:0},
+  {id:STAFF_ID,quantity:labRewardEarned()?1:0},
   {id:'wood-axe',quantity:stages.some(s=>s.repair?.axe)?1:0},
   ...pcParts.map((part,i)=>({id:part.id,quantity:stages.some(s=>s.repair?.parts[i]==='bag')?1:0})),
   ...BUILD_MATERIALS.map((item,i)=>({id:item.id,quantity:stages.reduce((sum,island)=>sum+island.inventory[i],0)})),
@@ -675,7 +678,7 @@ function act(button){
   addBlock(x,y,z,selected);playPlacement();update();
 }
 function restartWarning(){
-  if(processorLab)return 'Код вернётся в исходное состояние. Портал закроется, а оружейный набор можно будет получить снова после ремонта.';
+  if(processorLab)return `Код вернётся в исходное состояние, портал закроется. Награда за ремонт (импульсный посох и ${LAB_REWARD_COINS} золотых монет) сбросится. Её можно будет получить снова.`;
   if(workshop)return 'Черепаха снова попросит о помощи. Ремонт компьютера, подарок черепахи и деревянная арка будут сброшены.';
   if(signalStation && stage.sentWood)return 'Сигнал, постройки и собранные на острове материалы будут сброшены.';
   if(stage.locationId==='island.discovery-garden')return 'Вы вернётесь к началу сада. Врата кузницы останутся открыты.';
