@@ -46,7 +46,21 @@ window.storyTest={
  bitMaterial(){return forge.pickups[0].material.map(m=>m.uuid)},
  collectBytes(){for(const model of [...forge.bytePickups]){player.position.set(model.position.x,0,model.position.z+2);camera.position.set(model.position.x,3,model.position.z);camera.lookAt(model.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)}},
  offerByte(i){const pad=forge.cells[i];player.position.set(pad.position.x,0,pad.position.z+1.5);camera.position.set(pad.position.x,3,pad.position.z);camera.lookAt(pad.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)},
- byteDetails(){const model=forge.bytePickups[0];const shell=model.getObjectByName('byte-glass');return {bits:model.userData.innerBits.length,transparent:shell.material.transparent,opacity:shell.material.opacity,parts:model.children.length}},
+ byteDetails(time,reduced=false){
+   forge.update(player.position,time,true,true,reduced);
+   const shell=forge.bytePickups[0].children[0];
+   return {
+     faces:shell.children.map(bit=>{
+       // One outward direction per face, all driven by the same digit.
+       const movement=bit.geometry.morphAttributes.position[0], normals=new Set();
+       for(let i=0;i<movement.count;i++) normals.add([movement.getX(i),movement.getY(i),movement.getZ(i)].join(','));
+       return normals.size;
+     }),
+     lift:shell.children.map(bit=>bit.morphTargetInfluences[0]),
+     digits:shell.children.map(bit=>bit.material.uuid),
+     height:shell.position.y, angle:shell.rotation.y,
+   };
+ },
  viewArch(){player.position.set(86,0,1);yaw=0;pitch=.15}
 };`}));
 const assert=(ok,msg)=>{if(!ok)throw Error(msg)};
@@ -158,7 +172,17 @@ for(let batch=0;batch<4;batch++){
  await page.evaluate(()=>{storyTest.operate(8);storyTest.operate(8)});
  await page.waitForFunction(n=>storyTest.forgeSnapshot().crafted===n,batch+1);
  f=await page.evaluate(()=>storyTest.forgeSnapshot());assert(f.bytes===0&&f.pending===1&&f.crafted===batch+1,'one crafted byte waits on tray');
- const details=await page.evaluate(()=>window.storyTest.byteDetails());assert(details.bits===4&&details.transparent&&details.opacity<.5&&details.parts>25,'detailed transparent byte with four inner bits');
+ if(batch===0){
+   const [rest,peak,back,still,stillLater]=await page.evaluate(()=>[
+     storyTest.byteDetails(0),storyTest.byteDetails(.81),storyTest.byteDetails(1.6),
+     storyTest.byteDetails(22,true),storyTest.byteDetails(48,true),
+   ]);
+   assert(rest.faces.length===8 && rest.faces.every(n=>n===6),'eight bit positions on all six faces');
+   assert(peak.lift[0]>.99 && peak.lift.slice(1).every(v=>v===0),'one bit rises at a time');
+   assert(back.lift.every(v=>v===0) && peak.digits[0]!==rest.digits[0] && back.digits[0]===peak.digits[0],'digit changes at full lift and returns to its socket');
+   assert(peak.height!==rest.height && peak.angle!==rest.angle,'crafted byte hovers and turns');
+   assert(JSON.stringify(still)===JSON.stringify(stillLater),'byte remains still with reduced motion');
+ }
  await page.evaluate(()=>window.storyTest.collectBytes());f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.bytes===1&&f.pending===0,'byte collected into bag');
  await page.evaluate(i=>window.storyTest.offerByte(i),batch);f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.inserted===batch+1&&f.bytes===0&&f.unlocked===(batch===3),'four physical offerings unlock arch');
 }

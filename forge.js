@@ -1,9 +1,9 @@
 import * as THREE from './vendor/three.module.js';
 import { createForgeState, toggleBit, craftByte, collectByte, insertByte, bitValue } from './forge-state.js?v=5';
-import { createByteFactory } from './byte-model.js?v=3';
+import { createByteFactory } from './byte-model.js?v=4';
 
 import { socketFace } from './world/forge-finishes.js';
-import { buildInductionForge } from './world/induction-forge.js';
+import { buildInductionForge } from './world/induction-forge.js?v=2';
 
 export function createForge({ scene, box, solids, state=createForgeState(), remainingBits, onChange, notify, canStore=()=>true, onCollect=()=>{}, onPlace=()=>{} }) {
   const pickups=[],bytePickups=[],cells=[],deposited=[];
@@ -19,7 +19,7 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
     const texture=new THREE.CanvasTexture(canvas);texture.colorSpace=THREE.SRGBColorSpace;
     return new THREE.MeshStandardMaterial({map:texture,roughness:.65});
   }
-  const digits=[textureMaterial('0'),textureMaterial('1')],bytes=createByteFactory(digits);
+  const digits=[textureMaterial('0'),textureMaterial('1')],bytes=createByteFactory();
   const emptyMaterial=new THREE.MeshStandardMaterial({map:socketFace(),roughness:.82});
   const padMaterial=new THREE.MeshStandardMaterial({color:0xa99ab5,emissive:0x604970,emissiveIntensity:.15,roughness:.65});
   // The forge stays a workshop; the destination is now a separate ceremonial arch.
@@ -144,7 +144,8 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
         machine.slots.forEach((m,i)=>{if(state.slots[i])m.material=digits[bitValue(second,i)]});
       }
       pickups.forEach(m=>{const phase=m.userData.seed;m.rotation.y=time*.35+phase;m.position.y=.7+Math.sin(time*2+phase)*.08});
-      bytePickups.forEach(m=>{m.rotation.y=Math.sin(time*.5)*.25;bytes.animate(m,time)});deposited.forEach(m=>bytes.animate(m,time));
+      for(const model of bytePickups)bytes.animate(model,time,reduced);
+      for(const model of deposited)bytes.animate(model,time,reduced);
       crown.rotation.y=time*.45;gateway.material.opacity=.38+Math.sin(time*2)*.1;
     },
     dispose(resources) {
