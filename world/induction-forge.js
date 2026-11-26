@@ -1,7 +1,7 @@
 import * as THREE from '../vendor/three.module.js';
 
 import { createForgeDischarge } from './forge-discharge.js';
-import { brushedFinish, ignitionCap, ventCover } from './forge-finishes.js';
+import { brushedFinish, forgeReflection, ignitionCap, ventCover } from './forge-finishes.js?v=2';
 
 const duration = 1.46;
 const clamp = v => Math.min(1,Math.max(0,v));
@@ -23,11 +23,14 @@ function casingGeometry(){
 }
 
 export function buildInductionForge(scene, box, empty, byteModel) {
-  const ivory=0xf0dfb9, slate=0x384d59, brass=0xb68a47;
+  const ivory=0xf0dfb9;
+  const reflection=forgeReflection();
   const metal=color=>new THREE.MeshStandardMaterial({color,metalness:.36,roughness:.42,flatShading:true});
-  const winding=brushedFinish(0xde8650,.42), ceramic=brushedFinish(0xffebca,.12), terminals=brushedFinish(0xe3ad64,.46);
-  const enamel=brushedFinish(0x599a89,.18), dark=brushedFinish(0x344a51);
-  const socketTrim=brushedFinish(0xd0a061), charged=new THREE.MeshBasicMaterial({color:0xffcc79});
+  const winding=brushedFinish(0xe38d61,.90,.23,reflection);
+  const terminals=brushedFinish(0xe7b66a,.87,.27,reflection);
+  const ceramic=brushedFinish(0xffebca,.12);
+  const enamel=brushedFinish(0x599a89,.18), dark=brushedFinish(0x657681,.76,.37,reflection);
+  const socketTrim=brushedFinish(0xd4a662,.84,.32,reflection), charged=new THREE.MeshBasicMaterial({color:0xffcc79});
   function mesh(shape,material,x,y,z){
     const m=new THREE.Mesh(shape,material);m.position.set(x,y,z);m.castShadow=true;m.receiveShadow=true;scene.add(m);return m;
   }
@@ -49,7 +52,7 @@ export function buildInductionForge(scene, box, empty, byteModel) {
     scene.add(part);return part;
   }
   const casting=casingGeometry();
-  box(80,.13,-3.24,3.95,.26,2.48,slate,true).geometry=casting;
+  box(80,.13,-3.24,3.95,.26,2.48,dark,true).geometry=casting;
   box(80,.58,-3.24,3.76,.80,2.32,enamel,true).geometry=casting;
   box(80,1.00,-3.24,3.94,.16,2.48,ceramic,true).geometry=casting;
   for(const side of [-1,1]){
@@ -68,14 +71,14 @@ export function buildInductionForge(scene, box, empty, byteModel) {
     box(x-side*.27,2.49,z,.6,.16,.21,terminals);
     box(x-side*.43,2.46,z,.15,.20,.21,ivory);
   }
-  box(80,2.78,-3.76,2.22,.12,.17,slate);
-  box(80,2.78,-3.76,.46,.24,.34,brass);
+  box(80,2.78,-3.76,2.22,.12,.17,dark);
+  box(80,2.78,-3.76,.46,.24,.34,terminals);
   cylinder(80,2.57,-3.76,.12,.19,ceramic);
   // Feet, access panel and inset vents give the bench a readable front at eye level.
   for(const dx of [-1.65,1.65]){
-    for(const dz of [-.91,.91])box(80+dx,.12,-3.24+dz,.49,.24,.50,slate);
+    for(const dz of [-.91,.91])box(80+dx,.12,-3.24+dz,.49,.24,.50,dark);
   }
-  box(79.74,.61,-2.058,2.42,.56,.06,slate);
+  box(79.74,.61,-2.058,2.42,.56,.06,dark);
   const face=mesh(new THREE.PlaneGeometry(2.38,.53),new THREE.MeshStandardMaterial({map:ventCover(),roughness:.66}),79.74,.61,-2.022);
   face.castShadow=false;
   // Riveted corner bands and a recessed control deck frame the controls.
@@ -84,7 +87,7 @@ export function buildInductionForge(scene, box, empty, byteModel) {
     box(80+side*1.77,.28,-2.04,.21,.12,.16,dark);
   }
   box(79.85,1.13,-2.43,2.35,.16,1.04,dark).rotation.x=.44;
-  box(81.43,.58,-2.052,.43,.48,.07,brass);
+  box(81.43,.58,-2.052,.43,.48,.07,terminals);
   box(81.43,.58,-2.005,.23,.28,.04,ivory);
   cylinder(80,1.18,-3.67,.48,.20,terminals);
   cylinder(80,1.31,-3.67,.36,.08,ceramic);
@@ -153,5 +156,5 @@ export function buildInductionForge(scene, box, empty, byteModel) {
       forming.position.set(80+2.5*ease,1.89+(-.46+Math.floor(waitingBytes/2)*.72)*ease+(reduced?0:.20*Math.sin(Math.PI*ease)),-3.67+(1.27+(waitingBytes%2)*.8)*ease);
       forming.rotation.y=reduced?0:Math.PI*.72*(1-grow)+(1-ease)*grow*.23;
       return false;
-    },stop};
+    },stop,dispose(){stop();reflection.dispose()}};
 }

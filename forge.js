@@ -2,8 +2,8 @@ import * as THREE from './vendor/three.module.js';
 import { createForgeState, toggleBit, craftByte, collectByte, insertByte, bitValue } from './forge-state.js?v=5';
 import { createByteFactory } from './byte-model.js?v=3';
 
-import { socketFace } from './world/forge-finishes.js';
-import { buildInductionForge } from './world/induction-forge.js';
+import { socketFace } from './world/forge-finishes.js?v=2';
+import { buildInductionForge } from './world/induction-forge.js?v=2';
 
 export function createForge({ scene, box, solids, state=createForgeState(), remainingBits, onChange, notify, canStore=()=>true, onCollect=()=>{}, onPlace=()=>{} }) {
   const pickups=[],bytePickups=[],cells=[],deposited=[];
@@ -152,7 +152,7 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
       for (const item of [geometry, emptyMaterial, emptyMaterial.map, ...digits, ...bytes.resources]) resources.add(item);
       for (const digit of digits) resources.add(digit.map);
       prompt.hidden = bag.hidden = true;
-      machine.stop();
+      machine.dispose();
     },
     reset(){
       machine.stop();
