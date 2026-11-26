@@ -8,7 +8,7 @@ import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
 import { createScanInteraction } from './skills/scan-interaction.js';
 import { installCheatMenu } from './dev/cheat-menu.js';
 import { BUILD_MATERIALS } from './catalog/index.js';
-import { LOCATIONS } from './locations/index.js?v=2';
+import { LOCATIONS } from './locations/index.js?v=3';
 import { createSimpleArchEffect } from './world/simple-arch.js';
 import { buildIslandTerrain } from './world/island-terrain.js';
 import { createForgeState } from './forge-state.js?v=5';
@@ -19,11 +19,11 @@ import { createPlayerPanel } from './player-panel.js?v=43';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
-import { createForge } from './forge.js?v=18';
+import { createForge } from './forge.js?v=19';
 import { EXPLORER, loadAppearance } from './appearance.js?v=12';
 import { createCustomizer } from './customizer.js?v=20';
 import { createFollowState, followCamera } from './follow-camera.js?v=2';
-import { createStage, placeTarget, removeTarget, isLimited, MATERIAL_NAMES } from './progression.js?v=5';
+import { createStage, placeTarget, removeTarget, isLimited, MATERIAL_NAMES } from './progression.js?v=6';
 const $=s=>document.querySelector(s), scene=new THREE.Scene();scene.background=new THREE.Color('#c9dfda');scene.fog=new THREE.Fog('#c9dfda',35,85);
 const renderer=new THREE.WebGLRenderer({canvas:$('#world'),antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,140);scene.add(new THREE.HemisphereLight(0xf6ffe6,0x788974,2.5));const sun=new THREE.DirectionalLight(0xffeed0,3);sun.position.set(-10,25,10);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-22,right:22,top:22,bottom:-22});sun.shadow.normalBias=.03;scene.add(sun);
@@ -203,7 +203,7 @@ const fieldDialog=$('#workshop-dialog');
 fieldDialog.querySelector('.paths-heading button').onclick=()=>fieldDialog.close();
 const restartDialog=$('#restart-dialog');
 let restartStage=null, extraDialog=null;
-function modalOpen(){return fieldDialog.open||skillList.open||scanDialog.open||extraDialog?.open||restartDialog.open||forge?.isOpen()||customizer.isOpen()||panel.isOpen()}
+function modalOpen(){return fieldDialog.open||skillList.open||scanDialog.open||extraDialog?.open||restartDialog.open||customizer.isOpen()||panel.isOpen()}
 
 const messageBox=$('#message');
 let messageTimer;
@@ -334,8 +334,7 @@ function enterIsland(next) {
   }
   if (stage.locationId === 'island.data-forge') {
     forge = createForge({scene:island, box, solids, state:forgeState, remainingBits:stage.remainingBits,
-      canStore:hasBagRoom, onCollect, onPlace:playPlacement, notify, onChange:update,
-      onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;}});
+      canStore:hasBagRoom, onCollect, onPlace:playPlacement, notify, onChange:update});
     cameraObstacles.push(...forge.cameraObstacles);
   }
   refreshStrike();
@@ -425,7 +424,7 @@ function refreshMission(){
   controlStrip.querySelector('.forge-hint').hidden=stage.locationId!=='island.data-forge';
   const interact=controlStrip.querySelector('.interact-hint');
   interact.hidden=stage.arches.length>0 && !workshop;
-  interact.lastElementChild.textContent=workshop?'Черепаха / детали / портал':processorLab?'Ремонтик / портал':stage.locationId==='island.data-forge'?'Верстак / портал':'Вернуться через портал';
+  interact.lastElementChild.textContent=workshop?'Черепаха / детали / портал':processorLab?'Ремонтик / портал':stage.locationId==='island.data-forge'?'Портал':'Вернуться через портал';
   select(selected);update();
 }
 function update(){
@@ -594,7 +593,7 @@ addEventListener('keydown',e=>{
     }
     if (workshop?.interact() || signalStation?.interact() || processorLab?.interact()){e.preventDefault();return}
     if (!panel.isBattle() && scanner?.interact('open')) return;
-    if(!travel()&&stage.locationId==='island.data-forge')forge.open(player.position);
+    travel();
     return;
   }
   if(['Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();
@@ -637,7 +636,7 @@ function act(button){
     }
   }
   if(workshop && !stage.repair.axe)return;
-  if(!stage.arches.length){if(stage.locationId==='island.data-forge'&&button===0&&forge.collect(ray,player.position))character.react();return}
+  if(!stage.arches.length){if(forge && (button===0 || button===2) && forge.collect(ray,player.position,button===2))character.react();return}
   const {pickups,ghosts,placed,targets}=stage;
   const objects=[...pickups,...ghosts.filter(m=>m.visible),...placed];
   const hits=ray.intersectObjects(objects,false).filter(h=>h.object.position.distanceTo(player.position)<6);
@@ -769,7 +768,7 @@ scanner?.update(now,active && !document.hidden && !third && !panel.isBattle(),re
 panel.updatePortal(nearbyRoute(),active&&!document.hidden,now);
 simpleArchEffect?.update(now, reducedHandMotion.matches);
 if (returnGlow) returnGlow.material.opacity=.4+Math.sin(now*.002)*.12;
-forge?.update(player.position,now/1000,$('#welcome').classList.contains('hidden')&&!skillList.open&&!scanDialog.open&&!extraDialog?.open&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
+forge?.update(player.position,now/1000,active && !document.hidden,!panel.isBattle(),reducedHandMotion.matches);
 panel.update(dt,now/1000,active);
 const combatWand=panel.isBattle() && bag.loadouts.battle.weapon==='wand';
 const nearbyWall=worldWall();

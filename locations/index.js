@@ -2,7 +2,7 @@ import processorLab from './processor-lab.js';
 import turtle from './turtle.js';
 import dreamers from './dreamers.js';
 import threeArches from './three-arches.js';
-import dataForge from './data-forge.js?v=2';
+import dataForge from './data-forge.js?v=3';
 import discoveryGarden from './discovery-garden.js?v=2';
 import { catalog } from '../catalog/index.js';
 import { deepFreeze } from '../catalog/registry.js';

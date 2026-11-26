@@ -2,9 +2,12 @@ import * as THREE from './vendor/three.module.js';
 import { createForgeState, toggleBit, craftByte, collectByte, insertByte, bitValue } from './forge-state.js?v=5';
 import { createByteFactory } from './byte-model.js?v=3';
 
-export function createForge({ scene, box, solids, state=createForgeState(), remainingBits, onOpen, onChange, notify, canStore=()=>true, onCollect=()=>{}, onPlace=()=>{} }) {
-  const pickups=[],bytePickups=[],cells=[],deposited=[],slotMeshes=[];
-  const dialog=document.querySelector('#forge-dialog'),prompt=document.querySelector('#forge-prompt');
+import { socketFace } from './world/forge-finishes.js';
+import { buildInductionForge } from './world/induction-forge.js';
+
+export function createForge({ scene, box, solids, state=createForgeState(), remainingBits, onChange, notify, canStore=()=>true, onCollect=()=>{}, onPlace=()=>{} }) {
+  const pickups=[],bytePickups=[],cells=[],deposited=[];
+  const prompt=document.querySelector('#forge-prompt');
   const bag=document.querySelector('#forge-bag');
   const geometry=new THREE.BoxGeometry(.6,.6,.6);
   let lastSecond=-1;
@@ -17,16 +20,16 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
     return new THREE.MeshStandardMaterial({map:texture,roughness:.65});
   }
   const digits=[textureMaterial('0'),textureMaterial('1')],bytes=createByteFactory(digits);
-  const emptyMaterial=new THREE.MeshStandardMaterial({color:0x384d59,roughness:.9});
+  const emptyMaterial=new THREE.MeshStandardMaterial({map:socketFace(),roughness:.82});
   const padMaterial=new THREE.MeshStandardMaterial({color:0xa99ab5,emissive:0x604970,emissiveIntensity:.15,roughness:.65});
   // The forge stays a workshop; the destination is now a separate ceremonial arch.
   box(76,2,-3,.6,4,6.5,0x819092,true);box(84,2,-3,.6,4,6.5,0x819092,true);
-  box(80,2,-6,8.6,4,.6,0x819092,true);box(80,4.1,-3,8.7,.45,6.8,0x526671,true);
-  box(77.2,.65,-4.6,1.2,1.3,1.2,0x455461,true);
-  box(77.2,.55,-3.98,.75,.55,.04,new THREE.MeshBasicMaterial({color:0xf4b77c}));
-  box(77.2,2,-4.6,.65,1.4,.65,0x455461,true);
-  box(80,.45,-3.2,2.6,.9,1.3,0x6b7471,true);box(80,1,-3.2,2.9,.22,1.55,0x3e505e,true);
-  for(let i=0;i<8;i++)slotMeshes.push(box(79.1+(i%4)*.6,1.2,-3.5+Math.floor(i/4)*.6,.48,.18,.48,emptyMaterial));
+  box(80,2,-6,8.6,4,.6,0x819092,true);
+  // A roof opening lets the island's daylight reach the coils and their control deck.
+  box(80,4.1,-5.63,8.7,.45,1.54,0x526671,true);
+  box(80,4.1,.11,8.7,.32,.58,0x526671,true);
+  for(const x of [76.19,83.81])box(x,4.1,-2.51,1.08,.38,4.7,0x526671,true);
+  const machine=buildInductionForge(scene,box,emptyMaterial,bytes);
   box(82.5,.45,-2,1.25,.9,1.6,0x7e6d82,true);box(82.5,.96,-2,1.35,.12,1.7,0xc9b88e,true);
   // Faceted pillars, warm inlays, a crown crystal and a translucent locked gate.
   for(const side of [-1,1]){
@@ -62,42 +65,32 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
     model.position.set(82.5,1.43+Math.floor(index/2)*.72,-2.4+(index%2)*.8);model.userData.bytePickup=true;
     scene.add(model);bytePickups.push(model);layoutBytes();
   }
-  const slotsContainer=document.querySelector('#bit-slots'),cellsContainer=document.querySelector('#byte-cells');
-  for(let i=0;i<8;i++){
-    const button=document.createElement('button');button.type='button';button.className='bit-slot';button.dataset.slot=i;
-    button.onclick=()=>{if((!state.slots[i]||canStore('bit'))&&toggleBit(state,i))refresh()};slotsContainer.append(button);
-  }
-  for(let i=0;i<4;i++){
-    const cell=document.createElement('div');cell.className='byte-cell';cell.dataset.cell=i;cellsContainer.append(cell);
-  }
   function refresh(){
-    document.querySelector('#bit-stock').textContent=state.bits;document.querySelector('#byte-stock').textContent=state.bytes;
-    document.querySelector('#bag-bits').textContent=state.bits;document.querySelector('#bag-bytes').textContent=state.bytes;
-    document.querySelector('#forge-count').textContent=`${state.cells.filter(Boolean).length} / 4`;
-    document.querySelectorAll('.bit-slot').forEach((button,i)=>{
-      button.classList.toggle('filled',state.slots[i]);button.textContent=state.slots[i]?String(bitValue(performance.now()/1000,i)):'+';
-      button.setAttribute('aria-label',`Слот ${i+1}: ${state.slots[i]?'убрать бит':'установить бит'}`);
-      button.disabled=state.crafted>=4||(!state.slots[i]&&!state.bits);slotMeshes[i].material=state.slots[i]?digits[i%2]:emptyMaterial;
+    document.querySelector('#bag-bits').textContent=state.bits;
+    document.querySelector('#bag-bytes').textContent=state.bytes;
+    machine.slots.forEach((m,i)=>{
+      m.material=state.slots[i]?digits[i%2]:emptyMaterial;
+      m.scale.y=state.slots[i] ? .26 : .13;
     });
-    document.querySelectorAll('.byte-cell').forEach((cell,i)=>{
-      cell.classList.toggle('filled',state.cells[i]);cell.textContent=state.cells[i]?'БАЙТ':`Место ${i+1}`;
-      cell.setAttribute('aria-label',`Место ${i+1} на площадке: ${state.cells[i]?'заполнено':'свободно'}`);
-    });
-    document.querySelector('#craft-byte').disabled=!state.slots.every(Boolean)||state.crafted>=4;
-    document.querySelector('#fill-bits').disabled=state.bits===0||state.crafted>=4;
-    document.querySelector('#forge-status').textContent=state.unlocked?'Врата в арке открыты. Подойди к ним и нажми E.':state.pendingBytes>0?`На подставке у верстака: ${state.pendingBytes}. Закрой кузницу и забери байты в сумку — ЛКМ.`:state.bytes>0?`В сумке ${state.bytes} байт. Выложи их на свободные места площадки справа от арки — ЛКМ.`:`Создано байтов: ${state.crafted} из 4. После сборки появится новая партия битов.`;
+    machine.setReady(state.slots.every(Boolean) && !machine.busy());
     door.visible=!state.unlocked;gateway.visible=state.unlocked;
     const index=solids.indexOf(door);if(state.unlocked&&index>=0)solids.splice(index,1);if(!state.unlocked&&index<0)solids.push(door);
     padMaterial.emissiveIntensity=state.bytes>0?.42:.12;onChange();
   }
-  document.querySelector('#fill-bits').onclick=()=>{for(let i=0;i<8;i++)if(!state.slots[i])toggleBit(state,i);refresh()};
-  document.querySelector('#craft-byte').onclick=()=>{
-    if(!craftByte(state))return;spawnByte();spawnBits();refresh();notify('Байт готов! Закрой кузницу и забери прозрачный куб с подставки — ЛКМ.');
-  };
-  document.querySelector('#forge-close').onclick=()=>dialog.close();
-  const near=position=>Math.hypot(position.x-80,position.z+3.2)<2.8&&position.y<2;
-  function open(position){if(!near(position))return false;onOpen();refresh();dialog.showModal();return true}
-  prompt.onclick=()=>{onOpen();refresh();dialog.showModal()};
+  const near=position=>Math.hypot(position.x-80,position.z+3.2)<3.6 && position.y<2;
+  function operate(target,position,remove){
+    if(!near(position) || machine.busy())return false;
+    if(target.userData.forgeStart){
+      if(remove)return false;
+      if(!state.slots.every(Boolean)){notify('Для запуска вставь все восемь битов.');return false}
+      machine.start();machine.setReady(false);return true;
+    }
+    const i=target.userData.forgeSlot;
+    if (i===undefined || state.slots[i]!==remove) return false;
+    if(remove && !canStore('bit'))return false;
+    if(!toggleBit(state,i)){if(!state.bits)notify('Подбери куб-бит на острове.');return false}
+    onPlace();refresh();return true;
+  }
   function showDeposit(i) {
     const model = bytes.create();
     model.position.copy(cells[i].position);
@@ -109,12 +102,14 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
   for (let i = 0; i < state.pendingBytes; i++) spawnByte();
   state.cells.forEach((filled,i) => { if (filled) showDeposit(i); });
   refresh();
-  return {state,pickups,bytePickups,cells,deposited,cameraObstacles:[gateway],open,isOpen:()=>dialog.open,
-    collect(ray,position){
-      const hits=ray.intersectObjects([...pickups,...bytePickups,...cells],true).filter(hit=>hit.point.distanceTo(position)<5);
+  return {state,pickups,bytePickups,cells,deposited,cameraObstacles:[gateway],
+    collect(ray,position,remove=false){
+      const hits=ray.intersectObjects([...pickups,...bytePickups,...cells,...machine.targets],true).filter(hit=>hit.point.distanceTo(position)<5);
       if(!hits.length)return false;
       const hit=hits[0];
       const obstruction=ray.intersectObjects(solids,false)[0];if(obstruction&&obstruction.distance<hit.distance-.02)return false;
+      if(machine.targets.includes(hit.object))return operate(hit.object,position,remove);
+      if(remove)return false;
       let root=hit.object;while(root.parent&&!root.userData.bytePickup&&root.userData.cell===undefined&&!pickups.includes(root))root=root.parent;
       if(pickups.includes(root)){
         if(!canStore('bit'))return false;
@@ -132,14 +127,21 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
       }
       return false;
     },
-    update(position,time,active){
-      prompt.hidden=!active||!near(position)||dialog.open;bag.hidden=!active;
+    update(position,time,active,building=true,reduced=false){
+      prompt.hidden=!active||!building||!near(position);bag.hidden=!active;
+      if(!prompt.hidden){
+        const filled=state.slots.filter(Boolean).length;
+        const hint=machine.busy()?'Идёт сборка байта':filled===8?'ЛКМ по зелёной кнопке · запустить катушки':state.crafted===4?'Четыре байта готовы':`ЛКМ по гнезду · вставить бит (${filled}/8) · ПКМ — забрать`;
+        if(prompt.textContent!==hint)prompt.textContent=hint;
+      }
       if(!active)return;
+      if(machine.tick(time,reduced,bytePickups.length) && craftByte(state)){
+        spawnByte();spawnBits();refresh();notify('Байт готов! Забери куб с подставки справа.');
+      }
       const second=Math.floor(time);
       if(second!==lastSecond){
         lastSecond=second;pickups.forEach(m=>m.material=Array(6).fill(digits[bitValue(second,m.userData.seed)]));
-        document.querySelectorAll('.bit-slot').forEach((button,i)=>{if(state.slots[i])button.textContent=String(bitValue(second,i))});
-        slotMeshes.forEach((m,i)=>{if(state.slots[i])m.material=digits[bitValue(second,i)]});
+        machine.slots.forEach((m,i)=>{if(state.slots[i])m.material=digits[bitValue(second,i)]});
       }
       pickups.forEach(m=>{const phase=m.userData.seed;m.rotation.y=time*.35+phase;m.position.y=.7+Math.sin(time*2+phase)*.08});
       bytePickups.forEach(m=>{m.rotation.y=Math.sin(time*.5)*.25;bytes.animate(m,time)});deposited.forEach(m=>bytes.animate(m,time));
@@ -147,14 +149,13 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
     },
     dispose(resources) {
       // Some pickups may already have flown out of the scene.
-      for (const item of [geometry, emptyMaterial, ...digits, ...bytes.resources]) resources.add(item);
+      for (const item of [geometry, emptyMaterial, emptyMaterial.map, ...digits, ...bytes.resources]) resources.add(item);
       for (const digit of digits) resources.add(digit.map);
       prompt.hidden = bag.hidden = true;
-      slotsContainer.replaceChildren();
-      cellsContainer.replaceChildren();
-      for (const button of [prompt, document.querySelector('#fill-bits'), document.querySelector('#craft-byte'), document.querySelector('#forge-close')]) button.onclick = null;
+      machine.stop();
     },
     reset(){
+      machine.stop();
       [...pickups,...bytePickups,...deposited].forEach(m=>scene.remove(m));pickups.length=bytePickups.length=deposited.length=0;
       Object.assign(state,createForgeState());spawnBits();refresh();
     },

@@ -37,7 +37,11 @@ window.storyTest={
  playerState(){return {coins:playerAccount.coins,kits:bag.loadouts,mode:panel.isBattle(),third}},
  forgeSnapshot(){return {bits:forgeState.bits,slots:forgeState.slots.filter(Boolean).length,bytes:forgeState.bytes,pending:forgeState.pendingBytes,crafted:forgeState.crafted,inserted:forgeState.cells.filter(Boolean).length,unlocked:forgeState.unlocked,pickups:forge?.pickups.length??stages.find(s=>s.locationId==='island.data-forge').remainingBits?.length??8}},
  nextGate(){player.position.set(stage.index===4?40:86,0,stage.index===4?-1:-3)},
- nearBench(){player.position.set(80,0,-1.3)},
+ operate(slot,mouse=0){
+   const target=slot===8?island.getObjectByName('forge-start'):island.children.find(m=>m.userData.forgeSlot===slot);
+   player.position.set(80,0,-.35);camera.position.set(80,1.5,-.35);camera.lookAt(target.position);
+   scene.updateMatrixWorld(true);camera.updateMatrixWorld(true);act(mouse);
+ },
  collectBits(){for(const m of [...forge.pickups]){player.position.set(m.position.x,0,m.position.z+1);camera.position.set(m.position.x,2.5,m.position.z);camera.lookAt(m.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)}},
  bitMaterial(){return forge.pickups[0].material.map(m=>m.uuid)},
  collectBytes(){for(const model of [...forge.bytePickups]){player.position.set(model.position.x,0,model.position.z+2);camera.position.set(model.position.x,3,model.position.z);camera.lookAt(model.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)}},
@@ -143,13 +147,18 @@ await page.waitForFunction(before=>window.storyTest.bitMaterial().every((face,i)
 await page.evaluate(()=>window.storyTest.nextGate());await page.keyboard.press('e');assert((await page.evaluate(()=>window.storyTest.snapshot())).index===3,'forge door locked');
 for(let batch=0;batch<4;batch++){
  await page.evaluate(()=>window.storyTest.collectBits());let f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.bits===8&&f.pickups===0,'eight collectible bits per batch');
- await page.evaluate(()=>window.storyTest.nearBench());await page.keyboard.press('e');assert(await page.locator('#forge-dialog').evaluate(el=>el.open),'forge opens');
- assert(await page.locator('#craft-byte').isDisabled(),'cannot craft empty block');
- await page.locator('#fill-bits').click();assert(!(await page.locator('#craft-byte').isDisabled()),'all slots enable crafting');
- if(batch===0){await page.locator('[data-slot="0"]').click();assert(await page.locator('#craft-byte').isDisabled(),'removing bit disables crafting');await page.locator('[data-slot="0"]').click();await page.screenshot({path:'/tmp/kub-forge-ui.png'})}
- await page.locator('#craft-byte').click();f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.bytes===0&&f.pending===1&&f.crafted===batch+1,'crafted byte waits on tray');
+ await page.evaluate(()=>storyTest.operate(8));
+ assert((await page.evaluate(()=>storyTest.forgeSnapshot())).pending===0,'empty machine cannot forge');
+ await page.evaluate(()=>{for(let i=0;i<8;i++)storyTest.operate(i)});
+ if(batch===0){
+   await page.evaluate(()=>storyTest.operate(0,2));
+   assert((await page.evaluate(()=>storyTest.forgeSnapshot())).slots===7,'right click withdraws one bit');
+   await page.evaluate(()=>storyTest.operate(0));
+ }
+ await page.evaluate(()=>{storyTest.operate(8);storyTest.operate(8)});
+ await page.waitForFunction(n=>storyTest.forgeSnapshot().crafted===n,batch+1);
+ f=await page.evaluate(()=>storyTest.forgeSnapshot());assert(f.bytes===0&&f.pending===1&&f.crafted===batch+1,'one crafted byte waits on tray');
  const details=await page.evaluate(()=>window.storyTest.byteDetails());assert(details.bits===4&&details.transparent&&details.opacity<.5&&details.parts>25,'detailed transparent byte with four inner bits');
- await page.locator('#forge-close').click();
  await page.evaluate(()=>window.storyTest.collectBytes());f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.bytes===1&&f.pending===0,'byte collected into bag');
  await page.evaluate(i=>window.storyTest.offerByte(i),batch);f=await page.evaluate(()=>window.storyTest.forgeSnapshot());assert(f.inserted===batch+1&&f.bytes===0&&f.unlocked===(batch===3),'four physical offerings unlock arch');
 }
@@ -194,10 +203,9 @@ assert(JSON.stringify(beforeForgeReset)===JSON.stringify(await page.evaluate(()=
 await page.evaluate(()=>storyTest.nextGate());await page.keyboard.press('e');
 assert((await page.evaluate(()=>storyTest.snapshot())).index===3,'forge gate relocked');
 await page.keyboard.press('c+v');
-await page.evaluate(()=>storyTest.collectBits());await page.evaluate(()=>storyTest.nearBench());await page.keyboard.press('e');
-await page.locator('#fill-bits').click();await page.locator('#craft-byte').click();await page.locator('#forge-close').click();
-await page.evaluate(()=>storyTest.collectBits());await page.evaluate(()=>storyTest.nearBench());await page.keyboard.press('e');
-await page.locator('[data-slot="0"]').click();await page.locator('#forge-close').click();
+await page.evaluate(()=>{storyTest.collectBits();for(let i=0;i<8;i++)storyTest.operate(i);storyTest.operate(8)});
+await page.waitForFunction(()=>storyTest.forgeSnapshot().crafted===1);
+await page.evaluate(()=>{storyTest.collectBits();storyTest.operate(0)});
 const partialForge=await page.evaluate(()=>storyTest.forgeSnapshot());
 assert(partialForge.slots===1 && partialForge.bits===7 && partialForge.pending===1,'partly loaded forge and uncollected byte');
 await page.evaluate(()=>storyTest.nearGate());await page.keyboard.press('e');
