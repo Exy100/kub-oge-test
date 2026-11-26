@@ -50,12 +50,8 @@ window.storyTest={
    forge.update(player.position,time,true,true,reduced);
    const shell=forge.bytePickups[0].children[0];
    return {
-     faces:shell.children.map(bit=>{
-       // One outward direction per face, all driven by the same digit.
-       const movement=bit.geometry.morphAttributes.position[0], normals=new Set();
-       for(let i=0;i<movement.count;i++) normals.add([movement.getX(i),movement.getY(i),movement.getZ(i)].join(','));
-       return normals.size;
-     }),
+     cubes:shell.children.map(bit=>bit.geometry.attributes.position.count/36),
+     target:forge.bytePickups[0].children[1].material.visible,
      lift:shell.children.map(bit=>bit.morphTargetInfluences[0]),
      digits:shell.children.map(bit=>bit.material.uuid),
      height:shell.position.y, angle:shell.rotation.y,
@@ -174,12 +170,13 @@ for(let batch=0;batch<4;batch++){
  f=await page.evaluate(()=>storyTest.forgeSnapshot());assert(f.bytes===0&&f.pending===1&&f.crafted===batch+1,'one crafted byte waits on tray');
  if(batch===0){
    const [rest,peak,back,still,stillLater]=await page.evaluate(()=>[
-     storyTest.byteDetails(0),storyTest.byteDetails(.81),storyTest.byteDetails(1.6),
+     storyTest.byteDetails(0),storyTest.byteDetails(4.8),storyTest.byteDetails(9.6),
      storyTest.byteDetails(22,true),storyTest.byteDetails(48,true),
    ]);
-   assert(rest.faces.length===8 && rest.faces.every(n=>n===6),'eight bit positions on all six faces');
-   assert(peak.lift[0]>.99 && peak.lift.slice(1).every(v=>v===0),'one bit rises at a time');
-   assert(back.lift.every(v=>v===0) && peak.digits[0]!==rest.digits[0] && back.digits[0]===peak.digits[0],'digit changes at full lift and returns to its socket');
+   assert(rest.cubes.length===8 && rest.cubes.every(n=>n===4),'32 floating cubes repeat the eight bits');
+   assert(rest.target===false,'the core is only an invisible pickup target');
+   assert(rest.lift.every(v=>v>.7) && peak.lift.every(v=>v<.12),'loose cubes gather into a lattice');
+   assert(back.lift.every((v,i)=>Math.abs(v-rest.lift[i])<1e-6) && back.digits.every((v,i)=>v!==rest.digits[i]),'cubes drift apart again and change digits');
    assert(peak.height!==rest.height && peak.angle!==rest.angle,'crafted byte hovers and turns');
    assert(JSON.stringify(still)===JSON.stringify(stillLater),'byte remains still with reduced motion');
  }
