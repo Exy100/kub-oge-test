@@ -50,6 +50,7 @@ window.storyTest={
    forge.update(player.position,time,true,true,reduced);
    const shell=forge.bytePickups[0].children[0];
    return {
+     glass:shell.material.transparent && !shell.material.depthWrite,
      faces:shell.children.map(bit=>{
        // One outward direction per face, all driven by the same digit.
        const movement=bit.geometry.morphAttributes.position[0], normals=new Set();
@@ -177,9 +178,10 @@ for(let batch=0;batch<4;batch++){
      storyTest.byteDetails(0),storyTest.byteDetails(.81),storyTest.byteDetails(1.6),
      storyTest.byteDetails(22,true),storyTest.byteDetails(48,true),
    ]);
+   assert(rest.glass,'the inscriptions remain enclosed in a translucent crystal');
    assert(rest.faces.length===8 && rest.faces.every(n=>n===6),'eight bit positions on all six faces');
    assert(peak.lift[0]>.99 && peak.lift.slice(1).every(v=>v===0),'one bit rises at a time');
-   assert(back.lift.every(v=>v===0) && peak.digits[0]!==rest.digits[0] && back.digits[0]===peak.digits[0],'digit changes at full lift and returns to its socket');
+   assert(back.lift.every(v=>v===0) && peak.digits[0]!==rest.digits[0] && back.digits[0]===peak.digits[0],'digit changes at full lift and settles behind the glass');
    assert(peak.height!==rest.height && peak.angle!==rest.angle,'crafted byte hovers and turns');
    assert(JSON.stringify(still)===JSON.stringify(stillLater),'byte remains still with reduced motion');
  }
@@ -246,5 +248,5 @@ assert(await page.evaluate(()=>storyTest.worldCounts().tray===1), 'physical byte
 await restart.click();await confirm.click();
 assert(JSON.stringify(await page.evaluate(()=>storyTest.forgeSnapshot()))===JSON.stringify(cleanForge) && (await page.evaluate(()=>storyTest.worldCounts())).tray===0,'reset clears occupied bench slots and physical byte tray');
 await page.reload();assert(await page.locator('#paths-button,#paths-dialog,#chosen-path,#portal-prompt').count()===0,'learning path UI stays absent after reload');
-console.log(JSON.stringify({result:'no learning portals, 28 placements, five islands, 32 bits, animated faces, four tiled bytes collected into bag and offered to arch, locked/open gate, return and reset passed',errors}));if(errors.length)throw Error(errors.join(';'));
+console.log(JSON.stringify({result:'no learning portals, 28 placements, five islands, 32 bits, animated faces, four crystal bytes collected into bag and offered to arch, locked/open gate, return and reset passed',errors}));if(errors.length)throw Error(errors.join(';'));
 }finally{if(browser)await browser.close();server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});

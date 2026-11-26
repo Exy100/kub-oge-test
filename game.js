@@ -19,7 +19,7 @@ import { createPlayerPanel } from './player-panel.js?v=43';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
-import { createForge } from './forge.js?v=21';
+import { createForge } from './forge.js?v=22';
 import { EXPLORER, loadAppearance } from './appearance.js?v=12';
 import { createCustomizer } from './customizer.js?v=20';
 import { createFollowState, followCamera } from './follow-camera.js?v=2';

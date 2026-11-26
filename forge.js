@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import { createForgeState, toggleBit, craftByte, collectByte, insertByte, bitValue } from './forge-state.js?v=5';
-import { createByteFactory } from './byte-model.js?v=4';
+import { createByteFactory } from './byte-model.js?v=5';
 
 import { socketFace } from './world/forge-finishes.js?v=2';
 import { buildInductionForge } from './world/induction-forge.js?v=3';
