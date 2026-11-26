@@ -1,131 +1,99 @@
 import * as THREE from './vendor/three.module.js';
 
-// Each side displays the same eight bits, read across alternating cells.
-const faceAxes = [
-  [[1,0,0],[0,0,-1],[0,1,0]], [[-1,0,0],[0,0,1],[0,1,0]],
-  [[0,1,0],[1,0,0],[0,0,-1]], [[0,-1,0],[1,0,0],[0,0,1]],
-  [[0,0,1],[1,0,0],[0,1,0]], [[0,0,-1],[-1,0,0],[0,1,0]],
-];
-const faceSize = .62, gridInset = 16, pitch = 56;
-const bitRow = bit => Math.floor(bit / 2);
-const bitColumn = bit => (bit % 2) * 2 + bitRow(bit) % 2;
-
-function finish(paint) {
-  const canvas = document.createElement('canvas');
-  canvas.width = canvas.height = 256;
-  paint(canvas.getContext('2d'));
-  const map = new THREE.CanvasTexture(canvas);
-  map.colorSpace = THREE.SRGBColorSpace;
-  map.anisotropy = 4;
-  return new THREE.MeshStandardMaterial({map, roughness:.66, metalness:.16});
-}
-
-function chassis(ctx) {
-  ctx.fillStyle = '#657e83';
-  ctx.fillRect(0,0,256,256);
-  ctx.fillStyle = '#304953';
-  ctx.fillRect(4,4,248,248);
-  ctx.strokeStyle = '#8dada9';
-  ctx.strokeRect(8.5,8.5,239,239);
-  for (let row=0; row<4; row++) for (let col=0; col<4; col++) {
-    const x = gridInset + col*pitch, y = gridInset + row*pitch;
-    const socket = (row+col)%2 === 0;
-    ctx.fillStyle = socket ? '#172e38' : '#49646c';
-    ctx.fillRect(x+1,y+1,54,54);
-    ctx.strokeStyle = socket ? '#728a8b' : '#59767b';
-    ctx.strokeRect(x+4.5,y+4.5,47,47);
-    if (socket) continue;
-    for (let lane=0; lane<2; lane++) {
-      const d = lane*7;
-      ctx.strokeStyle = lane ? '#718d8b' : '#8da59c';
-      ctx.beginPath();
-      ctx.moveTo(x+10,y+35+d); ctx.lineTo(x+23,y+35+d);
-      ctx.lineTo(x+37,y+21+d); ctx.lineTo(x+45,y+21+d); ctx.stroke();
-      ctx.fillStyle = '#bbc1a6'; ctx.fillRect(x+43,y+20+d,3,3);
-    }
-  }
-  for (const x of [8,248]) for (const y of [8,248]) {
-    ctx.fillStyle = '#b3af92'; ctx.fillRect(x-2,y-2,4,4);
-  }
-}
-
-function keycap(ctx, value) {
-  // The left half of the atlas is the enamel face, the right half the exposed sidewall.
-  ctx.fillStyle='#344958'; ctx.fillRect(0,0,256,256);
-  const enamel=ctx.createLinearGradient(0,0,116,244);
-  enamel.addColorStop(0,'#547580'); enamel.addColorStop(1,'#294553');
-  ctx.fillStyle=enamel; ctx.fillRect(0,0,128,256);
-  ctx.save(); ctx.scale(.5,1);
-  ctx.strokeStyle='#91aaa8'; ctx.lineWidth=8; ctx.strokeRect(9,9,238,238);
-  ctx.strokeStyle='#203948'; ctx.lineWidth=5; ctx.strokeRect(20,20,216,216);
-  ctx.strokeStyle='#d5e6d9'; ctx.lineWidth=18; ctx.lineJoin='round'; ctx.lineCap='round';
+function bitFinish(value) {
+  const canvas=document.createElement('canvas');
+  canvas.width=canvas.height=128;
+  const ctx=canvas.getContext('2d');
+  const enamel=ctx.createLinearGradient(6,0,118,128);
+  enamel.addColorStop(0,value?'#24345b':'#8691b5');
+  enamel.addColorStop(.55,value?'#131e39':'#5f688e');
+  enamel.addColorStop(1,value?'#0d172e':'#465476');
+  ctx.fillStyle=enamel; ctx.fillRect(0,0,128,128);
+  ctx.strokeStyle=value?'#4b7195':'#b3bed2';
+  ctx.lineWidth=4; ctx.strokeRect(4,4,120,120);
+  ctx.strokeStyle=value?'#15192c':'#515d7b';
+  ctx.lineWidth=2; ctx.strokeRect(9,9,110,110);
+  ctx.strokeStyle=value?'#68d9ff':'#f0f5ff';
+  ctx.lineWidth=11; ctx.lineJoin='round'; ctx.lineCap='round';
   ctx.beginPath();
   if (value) {
-    ctx.moveTo(100,102); ctx.lineTo(131,77); ctx.lineTo(131,179);
-    ctx.moveTo(100,179); ctx.lineTo(159,179);
-  } else ctx.roundRect(94,76,68,105,26);
-  ctx.stroke(); ctx.restore();
-  ctx.fillStyle='#718987'; ctx.fillRect(134,0,122,15);
-  ctx.fillStyle='#263e49'; ctx.fillRect(134,184,122,12);
+    ctx.moveTo(47,50); ctx.lineTo(65,35); ctx.lineTo(65,93);
+    ctx.moveTo(46,93); ctx.lineTo(82,93);
+  } else ctx.roundRect(44,34,40,60,14);
+  ctx.stroke();
+  const map=new THREE.CanvasTexture(canvas);
+  map.colorSpace=THREE.SRGBColorSpace; map.anisotropy=4;
+  return new THREE.MeshStandardMaterial({map,roughness:.58,metalness:.10});
 }
 
-// Pack the six copies of one bit into one mesh. A shared morph target
-// raises each cap along its own face normal without allocating per frame.
-function bitGeometry(bit) {
-  const box = new THREE.BoxGeometry(.119,.119,.078).toNonIndexed();
-  const positions=[], normals=[], uvs=[], travel=[];
-  const p=new THREE.Vector3(), n=new THREE.Vector3();
-  const u=(gridInset+(bitColumn(bit)+.5)*pitch-128)*faceSize/256;
-  const v=(128-gridInset-(bitRow(bit)+.5)*pitch)*faceSize/256;
-  for (const [out,right,up] of faceAxes) {
-    for (let i=0;i<box.attributes.position.count;i++) {
-      p.fromBufferAttribute(box.attributes.position,i);
-      n.fromBufferAttribute(box.attributes.normal,i);
-      for (let axis=0;axis<3;axis++) {
-        positions.push(right[axis]*(u+p.x)+up[axis]*(v+p.y)+out[axis]*(faceSize/2-.026+p.z));
-        normals.push(right[axis]*n.x+up[axis]*n.y+out[axis]*n.z);
-        travel.push(out[axis]*.044);
-      }
-      const tex=box.attributes.uv;
-      uvs.push((n.z>.5 ? .01 : .53)+tex.getX(i)*.46, .01+tex.getY(i)*.98);
+// A checkerboard in three dimensions leaves eight occupied cells per outer face.
+// Batch the four cubes displaying each logical bit so the whole field takes eight draws.
+function bitGeometries() {
+  const box=new THREE.BoxGeometry(.111,.111,.111).toNonIndexed();
+  const groups=Array.from({length:8},()=>({positions:[],normals:[],uv:[],drift:[]}));
+  const vertex=new THREE.Vector3(), loose=new THREE.Vector3();
+  let index=0;
+  for(let y=0;y<4;y++) for(let z=0;z<4;z++) for(let x=0;x<4;x++) {
+    if((x+y+z)%2)continue;
+    const bit=(index*5+Math.floor(index/8)*3)%8;
+    const group=groups[bit];
+    const home=new THREE.Vector3(x-1.5,y-1.5,z-1.5).multiplyScalar(.123);
+    const phase=++index*2.39996;
+    const drift=new THREE.Vector3(
+      home.x*(.28+.22*Math.cos(phase))+.043*Math.sin(phase),
+      home.y*.38+.087*Math.sin(phase*1.7),
+      home.z*(.28+.22*Math.sin(phase))+.042*Math.cos(phase)
+    );
+    const tilt=new THREE.Euler(.11*Math.sin(phase),.24*Math.cos(phase),.13*Math.sin(phase*2));
+    for(let i=0;i<box.attributes.position.count;i++) {
+      vertex.fromBufferAttribute(box.attributes.position,i);
+      group.positions.push(vertex.x+home.x,vertex.y+home.y,vertex.z+home.z);
+      loose.copy(vertex).applyEuler(tilt).sub(vertex).add(drift);
+      group.drift.push(loose.x,loose.y,loose.z);
     }
+    group.normals.push(...box.attributes.normal.array);
+    group.uv.push(...box.attributes.uv.array);
   }
   box.dispose();
-  const geometry=new THREE.BufferGeometry();
-  geometry.setAttribute('position',new THREE.Float32BufferAttribute(positions,3));
-  geometry.setAttribute('normal',new THREE.Float32BufferAttribute(normals,3));
-  geometry.setAttribute('uv',new THREE.Float32BufferAttribute(uvs,2));
-  geometry.morphTargetsRelative=true;
-  geometry.morphAttributes.position=[new THREE.Float32BufferAttribute(travel,3)];
-  return geometry;
+  return groups.map(group=>{
+    const geo=new THREE.BufferGeometry();
+    geo.setAttribute('position',new THREE.Float32BufferAttribute(group.positions,3));
+    geo.setAttribute('normal',new THREE.Float32BufferAttribute(group.normals,3));
+    geo.setAttribute('uv',new THREE.Float32BufferAttribute(group.uv,2));
+    geo.morphTargetsRelative=true;
+    geo.morphAttributes.position=[new THREE.Float32BufferAttribute(group.drift,3)];
+    return geo;
+  });
 }
 
 export function createByteFactory() {
-  const body = new THREE.BoxGeometry(faceSize,faceSize,faceSize);
-  const metal = finish(chassis);
-  const digits = [0,1].map(value=>finish(ctx=>keycap(ctx,value)));
-  const caps = Array.from({length:8},(_,i)=>bitGeometry(i));
+  const geometry=bitGeometries();
+  const digits=[bitFinish(0),bitFinish(1)];
+  // Catch a click through the gaps at the centre of the floating cubes.
+  const target=new THREE.BoxGeometry(.43,.43,.43);
+  const invisible=new THREE.MeshBasicMaterial({visible:false});
   function animate(root,time,reduced=false) {
-    const t=reduced ? 0 : time;
-    const shell=root.children[0];
-    shell.rotation.y=.14+Math.sin(t*.32)*.13;
-    shell.position.y=.018+Math.sin(t*1.25)*.015;
-    shell.children.forEach((cap,bit)=>{
-      const step=(t/1.6+8-bit)/8;
-      const phase=(step-Math.floor(step))*8;
-      cap.morphTargetInfluences[0]=phase<1 ? Math.sin(Math.PI*phase)**2 : 0;
-      const flips=Math.floor(step)+(phase>=.5 ? 1 : 0);
-      cap.material=digits[(flips+(0x59>>bit))&1];
+    const t=reduced?0:time, cluster=root.children[0];
+    cluster.rotation.y=.32+.20*Math.sin(t*.39);
+    cluster.position.y=.025+.014*Math.sin(t*1.15);
+    cluster.children.forEach((bit,i)=>{
+      const phase=t*Math.PI/4.8+i*.12;
+      bit.morphTargetInfluences[0]=(.5+.5*Math.cos(phase))**1.3;
+      const flips=Math.floor((t+i*1.2)/9.6);
+      bit.material=digits[((0x59>>i)+flips)&1];
     });
   }
   function create() {
-    const root=new THREE.Group();
+    const root=new THREE.Group(), cluster=new THREE.Group();
     root.name='forge-byte'; root.userData.objectId='byte';
-    const shell=new THREE.Mesh(body,metal);
-    shell.castShadow=true; root.add(shell);
-    for (const geometry of caps) shell.add(new THREE.Mesh(geometry,digits[0]));
+    root.add(cluster,new THREE.Mesh(target,invisible));
+    for(const geo of geometry) {
+      const bit=new THREE.Mesh(geo,digits[0]);
+      bit.castShadow=true;
+      cluster.add(bit);
+    }
     animate(root,0);
     return root;
   }
-  return {create,animate,resources:[body,...caps,metal,metal.map,...digits,...digits.map(m=>m.map)]};
+  return {create,animate,resources:[...geometry,target,invisible,...digits,...digits.map(m=>m.map)]};
 }
