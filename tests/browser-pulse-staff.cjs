@@ -13,7 +13,19 @@ const {chromium}=require('playwright');
     const errors=[];
     page.on('pageerror',e=>errors.push(e.message));
     page.on('console',m=>{if(/shader error|validate_status false/i.test(m.text()))errors.push(m.text())});
-    await page.addInitScript(()=>{requestAnimationFrame=()=>0;localStorage.setItem('kub.navigator.v1','27')});
+    await page.addInitScript(()=>{
+      window.staffSounds=[];
+      window.finishedStaffSounds=new Set();
+      const play=HTMLMediaElement.prototype.play;
+      HTMLMediaElement.prototype.play=function(){
+        if(this.src.includes('twin-vein-')){
+          const name=this.src.split('/').pop();
+          staffSounds.push(name);
+          this.addEventListener('ended',()=>finishedStaffSounds.add(name),{once:true});
+        }
+        return play.call(this);
+      };
+      requestAnimationFrame=()=>0;localStorage.setItem('kub.navigator.v1','27')});
     await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascript',body:fs.readFileSync(path.join(repo,'game.js'),'utf8')+`
       window.staffTest={
         arrive(){
@@ -34,6 +46,7 @@ const {chromium}=require('playwright');
           return {hp:stage.repair.bugs[1].hp,visible:model.visible,
             fill:model.children.find(o=>o.material?.isShaderMaterial).material.uniforms.fill.value};
         },
+        visibleBolt(){return scene.getObjectByName('staff-double-vein').visible},
         obstruct(){box(stage.center,1,7,1,2,.5,0x666666,true);scene.updateMatrixWorld(true)},
         resetLab(){goToIsland(2,'')}
       };`}));
@@ -51,15 +64,31 @@ const {chromium}=require('playwright');
     await page.keyboard.press('1');
     assert.equal((await sample(.12)).hp,10);
     const fired=await sample(.07);
-    assert.equal(fired.hp,8);assert.ok(fired.fill<.02);
+    assert.equal(fired.hp,10);assert.ok(fired.fill<.02);
     await page.keyboard.press('1');
-    const recovering=await sample(.3,true);
+    await sample(.22,true);
+    assert.deepEqual(await page.evaluate(()=>staffSounds),['twin-vein-launch.wav']);
+    assert.equal((await sample(.02)).hp,8);
+    assert.deepEqual(await page.evaluate(()=>staffSounds),['twin-vein-launch.wav','twin-vein-discharge.wav']);
+    const recovering=await sample(.56,true);
     assert.ok(recovering.visible && recovering.fill>.45 && recovering.fill<.55);
     assert.equal(recovering.hp,8);
-    assert.equal((await sample(.4)).fill,1);
+    assert.equal(await page.evaluate(()=>staffTest.visibleBolt()),true);
+    assert.ok((await sample(.52)).fill<1);
+    assert.equal(await page.evaluate(()=>staffTest.visibleBolt()),false);
+    assert.equal((await sample(.31)).fill,1);
     await page.evaluate(()=>staffTest.obstruct());
     await page.keyboard.press('1');
-    assert.equal((await sample(.2)).hp,8,'solid cover stops a shot');
+    assert.equal((await sample(.43)).hp,8,'solid cover stops a shot');
+    for(let i=0;i<2;i++){
+      await sample(1.4);
+      await page.keyboard.press('1');
+      await sample(.43);
+    }
+    const impacts=['twin-vein-discharge.wav','twin-vein-discharge-2.wav',
+      'twin-vein-discharge-3.wav','twin-vein-discharge.wav'];
+    assert.deepEqual(await page.evaluate(()=>staffSounds),impacts.flatMap(name=>['twin-vein-launch.wav',name]));
+    await page.waitForFunction(()=>finishedStaffSounds.size===4,null,{polling:50,timeout:8000});
     await page.evaluate(()=>staffTest.resetLab());
     await page.click('#reset');await page.click('#restart-confirm');
     assert.equal(await page.locator('.combat-slot').first().locator('span').textContent(),'Удар');
