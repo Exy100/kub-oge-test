@@ -77,8 +77,10 @@ export function createByteFactory() {
     cluster.rotation.y=.32+.20*Math.sin(t*.39);
     cluster.position.y=.025+.014*Math.sin(t*1.15);
     cluster.children.forEach((bit,i)=>{
-      const phase=t*Math.PI/4.8+i*.12;
-      bit.morphTargetInfluences[0]=(.5+.5*Math.cos(phase))**1.3;
+      // A short, staggered excursion leaves the cubic silhouette settled for most of the cycle.
+      const cycleTime=(t-i*.04)%9.6;
+      const pulse=Math.max(0,1-Math.abs(cycleTime-4.8)/1.2);
+      bit.morphTargetInfluences[0]=.42*pulse*pulse*(3-2*pulse);
       const flips=Math.floor((t+i*1.2)/9.6);
       bit.material=digits[((0x59>>i)+flips)&1];
     });
