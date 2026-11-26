@@ -246,5 +246,5 @@ assert(await page.evaluate(()=>storyTest.worldCounts().tray===1), 'physical byte
 await restart.click();await confirm.click();
 assert(JSON.stringify(await page.evaluate(()=>storyTest.forgeSnapshot()))===JSON.stringify(cleanForge) && (await page.evaluate(()=>storyTest.worldCounts())).tray===0,'reset clears occupied bench slots and physical byte tray');
 await page.reload();assert(await page.locator('#paths-button,#paths-dialog,#chosen-path,#portal-prompt').count()===0,'learning path UI stays absent after reload');
-console.log(JSON.stringify({result:'no learning portals, 28 placements, five islands, 32 bits, animated faces, four transparent bytes collected into bag and offered to arch, locked/open gate, return and reset passed',errors}));if(errors.length)throw Error(errors.join(';'));
+console.log(JSON.stringify({result:'no learning portals, 28 placements, five islands, 32 bits, animated faces, four tiled bytes collected into bag and offered to arch, locked/open gate, return and reset passed',errors}));if(errors.length)throw Error(errors.join(';'));
 }finally{if(browser)await browser.close();server.kill()}})().catch(e=>{console.error(e);process.exitCode=1});
