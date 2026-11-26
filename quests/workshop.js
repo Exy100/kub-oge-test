@@ -279,7 +279,7 @@ export function createWorkshop({stage,parent,geometry,box,solids,player,camera,c
     lastHit=time;if(!withWand)onHit();
     damageBug(i,UNARMED_DAMAGE);
   }
-  function pulseHit(caster){
+  function pulseHit(caster,applyDamage){
     let nearest=caster.far, target=-1;
     bugs.forEach(({body},i)=>{
       if(state.bugs[i].phase!=='running')return;
@@ -287,7 +287,7 @@ export function createWorkshop({stage,parent,geometry,box,solids,player,camera,c
       const hit=caster.intersectObject(body,true)[0];
       if(hit && hit.distance<nearest){nearest=hit.distance;target=i}
     });
-    if(target>=0)damageBug(target,STAFF_ATTACK.damage);
+    if(applyDamage && target>=0)damageBug(target,STAFF_ATTACK.damage);
     return nearest;
   }
   function damageBug(i,damage){

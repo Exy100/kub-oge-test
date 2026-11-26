@@ -17,24 +17,29 @@ test('the kit unlocks a battle-only staff without using another bag cell',()=>{
 
 test('the shot is released once and the next shot waits for the last line',()=>{
   const cycle=createStaffCycle();
-  let shots=0;
+  let shots=0, contacts=0;
   const fire=()=>shots++;
-  assert.ok(cycle.start(fire));
+  assert.ok(cycle.start(fire,()=>contacts++));
   assert.equal(cycle.update(.17,true),1);
   assert.equal(cycle.update(0,true),1);
   assert.equal(shots,0);
   assert.equal(cycle.start(fire),false);
   assert.ok(cycle.update(.01,true)<.001);
   assert.equal(shots,1);
-  assert.ok(Math.abs(cycle.update(.31,false)-.5)<.001);
+  assert.equal(contacts,0);
+  cycle.update(.23,false);
+  assert.equal(contacts,0);
+  assert.ok(Math.abs(cycle.update(.58,false)-.5)<.001);
+  assert.equal(contacts,1);
   assert.equal(cycle.start(fire),false);
-  assert.equal(cycle.update(.32,true),1);
-  assert.ok(cycle.start(fire));
+  assert.equal(cycle.update(.82,true),1);
+  assert.ok(cycle.start(fire,()=>contacts++));
   cycle.update(.1,false);
   cycle.update(1,true);
   assert.equal(shots,1,'holstering before release cancels the shot');
-  cycle.start(fire);
+  cycle.start(fire,()=>contacts++);
   assert.equal(cycle.update(2,true),1);
+  assert.equal(contacts,2);
   assert.equal(shots,2,'one long frame never duplicates a shot');
 });
 

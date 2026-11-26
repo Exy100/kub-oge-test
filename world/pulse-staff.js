@@ -1,6 +1,6 @@
 import * as THREE from '../vendor/three.module.js';
 import { paintedPart } from './painted-part.js';
-import { STAFF_ID, STAFF_ATTACK } from '../catalog/pulse-staff.js';
+import { STAFF_ID, STAFF_ATTACK } from '../catalog/pulse-staff.js?v=2';
 
 // Concept 01, light pattern 09. Both camera rigs share these two meshes' resources.
 export function createPulseStaff() {
@@ -79,21 +79,25 @@ export function createPulseStaff() {
 }
 
 export function createStaffCycle(){
-  const {windup,interval}=STAFF_ATTACK;
-  let elapsed=interval,release=null;
+  const {windup,impact,interval}=STAFF_ATTACK;
+  let elapsed=interval,release=null,contact=null;
   return {
-    start(onRelease){
+    get elapsed(){return elapsed},
+    start(onRelease,onImpact){
       if(elapsed<interval)return false;
-      release=onRelease;elapsed=0;return true;
+      release=onRelease;contact=onImpact;elapsed=0;return true;
     },
     update(dt,held){
-      if(!held && release){release=null;elapsed=interval}
+      if(!held && release){release=contact=null;elapsed=interval}
       elapsed=Math.min(interval,elapsed+Math.max(0,dt));
       if(release && elapsed>=windup){
         const fire=release;release=null;fire();
       }
+      if(contact && elapsed>=impact){
+        const hit=contact;contact=null;hit();
+      }
       return elapsed<windup?1:(elapsed-windup)/(interval-windup);
     },
-    clear(){elapsed=interval;release=null},
+    clear(){elapsed=interval;release=contact=null},
   };
 }

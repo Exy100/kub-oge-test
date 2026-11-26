@@ -1,6 +1,6 @@
-import { STAFF_ID, STAFF_ATTACK } from './catalog/pulse-staff.js';
+import { STAFF_ID, STAFF_ATTACK } from './catalog/pulse-staff.js?v=2';
 import { timberMaterial } from './world/timber.js';
-import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=18';
+import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=19';
 import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=10';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
@@ -14,7 +14,7 @@ import { buildIslandTerrain } from './world/island-terrain.js';
 import { createForgeState } from './forge-state.js?v=5';
 import { drawQuestDiagram } from './quest-diagram.js?v=2';
 import { createPlayerInventory } from './player-inventory.js?v=6';
-import { equipGatheringWand } from './gathering-wand.js?v=20';
+import { equipGatheringWand } from './gathering-wand.js?v=21';
 import { createPlayerPanel } from './player-panel.js?v=42';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
@@ -184,6 +184,8 @@ function buildSound(filename) {
 }
 const playPickup = buildSound('pickup.wav');
 const playPlacement = buildSound('place.wav');
+const playStaffLaunch = buildSound('twin-vein-launch.wav');
+const playStaffDischarge = buildSound('twin-vein-discharge.wav');
 
 function onCollect(mesh){
   playPickup();
@@ -363,10 +365,19 @@ function releaseStaffPulse(){
   origin.y+=1.5;
   const direction=camera.getWorldDirection(new THREE.Vector3());
   const caster=new THREE.Raycaster(origin,direction,0,STAFF_ATTACK.range);
-  const obstacle=caster.intersectObjects(solids,false)[0];
-  if(obstacle)caster.far=obstacle.distance;
-  const distance=workshop?.pulseHit(caster)??caster.far;
-  return caster.ray.at(distance,new THREE.Vector3());
+  // Lock the firing direction. Recheck moving targets and cover when the arcs meet.
+  function trace(applyDamage){
+    caster.far=STAFF_ATTACK.range;
+    const obstacle=caster.intersectObjects(solids,false)[0];
+    if(obstacle)caster.far=obstacle.distance;
+    const distance=workshop?.pulseHit(caster,applyDamage)??caster.far;
+    return caster.ray.at(distance,new THREE.Vector3());
+  }
+  playStaffLaunch();
+  return {end:trace(false),hit(){
+    playStaffDischarge();
+    return trace(true);
+  }};
 }
 function currentQuestBrief() {
   const complete = stage.locationId === 'island.data-forge' ? forgeState.unlocked : stage.unlocked;
