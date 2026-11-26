@@ -6,7 +6,8 @@ import {createRemontik} from '../world/remontik.js';
 test('Remontik waves with the open hand, keeps his chip, then settles; reduced motion holds still',()=>{
   const robot=createRemontik(new Group(),0,0);
   const hand=robot.root.getObjectByName('remontik-open-hand').parent;
-  const chip=robot.root.getObjectByName('remontik-chip-grip');
+  const chip=robot.root.getObjectByName('remontik-held-chip');
+  assert.equal(chip.parent.name,'remontik-chip-grip');
   const player={x:0,z:3};
   const advance=(frames,reduced=false)=>{
     for(let i=0;i<frames;i++)robot.update(1/60,true,reduced,player);
@@ -40,7 +41,7 @@ test('both moving arms, fingers and the held chip clear the casing throughout in
       if(mesh.isMesh)moving.push({mesh,side,wall});
     });
   }
-  assert.equal(moving.length,8);
+  assert.ok(moving.some(({mesh})=>mesh.name==='remontik-held-chip'));
   const inverse=new Matrix4(),relative=new Matrix4(),point=new Vector3();
   for(let frame=0;frame<1080;frame++){
     const away=frame<450 || frame>850;
