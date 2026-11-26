@@ -92,7 +92,8 @@ export function equipGatheringWand({character,camera,scene,renderer}){
   viewScene.add(new THREE.HemisphereLight(0xfff7e4,0x657b72,2.4));const light=new THREE.DirectionalLight(0xffe9c3,2.5);light.position.set(-1,3,2);viewScene.add(light);
   const viewWand=createGatheringWand();viewRig.add(viewWand.root);viewWand.root.rotation.y=Math.PI;viewRig.position.set(.28,-.1,-.83);viewRig.scale.setScalar(.42);viewRig.rotation.set(-.2,.12,.16);
   const staffCycle=createStaffCycle();
-  let staff,viewStaff,viewTip,bolt;
+  let staff,staffGrip,viewStaff,viewTip,bolt;
+  const cast={draw:0,extend:0,recoil:0};
   const muzzle=new THREE.Vector3();
   function equipStaff(){
     staff=createPulseStaff();
@@ -102,10 +103,12 @@ export function equipGatheringWand({character,camera,scene,renderer}){
     // Hold the longer grip below its midpoint, with the pommel clear of the dock.
     const gripOffset=.080;
     viewStaff.translateY(gripOffset);
-    staff.root.position.copy(wand.root.position);
-    staff.root.rotation.copy(wand.root.rotation);
-    staff.root.translateY(gripOffset);
-    elbow.add(staff.root);
+    staffGrip=new THREE.Group();
+    staffGrip.position.copy(wand.root.position);
+    staffGrip.rotation.copy(wand.root.rotation);
+    staff.root.position.y=gripOffset;
+    staffGrip.add(staff.root);
+    elbow.add(staffGrip);
     bolt=createTwinVein(scene);
   }
   function muzzlePosition(){
@@ -146,9 +149,18 @@ export function equipGatheringWand({character,camera,scene,renderer}){
     viewRig.rotation.x+=.36*wind-.76*wristCut;
     viewRig.rotation.z+=-.48*wind+.96*wristCut;
     viewRig.rotation.y+=.34*wind-.3*cut;
+    // Rotate the glove and the staff together around the wrist. Solve the sleeve
+    // links after moving the wrist so they stay connected through the recoil.
+    viewRig.position.x+=narrow*(.034*cast.draw-.040*cast.extend+.013*cast.recoil);
+    viewRig.position.y+=.026*cast.draw+.046*cast.extend+.018*cast.recoil;
+    viewRig.position.z+=.055*cast.draw-.135*cast.extend+.055*cast.recoil;
+    viewRig.rotation.x+=.20*cast.draw-.77*cast.extend+.21*cast.recoil;
+    viewRig.rotation.z+=-.19*cast.draw+.16*cast.extend-.08*cast.recoil;
     viewRig.updateMatrixWorld(true);wrist.set(.05,-.065,.09);viewRig.localToWorld(wrist);
     origin.set(.72*Math.max(.5,narrow),-.38,-.04);bend.set(.58*Math.max(.5,narrow),-.25,-.34);
     bend.x+=narrow*(.035*wind-.15*cut);bend.y+=.055*wind-.015*cut;
+    bend.x+=narrow*(.023*cast.draw-.07*cast.extend);
+    bend.z+=.025*cast.draw-.074*cast.extend+.023*cast.recoil;
     seam.copy(bend).lerp(wrist,.64);cuffEnd.copy(bend).lerp(wrist,.73);
     link(upper,origin,bend,.075);link(lower,bend,seam,.05);link(cuff,seam,cuffEnd,.048);link(forearm,cuffEnd,wrist,.033);
     elbowCap.position.copy(bend);
@@ -177,9 +189,15 @@ export function equipGatheringWand({character,camera,scene,renderer}){
       const chopping=visible && tool==='wood-axe';
       const ranged=visible && tool===STAFF_ID;
       if(ranged && !staff)equipStaff();
-      if(staff){
-        staff.root.visible=viewStaff.visible=ranged;
-      }
+      const fill=staffCycle.update(active?dt:0,ranged);
+      if(staff)staff.root.visible=viewStaff.visible=ranged;
+      // The hand draws back, drives through release, then settles on the target.
+      // Both rigs sample the attack clock, including across pauses and camera switches.
+      const t=staffCycle.elapsed,release=STAFF_ATTACK.windup,hit=STAFF_ATTACK.impact;
+      const amplitude=ranged?(reducedMotion?.28:1):0;
+      cast.draw=amplitude*(smooth(t,0,release*.54)-smooth(t,release*.54,release));
+      cast.extend=amplitude*(smooth(t,release*.54,release+.025)-smooth(t,hit+.04,hit+.56));
+      cast.recoil=amplitude*(smooth(t,release+.015,release+.09)-smooth(t,release+.09,hit));
       if(chopping && !axe)equipAxe();
       wand.root.visible=viewWand.root.visible=visible && !chopping && !ranged;
       if(axe)axe.visible=viewAxe.visible=chopping;
@@ -207,6 +225,16 @@ export function equipGatheringWand({character,camera,scene,renderer}){
         wand.root.rotation.x-=.20*wind+1.83*wristCut;
         wand.root.rotation.z+=-.73*wind+.24*wristCut;
       }
+      if(ranged){
+        // The view rig already follows camera pitch. Aim the world rig from the shoulder.
+        const aimPitch=THREE.MathUtils.clamp(pitch,-1.1,1.1)*cast.extend;
+        body.rotation.y+=-.13*cast.draw+.21*cast.extend-.055*cast.recoil;
+        shoulder.rotation.x+=-.31*cast.draw+1.02*cast.extend-.17*cast.recoil-.32*aimPitch;
+        shoulder.rotation.z+=.17*cast.draw-.12*cast.extend;
+        elbow.rotation.x+=.64*cast.draw-.27*cast.extend+.25*cast.recoil;
+        staffGrip.rotation.x=-.85-.16*cast.draw-1.63*cast.extend+.22*cast.recoil-.64*aimPitch;
+        staffGrip.rotation.z=-.15-.16*cast.draw+.13*cast.extend;
+      }
       if(chopping){
         const swing=reducedMotion?0:Math.sin(Math.PI*Math.min(1,elapsed*2.6));
         axe.rotation.x=-.85-swing*.9;viewAxe.rotation.x=-swing*.82;
@@ -214,7 +242,6 @@ export function equipGatheringWand({character,camera,scene,renderer}){
       if(active)armClock+=Math.max(0,dt);
       poseArm(handMotion({dt,dx,dz,yaw,pitch,grounded,active,reducedMotion}),power,wind,cut,wristCut);
       if(staff){
-        const fill=staffCycle.update(active?dt:0,ranged);
         if(ranged)staff.setFill(fill,reducedMotion?0:armClock);
         if(staffCycle.elapsed<STAFF_ATTACK.effectEnd){
           bolt.update(staffCycle.elapsed,camera,reducedMotion,ranged?muzzlePosition():null);
@@ -227,7 +254,7 @@ export function equipGatheringWand({character,camera,scene,renderer}){
     render(){if(!firstPerson||!enabled)return;viewCamera.aspect=camera.aspect;viewCamera.updateProjectionMatrix();const auto=renderer.autoClear;renderer.autoClear=false;renderer.clearDepth();renderer.render(viewScene,viewCamera);renderer.autoClear=auto},
     clear,
     dispose(){clear();if(staff){
-      staff.root.removeFromParent();viewStaff.removeFromParent();staff.dispose();
+      staffGrip.removeFromParent();viewStaff.removeFromParent();staff.dispose();
       bolt.dispose();
     }if(axe){axe.removeFromParent();viewAxe.removeFromParent();axe.geometry.dispose();axe.material.dispose()}elbow.remove(wand.root);wand.dispose();viewWand.dispose();handGeometry.dispose();armGeometry.dispose();skin.dispose();cuffMaterial.dispose();glove.dispose();jacket.dispose()},
   };
