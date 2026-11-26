@@ -153,16 +153,43 @@ export function createRemontik(parent,x,z) {
     return {shoulder,elbow,wrist};
   }
   const grip=arm(-1), hand=arm(1);
-  part(grip.wrist,'remontik-chip-grip',({block})=>{
-    block(0,0,0,.19,.13,.17,brass);
-    for(const side of [-1,1]){
-      block(side*.095,.069,.032,.054,.14,.10,brass);
-      block(side*.081,.138,.047,.066,.043,.10,graphite);
+  const palm=part(grip.wrist,'remontik-chip-grip',({block})=>{
+    block(0,-.009,0,.128,.081,.12,graphite);
+    block(-.018,.055,.017,.173,.108,.104,brass,.025,-.12);
+    block(-.016,.045,.074,.124,.067,.015,ivory,.008,-.12);
+
+    // The thumb and index close on opposite PCB edges. Keep daylight
+    // between the heel of the hand and the underside of the package.
+    function phalanx(x1,y1,x2,y2,z,width,depth,color){
+      block((x1+x2)/2,(y1+y2)/2,z,width,Math.hypot(x2-x1,y2-y1),depth,
+        color,.012,Math.atan2(x1-x2,y2-y1));
     }
-    block(0,.224,.056,.30,.245,.067,0x537258);
-    block(0,.224,.103,.225,.18,.035,brass);
-    for(const side of [-1,1])for(let i=0;i<4;i++)block((i-1.5)*.066,.224+side*.135,.055,.031,.038,.047,brass);
+    phalanx(.047,.074,.115,.139,.055,.055,.066,brass);
+    block(.115,.139,.055,.056,.049,.062,graphite);
+    phalanx(.115,.142,.118,.203,.055,.047,.059,ivory);
+    block(.109,.206,.058,.044,.045,.060,graphite,.009);
+
+    phalanx(-.082,.077,-.177,.143,.035,.048,.059,brass);
+    block(-.177,.143,.035,.049,.048,.056,graphite);
+    phalanx(-.181,.149,-.210,.224,.038,.042,.055,ivory);
+    block(-.203,.233,.047,.040,.044,.061,graphite,.008);
+    // The middle finger braces the back. The shorter finger curls into the palm.
+    phalanx(-.055,.090,-.112,.175,-.015,.044,.053,brass);
+    block(-.112,.175,-.006,.045,.044,.051,graphite);
+    block(-.109,.195,.008,.045,.055,.058,ivory);
+    phalanx(-.006,.092,-.037,.132,-.028,.042,.052,brass);
+    block(-.045,.134,-.010,.044,.037,.047,graphite);
   });
+  const chip=part(palm,'remontik-held-chip',({block})=>{
+    block(0,0,0,.270,.240,.034,0x24695f,.009);
+    block(0,0,.023,.189,.155,.025,0x263438);
+    block(0,.003,.041,.162,.128,.017,0xb6c5bf);
+    block(-.105,.092,.019,.018,.018,.008,ivory);
+    for(let i=0;i<6;i++){
+      for(const side of [-1,1])block((i-2.5)*.038,side*.111,.018,.020,.016,.006,brass);
+    }
+  });
+  chip.position.set(-.048,.252,.054);
   part(hand.wrist,'remontik-open-hand',({block})=>{
     block(0,.04,0,.21,.16,.095,brass);
     block(0,.034,.053,.12,.084,.015,0xb78138);

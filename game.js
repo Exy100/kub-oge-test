@@ -1,7 +1,7 @@
 import { STAFF_ID, STAFF_ATTACK, STAFF_SOUNDS } from './catalog/pulse-staff.js?v=3';
 import { timberMaterial } from './world/timber.js';
 import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=19';
-import { createProcessorLab, LAB_REWARD_COINS } from './quests/processor-lab.js?v=11';
+import { createProcessorLab, LAB_REWARD_COINS } from './quests/processor-lab.js?v=12';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
