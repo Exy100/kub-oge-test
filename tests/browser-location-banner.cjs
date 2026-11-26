@@ -146,13 +146,11 @@ const {chromium} = require('playwright');
     await strip.waitFor({state:'hidden',timeout:6000});
     const duration=await page.evaluate(()=>window.stripDuration);
     assert(duration>=14950 && duration<17000,'control strip duration '+duration);
-    // Returning through the forge must cancel its pending hide on the second island.
-    for(let i=0;i<4;i++){
-      await page.evaluate(()=>window.atGate(false));
-      await page.keyboard.press('e');
-    }
+    // Returning to the three arches restores the persistent building controls.
+    await page.evaluate(()=>window.atGate(false));
+    await page.keyboard.press('e');
     await page.waitForTimeout(15300);
-    assert(await buildHint.isVisible() && await helpHint.isVisible(),'second island remains visible past previous timer');
+    assert(await buildHint.isVisible() && await helpHint.isVisible(),'three-arches controls remain visible past the previous timer');
     assert.deepEqual(errors,[]);
     console.log('PASS location title timing, all four islands, rapid travel, restart, reduced motion and seven viewport widths');
   } finally {
