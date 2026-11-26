@@ -2,7 +2,7 @@ import * as THREE from './vendor/three.module.js';
 
 import {createWoodcuttingAxe} from './world/woodcutting-axe.js';
 
-import { createPulseStaff, createStaffCycle } from './world/pulse-staff.js?v=2';
+import { createPulseStaff, createStaffCycle } from './world/pulse-staff.js?v=3';
 import { createTwinVein } from './world/twin-vein.js';
 import { STAFF_ID, STAFF_ATTACK } from './catalog/pulse-staff.js?v=2';
 
@@ -99,8 +99,12 @@ export function equipGatheringWand({character,camera,scene,renderer}){
     viewStaff=staff.root.clone();
     viewTip=viewStaff.getObjectByName('pulse-tip');
     viewRig.add(viewStaff);
+    // Hold the longer grip below its midpoint, with the pommel clear of the dock.
+    const gripOffset=.080;
+    viewStaff.translateY(gripOffset);
     staff.root.position.copy(wand.root.position);
     staff.root.rotation.copy(wand.root.rotation);
+    staff.root.translateY(gripOffset);
     elbow.add(staff.root);
     bolt=createTwinVein(scene);
   }
