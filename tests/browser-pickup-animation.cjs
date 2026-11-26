@@ -8,9 +8,9 @@ await page.route('**/game.js*',route=>route.fulfill({contentType:'text/javascrip
 window.pickupTest={
  start(index){enterIsland(stages[index]);player.position.set(stage.center,0,3);document.querySelector('#welcome').classList.add('hidden');refreshMission()},
  tick(time){frame(time)},
- snapshot(){return (stage.index===4?forge.pickups:stage.pickups).map(m=>({id:m.uuid,y:m.position.y,angle:m.rotation.y}))},
- collect(index){const m=(stage.index===4?forge.pickups:stage.pickups)[index];player.position.set(m.position.x,0,m.position.z+2);camera.position.set(m.position.x,m.position.y+2,m.position.z);camera.lookAt(m.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)},
- stock(){return stage.index===4?forge.state.bits:stage.inventory.reduce((a,b)=>a+b,0)}
+ snapshot(){return (forge?forge.pickups:stage.pickups).map(m=>({id:m.uuid,y:m.position.y,angle:m.rotation.y}))},
+ collect(index){const m=(forge?forge.pickups:stage.pickups)[index];player.position.set(m.position.x,0,m.position.z+2);camera.position.set(m.position.x,m.position.y+2,m.position.z);camera.lookAt(m.position);camera.updateMatrixWorld();scene.updateMatrixWorld(true);act(0)},
+ stock(){return forge?forge.state.bits:stage.inventory.reduce((a,b)=>a+b,0)}
 };`}));
 await page.goto('http://127.0.0.1:8068/game.html');await page.waitForFunction(()=>window.pickupTest);
 for(const stage of [0,3,4]){
@@ -19,7 +19,7 @@ for(const stage of [0,3,4]){
   await page.evaluate(t=>pickupTest.tick(t),time);const before=await page.evaluate(()=>pickupTest.snapshot()),stock=await page.evaluate(()=>pickupTest.stock());const index=position==='first'?0:position==='middle'?Math.floor(before.length/2):before.length-1;
   await page.evaluate(i=>pickupTest.collect(i),index);await page.evaluate(t=>pickupTest.tick(t),time);const after=await page.evaluate(()=>pickupTest.snapshot());assert(after.length===before.length-1,`actual pickup on island ${stage}`);assert(await page.evaluate(()=>pickupTest.stock())===stock+1,'inventory receives exactly one');
   for(const item of after){const old=before.find(x=>x.id===item.id);assert(Math.abs(item.y-old.y)<1e-10&&Math.abs(item.angle-old.angle)<1e-10,`remaining pickup jumps after ${position} removal on island ${stage}`)}
-  time+=16;await page.evaluate(t=>pickupTest.tick(t),time);const continued=await page.evaluate(()=>pickupTest.snapshot());for(const item of continued){const previous=after.find(x=>x.id===item.id);assert(Math.abs(item.angle-previous.angle-(stage===4?.00035:.0008)*16)<1e-10,'rotation continues at original speed');assert(Math.abs(item.y-previous.y)<.004,'bobbing remains continuous')}
+  time+=16;await page.evaluate(t=>pickupTest.tick(t),time);const continued=await page.evaluate(()=>pickupTest.snapshot());for(const item of continued){const previous=after.find(x=>x.id===item.id);assert(Math.abs(item.angle-previous.angle-(stage===3?.00035:.0008)*16)<1e-10,'rotation continues at original speed');assert(Math.abs(item.y-previous.y)<.004,'bobbing remains continuous')}
  }
 }
 assert(!errors.length,errors.join(';'));console.log('PASS: first/middle/last collection keeps all remaining pickup transforms continuous on both islands and in forge; inventory and rotation speed intact');

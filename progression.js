@@ -1,5 +1,5 @@
 import { BUILD_MATERIALS } from './catalog/index.js';
-import { LOCATIONS } from './locations/index.js';
+import { LOCATIONS } from './locations/index.js?v=2';
 
 export const MATERIAL_NAMES = Object.freeze(BUILD_MATERIALS.map(item => item.name));
 const ARCH = [[-1,.55,0],[-1,1.55,0],[-1,2.55,0],[0,2.55,0],[1,2.55,0],[1,1.55,0],[1,.55,0]];

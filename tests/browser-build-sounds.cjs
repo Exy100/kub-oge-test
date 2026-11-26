@@ -44,7 +44,7 @@ const {chromium} = require('playwright');
           floor(button){select(0);this.at({x:3,y:.5,z:2},button)},
           switchMode(){panel.toggleMode()},
           revisit(){enterIsland(stages[1]);enterIsland(stages[0]);refreshMission()},
-          forge(){forgeState.pendingBytes=1;enterIsland(stages[4]);refreshMission()},
+          forge(){forgeState.pendingBytes=1;enterIsland(stages.find(s=>s.locationId==='island.data-forge'));refreshMission()},
           bit(){this.at(forge.pickups[0].position);return forgeState.bits},
           byte(){this.at(forge.bytePickups[0].position)},
           deposit(){this.at(forge.cells[0].position)},

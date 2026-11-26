@@ -9,7 +9,7 @@ test('first portal requires seven real placements and cannot consume a cube twic
   assert.equal(placeTarget(stage,6,0),true);assert.equal(stage.unlocked,true);assert.equal(stage.inventory[0],0);
 });
 test('island of three arches requires the wood signal and seven cubes of each of three materials',()=>{
-  const stage=createStage(3);for(const m of [0,2,3])stage.inventory[m]=7;
+  const stage=createStage(4);for(const m of [0,2,3])stage.inventory[m]=7;
   assert.equal(placeTarget(stage,7,0),false);assert.equal(stage.inventory[0],7);
   stage.targets.forEach((t,i)=>assert.equal(placeTarget(stage,i,t.material),true));
   assert.equal(stage.built.size,21);assert.equal(stage.unlocked,false);stage.sentWood=true;assert.deepEqual(stage.inventory,[0,0,0,0,0,0]);
@@ -17,7 +17,7 @@ test('island of three arches requires the wood signal and seven cubes of each of
   assert.equal(placeTarget(stage,8,2),true);assert.equal(stage.unlocked,true);assert.equal(stage.inventory[2],0);
 });
 test('island progress is independent and an unlocked return route stays available',()=>{
-  const a=createStage(0),b=createStage(3);a.inventory[0]=7;a.targets.forEach((t,i)=>placeTarget(a,i,0));
+  const a=createStage(0),b=createStage(4);a.inventory[0]=7;a.targets.forEach((t,i)=>placeTarget(a,i,0));
   removeTarget(a,0);assert.equal(a.unlocked,true);assert.equal(b.built.size,0);assert.equal(b.inventory[0],0);
   assert.equal(isLimited(a,2),false);assert.equal(isLimited(b,2),true);assert.equal(isLimited(b,3),true);
 });

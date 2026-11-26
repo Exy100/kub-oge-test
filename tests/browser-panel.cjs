@@ -95,7 +95,7 @@ await physical('KeyH','р');
 assert(!await guide.isVisible(),'Russian H closes guide');
 await questTab.click();
 assert(!await quest.isVisible()&&await questTab.getAttribute('aria-expanded')==='false','quest collapses');
-await page.evaluate(()=>panelTest.stage(4));
+await page.evaluate(()=>panelTest.stage(3));
 await questTab.press('Enter');
 assert(await quest.isVisible()&&(await quest.innerText()).includes('Кузница байтов'),'quest reopens with current island');
 await page.evaluate(()=>panelTest.stage(0));
@@ -158,7 +158,7 @@ await page.emulateMedia({reducedMotion:'no-preference'});
 await page.screenshot({path:'/tmp/kub-panel-battle.png'});await page.locator('#weapons-button').click();assert(await page.locator('#weapons-dialog').evaluate(e=>e.open),'gear opens in battle mode');await page.keyboard.press('Escape');await page.keyboard.press('c+v');
 assert((await rim()).name==='none','exploration rim stays still');
 await page.locator('.slot').nth(2).click();assert(await page.locator('.slot').nth(2).evaluate(e=>e.classList.contains('selected')),'build selection works');
-await page.evaluate(()=>panelTest.stage(4));await page.locator('#navigator-button').click();assert((await page.locator('#navigator-task').innerText()).includes('биты'),'forge context');await page.keyboard.press('Escape');await page.evaluate(()=>panelTest.stage(0));
+await page.evaluate(()=>panelTest.stage(3));await page.locator('#navigator-button').click();assert((await page.locator('#navigator-task').innerText()).includes('биты'),'forge context');await page.keyboard.press('Escape');await page.evaluate(()=>panelTest.stage(0));
 for(const width of [320,390,640,768,1440]){
   await page.setViewportSize({width,height:844});
   for(let i=0;i<2;i++){
