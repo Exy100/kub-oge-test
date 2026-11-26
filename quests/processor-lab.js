@@ -17,7 +17,8 @@ const repairOrder = {
   action: 'К стенду',
 };
 
-export const WEAPON_KIT = 'reward.weapon-kit';
+import { WEAPON_KIT } from '../catalog/pulse-staff.js';
+export { WEAPON_KIT };
 
 export function createProcessorLab({stage, box, player, dialog, pause, changed, canStore, notify}) {
   const x = stage.center;
@@ -39,7 +40,7 @@ export function createProcessorLab({stage, box, player, dialog, pause, changed, 
   const body = dialog.querySelector('.field-body');
   function success() {
     dialog.querySelector('h2').textContent = 'Процессор запущен';
-    body.innerHTML = '<p>«Снова читаю команды! Спасибо, что восстановил мой код. Оружейный набор теперь у тебя в рюкзаке».</p><p>Северный портал открыт. За ним — Остров трёх арок.</p><button type="button" class="field-primary">Продолжить</button>';
+    body.innerHTML = '<p>«Снова читаю команды! Спасибо, что восстановил мой код. Оружейный набор теперь у тебя в рюкзаке».</p><p>В снаряжении выбери «Бой» → «Оружие» и надень импульсный посох.</p><p>Северный портал открыт. За ним — Остров трёх арок.</p><button type="button" class="field-primary">Продолжить</button>';
     body.querySelector('button').onclick = ()=>dialog.close();
   }
   const wall = buildBitWall({stage,box,player,notify,launch(){

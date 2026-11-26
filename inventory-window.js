@@ -1,4 +1,4 @@
-import { equipmentSlots, fitsEquipment } from './player-inventory.js?v=5';
+import { equipmentSlots, fitsEquipment } from './player-inventory.js?v=6';
 
 function element(tag, className, value) {
   const node = document.createElement(tag);
@@ -189,7 +189,7 @@ export function createInventoryWindows({ bag, playerAccount, open, mode, setMode
     slots.replaceChildren();
     choices.replaceChildren();
     choices.hidden = !selected;
-    const owned = bag.items();
+    const owned = bag.equipmentItems();
     for (const [slot, title, kind] of equipmentSlots(current)) {
       const equipped = bag.loadouts[current][slot];
       const item = owned.find(i => i.id === equipped);

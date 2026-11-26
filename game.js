@@ -1,6 +1,7 @@
+import { STAFF_ID, STAFF_ATTACK } from './catalog/pulse-staff.js';
 import { timberMaterial } from './world/timber.js';
-import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=17';
-import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=9';
+import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=18';
+import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=10';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
@@ -12,9 +13,9 @@ import { createSimpleArchEffect } from './world/simple-arch.js';
 import { buildIslandTerrain } from './world/island-terrain.js';
 import { createForgeState } from './forge-state.js?v=5';
 import { drawQuestDiagram } from './quest-diagram.js?v=2';
-import { createPlayerInventory } from './player-inventory.js?v=5';
-import { equipGatheringWand } from './gathering-wand.js?v=19';
-import { createPlayerPanel } from './player-panel.js?v=41';
+import { createPlayerInventory } from './player-inventory.js?v=6';
+import { equipGatheringWand } from './gathering-wand.js?v=20';
+import { createPlayerPanel } from './player-panel.js?v=42';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
@@ -343,14 +344,29 @@ function enterIsland(next) {
 }
 
 function refreshStrike(){
-  const wand=bag.loadouts.battle.weapon==='wand';
-  panel.setStrike(wand || workshop?battleStrike:null,wand);
+  if(bag.loadouts.battle.weapon===STAFF_ID && !bag.equipmentItems().some(item=>item.id===STAFF_ID)){
+    bag.equip('battle','weapon',null);
+  }
+  const weapon=bag.loadouts.battle.weapon;
+  panel.setStrike(weapon || workshop?battleStrike:null,weapon);
 }
 function battleStrike(){
   if(!panel.isBattle() || modalOpen())return;
   if(bag.loadouts.battle.weapon==='wand'){
     gathering.strike(()=>workshop?.attack(true));
+  }else if(bag.loadouts.battle.weapon===STAFF_ID){
+    gathering.fire(releaseStaffPulse);
   }else workshop?.attack();
+}
+function releaseStaffPulse(){
+  const origin=player.position.clone();
+  origin.y+=1.5;
+  const direction=camera.getWorldDirection(new THREE.Vector3());
+  const caster=new THREE.Raycaster(origin,direction,0,STAFF_ATTACK.range);
+  const obstacle=caster.intersectObjects(solids,false)[0];
+  if(obstacle)caster.far=obstacle.distance;
+  const distance=workshop?.pulseHit(caster)??caster.far;
+  return caster.ray.at(distance,new THREE.Vector3());
 }
 function currentQuestBrief() {
   const complete = stage.locationId === 'island.data-forge' ? forgeState.unlocked : stage.unlocked;
@@ -569,7 +585,7 @@ addEventListener('keydown',e=>{
   if(e.code==='Space'&&!keys.Space)jumpRequested=true;
   keys[e.code]=true;
   if(/^Digit[1-6]$/.test(e.code)){
-    if(panel.isBattle() && (workshop || bag.loadouts.battle.weapon==='wand') && e.code==='Digit1'){
+    if(panel.isBattle() && (workshop || bag.loadouts.battle.weapon) && e.code==='Digit1'){
       e.preventDefault();
       if(!e.repeat)battleStrike();
     }
@@ -585,7 +601,7 @@ addEventListener('keyup',e=>{
 document.addEventListener('visibilitychange',()=>{if(document.hidden)scanner?.cancel()});
 addEventListener('blur',()=>{processorLab?.wall.cancel();scanner?.cancel();resetBackPress();dragging=false;panel.input.clear();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false});
 function act(button){
-  if(panel.isBattle() && (workshop || bag.loadouts.battle.weapon==='wand') && button===0){battleStrike();return}
+  if(panel.isBattle() && (workshop || bag.loadouts.battle.weapon) && button===0){battleStrike();return}
   if(panel.isBattle()){notify('Для строительства нажми L / Д или C + V.');return}
   if (button===0 && scanner?.interact('collect')) return;
   ray.setFromCamera(new THREE.Vector2(),camera);
@@ -747,7 +763,7 @@ if(processorLab){
   wallCaster.setFromCamera(centerAim,camera);
   processorLab.wall.showSample(!!nearbyWall && (nearbyWall.holding || nearbyWall.facesBoard(wallCaster.ray)));
 }
-const heldTool=nearbyWall?'wand':panel.isBattle()?(combatWand?'wand':null):bag.loadouts.build.tool;
+const heldTool=nearbyWall?'wand':panel.isBattle()?bag.loadouts.battle.weapon:bag.loadouts.build.tool;
 gathering.update(dt,now/1000,{active,third:player.visible,combatWand,visible:!showingGift&&!!heldTool,tool:heldTool,dx:player.position.x-previousX,dz:player.position.z-previousZ,yaw,pitch,grounded:physics.grounded,reducedMotion:reducedHandMotion.matches});
 if(nearbyWall?.holding)nearbyWall.move(wallRay(),gathering.tipPosition());
 if(!customizer.isOpen()){renderer.render(scene,camera);gathering.render()}customizer.render(dt,now/1000)}requestAnimationFrame(frame);

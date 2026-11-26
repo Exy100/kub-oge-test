@@ -26,7 +26,7 @@ export function workshopModels(parent, geometry) {
     const hp=new THREE.Group();g.add(hp);hp.position.y=(i?1.58:1.36)*body.scale.y;
     cube(hp,0,0,0,1,.14,.045,0x293f39);
     const fill=cube(hp,0,0,.034,.93,.08,.025,0xe9aa70);
-    return {g,hp,fill,walk,rest,pose};
+    return {g,body,hp,fill,walk,rest,pose};
   }
   function helper(x,z) {
     const g=group('friendly-program',x,z);
