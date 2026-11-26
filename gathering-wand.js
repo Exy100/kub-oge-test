@@ -2,6 +2,9 @@ import * as THREE from './vendor/three.module.js';
 
 import {createWoodcuttingAxe} from './world/woodcutting-axe.js';
 
+import { createPulseStaff, createStaffCycle } from './world/pulse-staff.js';
+import { STAFF_ID } from './catalog/pulse-staff.js';
+
 // Original concept 8: ceramic tuning fork, sage grip, brass terminals.
 export function createGatheringWand(){
   const root=new THREE.Group();root.name='gathering-wand-8';root.userData.objectId='wand';const geometries=[],materials=[];
@@ -87,6 +90,31 @@ export function equipGatheringWand({character,camera,scene,renderer}){
   const viewScene=new THREE.Scene(),viewCamera=new THREE.PerspectiveCamera(55,camera.aspect,.01,5),viewRig=new THREE.Group();viewScene.add(viewRig);
   viewScene.add(new THREE.HemisphereLight(0xfff7e4,0x657b72,2.4));const light=new THREE.DirectionalLight(0xffe9c3,2.5);light.position.set(-1,3,2);viewScene.add(light);
   const viewWand=createGatheringWand();viewRig.add(viewWand.root);viewWand.root.rotation.y=Math.PI;viewRig.position.set(.28,-.1,-.83);viewRig.scale.setScalar(.42);viewRig.rotation.set(-.2,.12,.16);
+  const staffCycle=createStaffCycle();
+  let staff,viewStaff,viewTip,beam,beamLeft=0;
+  function equipStaff(){
+    staff=createPulseStaff();
+    viewStaff=staff.root.clone();
+    viewTip=viewStaff.getObjectByName('pulse-tip');
+    viewRig.add(viewStaff);
+    staff.root.position.copy(wand.root.position);
+    staff.root.rotation.copy(wand.root.rotation);
+    elbow.add(staff.root);
+    beam=new THREE.Mesh(new THREE.CylinderGeometry(.016,.01,1,6),new THREE.MeshBasicMaterial({color:0x80caff}));
+    beam.name='staff-pulse';beam.visible=false;scene.add(beam);
+  }
+  function showPulse(end){
+    const muzzle=new THREE.Vector3();
+    if(firstPerson){
+      viewTip.getWorldPosition(muzzle);
+      camera.localToWorld(muzzle);
+    }else staff.tip.getWorldPosition(muzzle);
+    const delta=new THREE.Vector3().subVectors(end,muzzle);
+    beam.position.copy(muzzle).lerp(end,.5);
+    beam.scale.y=delta.length();
+    beam.quaternion.setFromUnitVectors(up,delta.normalize());
+    beam.visible=true;beamLeft=.095;
+  }
   let axe,viewAxe;
   function equipAxe(){
     axe=createWoodcuttingAxe();axe.position.copy(wand.root.position);axe.rotation.copy(wand.root.rotation);elbow.add(axe);
@@ -129,8 +157,9 @@ export function equipGatheringWand({character,camera,scene,renderer}){
   for(let i=0;i<3;i++){const finger=new THREE.Mesh(handGeometry,glove);finger.scale.set(.025,.025,.055);finger.position.set(-.035,-.065+i*.035,-.014);viewRig.add(finger)}
   const flights=[];const endpoint=new THREE.Vector3();let elapsed=1,enabled=true,firstPerson=false;
   function destination(){if(firstPerson){viewScene.updateMatrixWorld(true);viewWand.tip.getWorldPosition(endpoint);camera.updateMatrixWorld(true);camera.localToWorld(endpoint)}else{character.root.updateMatrixWorld(true);wand.tip.getWorldPosition(endpoint)}return endpoint}
-  function clear(){strikeTime=strikeDuration;contact=null;for(const f of flights)scene.remove(f.mesh);flights.length=0;elapsed=1}
+  function clear(){staffCycle.clear();beamLeft=0;if(beam)beam.visible=false;strikeTime=strikeDuration;contact=null;for(const f of flights)scene.remove(f.mesh);flights.length=0;elapsed=1}
   return {wand,viewWand,viewScene,tipPosition:destination,
+    fire(onRelease){return staffCycle.start(()=>showPulse(onRelease()))},
     strike(onContact){
       if(strikeTime<strikeDuration)return;
       strikeTime=0;contact=onContact;
@@ -140,10 +169,19 @@ export function equipGatheringWand({character,camera,scene,renderer}){
     update(dt,time,{active,third,visible=true,combatWand=false,tool='wand',dx=0,dz=0,yaw=0,pitch=0,grounded=true,reducedMotion=false}){
       firstPerson=!third;enabled=visible;
       const chopping=visible && tool==='wood-axe';
+      const ranged=visible && tool===STAFF_ID;
+      if(ranged && !staff)equipStaff();
+      if(staff){
+        staff.root.visible=viewStaff.visible=ranged;
+        if(active)beamLeft=Math.max(0,beamLeft-dt);
+        beam.visible=beamLeft>0;
+      }
+      const fill=staffCycle.update(active?dt:0,ranged);
+      if(ranged)staff.setFill(fill);
       if(chopping && !axe)equipAxe();
-      wand.root.visible=viewWand.root.visible=visible && !chopping;
+      wand.root.visible=viewWand.root.visible=visible && !chopping && !ranged;
       if(axe)axe.visible=viewAxe.visible=chopping;
-      if(active)elapsed=Math.min(1,elapsed+Math.max(0,dt));const power=combatWand?0:Math.sin(Math.PI*elapsed);
+      if(active)elapsed=Math.min(1,elapsed+Math.max(0,dt));const power=combatWand || ranged?0:Math.sin(Math.PI*elapsed);
       if(!combatWand || !visible){strikeTime=strikeDuration;contact=null}
       if(active && strikeTime<strikeDuration){
         strikeTime=Math.min(strikeDuration,strikeTime+Math.max(0,dt));
@@ -179,6 +217,9 @@ export function equipGatheringWand({character,camera,scene,renderer}){
     },
     render(){if(!firstPerson||!enabled)return;viewCamera.aspect=camera.aspect;viewCamera.updateProjectionMatrix();const auto=renderer.autoClear;renderer.autoClear=false;renderer.clearDepth();renderer.render(viewScene,viewCamera);renderer.autoClear=auto},
     clear,
-    dispose(){clear();if(axe){axe.removeFromParent();viewAxe.removeFromParent();axe.geometry.dispose();axe.material.dispose()}elbow.remove(wand.root);wand.dispose();viewWand.dispose();handGeometry.dispose();armGeometry.dispose();skin.dispose();cuffMaterial.dispose();glove.dispose();jacket.dispose()},
+    dispose(){clear();if(staff){
+      staff.root.removeFromParent();viewStaff.removeFromParent();staff.dispose();
+      beam.removeFromParent();beam.geometry.dispose();beam.material.dispose();
+    }if(axe){axe.removeFromParent();viewAxe.removeFromParent();axe.geometry.dispose();axe.material.dispose()}elbow.remove(wand.root);wand.dispose();viewWand.dispose();handGeometry.dispose();armGeometry.dispose();skin.dispose();cuffMaterial.dispose();glove.dispose();jacket.dispose()},
   };
 }

@@ -1,4 +1,6 @@
-import { itemStack } from './catalog/index.js?v=2';
+import { itemStack } from './catalog/index.js?v=3';
+
+import { STAFF_ID, WEAPON_KIT } from './catalog/pulse-staff.js';
 
 export const BAG_COLUMNS = 5;
 export const BAG_ROWS = 4;
@@ -24,6 +26,11 @@ export function createPlayerInventory(readResources, describeItem = itemStack) {
   const loadouts = { build: { tool: 'wand' }, battle: {} };
   const describe = item => describeItem(item.id, item.quantity);
   const items = () => [...possessions.values(), ...readResources().filter(item => item.quantity > 0)].map(describe);
+  function equipmentItems() {
+    const owned = items();
+    if (owned.some(item => item.id === WEAPON_KIT)) owned.push(describeItem(STAFF_ID, 1));
+    return owned;
+  }
   const layoutKey = 'kub.bag-layout.v1';
   const layout = Array(capacity).fill(null);
   try {
@@ -75,12 +82,12 @@ export function createPlayerInventory(readResources, describeItem = itemStack) {
     const spec = equipmentSlots(mode).find(([key]) => key === slot);
     if (!spec || !loadouts[mode]) return false;
     if (id === null) { delete loadouts[mode][slot]; return true; }
-    const item = items().find(entry=>entry.id===id);
+    const item = equipmentItems().find(entry=>entry.id===id);
     const used = Object.entries(loadouts[mode]).filter(([key,value]) => key !== slot && value === id).length;
     if (!item || !fitsEquipment(item,spec[2]) || used >= item.quantity) return false;
     loadouts[mode][slot] = id;
     return true;
   }
   add({ id: 'wand', quantity: 1 });
-  return { capacity, items, cells, move, canStore, add, loadouts, equip };
+  return { capacity, items, equipmentItems, cells, move, canStore, add, loadouts, equip };
 }

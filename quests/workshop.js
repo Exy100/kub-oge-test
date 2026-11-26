@@ -1,9 +1,10 @@
+import {STAFF_ATTACK} from '../catalog/pulse-staff.js';
 import {orangeBug,greenBug,UNARMED_DAMAGE} from '../catalog/bugs.js';
 import {workbenchView,bindWorkbench} from './workbench.js?v=3';
 import {CanvasTexture, Sprite, SpriteMaterial, SRGBColorSpace, Vector3} from '../vendor/three.module.js';
 import {createTurtleMechanic} from '../world/turtle-mechanic.js?v=4';
 import {pcParts} from '../catalog/pc-parts.js';
-import {workshopModels} from '../world/repair-models.js?v=7';
+import {workshopModels} from '../world/repair-models.js?v=8';
 
 import {createBugEncounter} from '../world/bug-encounter.js?v=2';
 
@@ -276,9 +277,24 @@ export function createWorkshop({stage,parent,geometry,box,solids,player,camera,c
     if(i<0){if(!withWand)notify('Подойди ближе к бегущему багу.');return}
     if(time-lastHit<.25)return;
     lastHit=time;if(!withWand)onHit();
+    damageBug(i,UNARMED_DAMAGE);
+  }
+  function pulseHit(caster){
+    let nearest=caster.far, target=-1;
+    bugs.forEach(({body},i)=>{
+      if(state.bugs[i].phase!=='running')return;
+      body.updateWorldMatrix(true,true);
+      const hit=caster.intersectObject(body,true)[0];
+      if(hit && hit.distance<nearest){nearest=hit.distance;target=i}
+    });
+    if(target>=0)damageBug(target,STAFF_ATTACK.damage);
+    return nearest;
+  }
+  function damageBug(i,damage){
     const b=state.bugs[i], g=bugs[i].g;
-    b.hp=Math.max(0,b.hp-UNARMED_DAMAGE);
-    const hits=(puzzles[i].enemy.maxHp-b.hp)/UNARMED_DAMAGE;
+    const hits=(b.hits??(puzzles[i].enemy.maxHp-b.hp)/UNARMED_DAMAGE)+1;
+    b.hits=hits;
+    b.hp=Math.max(0,b.hp-damage);
     const landing=encounters[i].hit(player.position,hits);
     if(!b.hp){
       const end=landing??g.position;
@@ -351,7 +367,7 @@ export function createWorkshop({stage,parent,geometry,box,solids,player,camera,c
   }
   prompt.onclick=interact;
   sync();
-  return {tick,attack,interact,shoveVelocity:encounters[0].shoveVelocity,
+  return {tick,attack,pulseHit,interact,shoveVelocity:encounters[0].shoveVelocity,
     presenting:()=>giftTime!==null,
     frameGift(){
       camera.position.copy(giftCamera);camera.lookAt(giftFocus);
