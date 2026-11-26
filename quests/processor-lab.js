@@ -2,6 +2,20 @@ import { buildBitWall } from './processor-bit-wall.js?v=2';
 import { buildKeycapArch } from '../world/keycap-arch.js';
 import { createRemontik } from '../world/remontik.js?v=3';
 import { buildProcessorSocket } from '../world/processor-socket.js';
+import { renderWorkOrder } from './work-order.js';
+
+const repairOrder = {
+  heading: 'Наряд на ремонт',
+  title: 'Перезапуск ядра',
+  letter: [
+    'Слышишь, как тихо? Обычно у этого кулера такой гул, что у меня дрожит линза. Контакты я проверил. Для запуска процессор ждёт всего одну букву — Б.',
+    'Я приготовил кубы на стенде. Пока ты собираешь код, я побуду у чипа. Как только биты встанут на свои места, услышим, как он оживёт.',
+  ],
+  task: 'Подойди к стенду справа от процессора. Жезлом расставь кубы по образцу внизу экрана. Когда оба ряда совпадут, ядро запустится.',
+  memo: 'В UTF-8 каждая буква русского алфавита, в том числе Б и ё, занимает два байта. В одном байте 8 бит. На стенде один ряд кубов — один байт.',
+  reward: 'Оружейный набор и проход через северный портал.',
+  action: 'К стенду',
+};
 
 export const WEAPON_KIT = 'reward.weapon-kit';
 
@@ -56,8 +70,7 @@ export function createProcessorLab({stage, box, player, dialog, pause, changed, 
       stage.metRemontik=true;
       wall.reveal();
       changed();
-      dialog.querySelector('h2').textContent=robot.root.name;
-      body.innerHTML='<p>Процессор ждёт букву Б. В UTF-8 это два байта — по восемь битов. Я подготовил кубы на стенде справа. Подойди к нему и перетащи кубы жезлом по образцу. Когда код совпадёт, процессор запустится.</p>';
+      renderWorkOrder(dialog,{...repairOrder,sender:robot.root.name});
     }
     dialog.showModal();
     return true;
