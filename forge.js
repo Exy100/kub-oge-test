@@ -2,6 +2,7 @@ import * as THREE from './vendor/three.module.js';
 import { createForgeState, toggleBit, craftByte, collectByte, insertByte, bitValue } from './forge-state.js?v=5';
 import { createByteFactory } from './byte-model.js?v=3';
 
+import { socketFace } from './world/forge-finishes.js';
 import { buildInductionForge } from './world/induction-forge.js';
 
 export function createForge({ scene, box, solids, state=createForgeState(), remainingBits, onChange, notify, canStore=()=>true, onCollect=()=>{}, onPlace=()=>{} }) {
@@ -19,7 +20,7 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
     return new THREE.MeshStandardMaterial({map:texture,roughness:.65});
   }
   const digits=[textureMaterial('0'),textureMaterial('1')],bytes=createByteFactory(digits);
-  const emptyMaterial=new THREE.MeshStandardMaterial({color:0x384d59,roughness:.9});
+  const emptyMaterial=new THREE.MeshStandardMaterial({map:socketFace(),roughness:.82});
   const padMaterial=new THREE.MeshStandardMaterial({color:0xa99ab5,emissive:0x604970,emissiveIntensity:.15,roughness:.65});
   // The forge stays a workshop; the destination is now a separate ceremonial arch.
   box(76,2,-3,.6,4,6.5,0x819092,true);box(84,2,-3,.6,4,6.5,0x819092,true);
@@ -148,7 +149,7 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
     },
     dispose(resources) {
       // Some pickups may already have flown out of the scene.
-      for (const item of [geometry, emptyMaterial, ...digits, ...bytes.resources]) resources.add(item);
+      for (const item of [geometry, emptyMaterial, emptyMaterial.map, ...digits, ...bytes.resources]) resources.add(item);
       for (const digit of digits) resources.add(digit.map);
       prompt.hidden = bag.hidden = true;
       machine.stop();
