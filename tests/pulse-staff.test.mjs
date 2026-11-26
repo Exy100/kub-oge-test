@@ -15,7 +15,7 @@ test('the kit unlocks a battle-only staff without using another bag cell',()=>{
   assert.equal(bag.equip('battle','weapon',STAFF_ID),true);
 });
 
-test('the shot is released once and the next shot waits for the last line',()=>{
+test('the shot is released once and the next shot waits for a full charge',()=>{
   const cycle=createStaffCycle();
   let shots=0, contacts=0;
   const fire=()=>shots++;
@@ -43,21 +43,21 @@ test('the shot is released once and the next shot waits for the last line',()=>{
   assert.equal(shots,2,'one long frame never duplicates a shot');
 });
 
-test('three banks of diagonal lines fill in physical order and share state across cameras',()=>{
-  const staff=createPulseStaff(), view=staff.root.clone();
-  const lines=staff.root.children.find(o=>o.material?.isShaderMaterial);
-  const thresholds=lines.geometry.getAttribute('threshold'), coords=lines.geometry.getAttribute('position');
-  const ys=[];
-  for(let i=0;i<8;i++) {
-    const start=i*12;
-    assert.equal(thresholds.getX(start),i/8);
-    assert.equal(thresholds.getX(start+1),(i+1)/8);
-    assert.ok(coords.getY(start+1)>coords.getY(start));
-    ys.push(coords.getY(start));
-  }
-  assert.deepEqual(ys,ys.slice().sort((a,b)=>a-b));
-  staff.setFill(.4);
-  assert.equal(view.children.find(o=>o.material?.isShaderMaterial).material.uniforms.fill.value,.4);
-  assert.ok(new THREE.Box3().setFromObject(staff.root).containsPoint(staff.tip.position));
+test('the sapphire charges bottom to top, shares its glint across both rigs and emits from its centre',()=>{
+  const staff=createPulseStaff(), clone=staff.root.clone();
+  const gem=staff.root.getObjectByName('staff-sapphire');
+  const pos=gem.geometry.getAttribute('position'),level=gem.geometry.getAttribute('chargeLevel');
+  gem.updateMatrixWorld(true);
+  const heights=Array.from({length:pos.count},(_,i)=>new THREE.Vector3().fromBufferAttribute(pos,i)
+    .applyMatrix4(gem.matrixWorld).y);
+  const min=Math.min(...heights),span=Math.max(...heights)-min;
+  assert.ok(span>.30);
+  for(let i=0;i<pos.count;i++)assert.ok(Math.abs((heights[i]-min)/span-level.getX(i))<1e-5);
+  assert.deepEqual(staff.tip.position.toArray(),gem.position.toArray());
+  staff.setFill(.4,1.2);
+  const other=clone.getObjectByName(gem.name);
+  assert.equal(other.material,gem.material);
+  assert.equal(other.material.uniforms.fill.value,.4);
+  assert.equal(other.material.uniforms.time.value,1.2);
   staff.dispose();
 });

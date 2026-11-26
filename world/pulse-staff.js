@@ -2,71 +2,54 @@ import * as THREE from '../vendor/three.module.js';
 import { paintedPart } from './painted-part.js';
 import { STAFF_ID, STAFF_ATTACK } from '../catalog/pulse-staff.js?v=2';
 
-// Concept 01, light pattern 09. Both camera rigs share these two meshes' resources.
+import { createStaffCrystal } from './staff-crystal.js';
+
+// Both camera rigs share the same two meshes' resources.
 export function createPulseStaff() {
   const root = new THREE.Group();
   root.name = STAFF_ID;
   const ceramic = new THREE.MeshStandardMaterial({ vertexColors: true, roughness: .52, metalness: .17 });
   const ivory=0xece2c9, brass=0xb28a53, paleGold=0xd8b57a, jade=0x34584f;
   const neckExtension=.155;
-  const windows = [
-    {x:.001,y:.268,w:.099,h:.061,rows:2},
-    {x:.021,y:.365,w:.123,h:.081,rows:2},
-    {x:.062,y:.538,w:.154,h:.196,rows:4},
-  ];
-  function contour(x,y,w,h) {
-    const k=Math.min(.020,h*.21);
-    return [[0,k],[k,0],[w-k,0],[w,k],[w,h-k],[w-k,h],[k,h],[0,h-k]]
-      .map(([u,v])=>[x+u-w/2+(v-h/2)*.23,y+v-h/2]);
-  }
   const shell=paintedPart(root,'ceramic-housing',ceramic,({face})=>{
-    // Build across the thickness: a dark spine between two ivory cheeks.
-    // All outlines run counterclockwise as seen from the front.
-    function loop(points,z){return points.map(([x,y])=>[x,y+neckExtension,z])}
     function join(lower,upper,color){
       for(let i=0;i<lower.length;i++){
         const j=(i+1)%lower.length;
         face([lower[i],lower[j],upper[j],upper[i]],color);
       }
     }
-    function bothFaces(points,z,color){
-      face(loop(points,z),color);
-      face(loop(points,-z).reverse(),color);
-    }
-    const outline=[
-      [-.055,.187],[.045,.187],[.083,.233],[.127,.416],
-      [.184,.630],[.184,.655],[.158,.682],[.033,.677],
-      [-.045,.650],[-.071,.607],[-.105,.406],[-.099,.357],[-.077,.230],
+    // Cross-sections run along the open C. A chamfer on each rail leaves a fine
+    // highlight from either camera without closing the space around the stone.
+    const rail=[
+      [[.244,.856],[.235,.822]], [[.204,.849],[.199,.817]],
+      [[.154,.839],[.150,.807]], [[-.071,.809],[-.050,.772]],
+      [[-.108,.769],[-.073,.748]], [[-.154,.474],[-.116,.491]],
+      [[-.099,.408],[-.080,.443]], [[-.014,.358],[-.008,.399]],
+      [[.139,.403],[.125,.436]], [[.168,.411],[.157,.445]],
+      [[.219,.425],[.209,.458]],
     ];
-    function housingRing(scaleX,scaleY,z){
-      return outline.map(([x,y])=>[.036+(x-.036)*scaleX,.436+(y-.436)*scaleY+neckExtension,z]);
-    }
-    const profile=[
-      [.91,.974,-.041,ivory],[1,1,-.027,0xd1c2a3],[1,1,-.018,ivory],
-      [.965,.980,-.013,brass],[.965,.980,.013,jade],
-      [1,1,.018,brass],[1,1,.027,ivory],[.91,.974,.041,0xf2e7ce],
-    ];
-    const rings=profile.map(([sx,sy,z])=>housingRing(sx,sy,z));
-    for(let i=1;i<rings.length;i++)join(rings[i-1],rings[i],profile[i][3]);
-    face(rings[0].slice().reverse(),ivory);face(rings.at(-1),ivory);
-
-    // An enamel rail follows the rear edge of the head into the thumb rest.
-    bothFaces([[-.088,.383],[-.068,.403],[-.028,.624],[-.045,.610]],.042,jade);
-    bothFaces([[-.071,.387],[-.063,.397],[-.031,.571],[-.038,.563]],.043,paleGold);
-    for(const {x,y,w,h} of windows){
-      const frame=contour(x,y,w+.023,h+.022);
-      const lip=contour(x,y,w+.014,h+.013);
-      const glass=contour(x,y,w,h);
-      for(const side of [-1,1]){
-        // Winding reverses on the back. The lens sits below the raised metal lip.
-        const rim=(outline,z)=>side>0?loop(outline,z):loop(outline,-z).reverse();
-        join(rim(frame,.0412),rim(lip,.048),brass);
-        join(rim(lip,.048),rim(glass,.048),paleGold);
-        join(rim(glass,.048),rim(glass,.044),0x304757);
-        const pane=rim(glass,.044),center=[x,y+neckExtension,side*.0455];
-        const sapphire=[0x183357,0x21446c,0x173862,0x122c4c,0x102940,0x143451,0x204269,0x224a73];
-        for(let i=0;i<pane.length;i++)face([pane[i],pane[(i+1)%pane.length],center],sapphire[i]);
+    const rings=rail.map(([outer,inner])=>{
+      const edge=(u,z)=>[outer[0]+(inner[0]-outer[0])*u,outer[1]+(inner[1]-outer[1])*u,z];
+      return [edge(.17,.031),edge(.83,.031),edge(1,.021),edge(1,-.021),
+        edge(.83,-.031),edge(.17,-.031),edge(0,-.021),edge(0,.021)];
+    });
+    // In this sweep the outside faces of the section point toward the first cap.
+    face(rings[0],paleGold);
+    for(let i=1;i<rings.length;i++){
+      const gold=i<=2 || i>=9;
+      for(let j=0;j<8;j++){
+        const k=(j+1)%8;
+        const tint=gold?(j%2?paleGold:brass):(j===2?0xbcb4a5:ivory);
+        face([rings[i-1][k],rings[i-1][j],rings[i][j],rings[i][k]],tint);
       }
+    }
+    face(rings.at(-1).slice().reverse(),brass);
+    // Two green enamel keys cross the back of the fork, as on the reference.
+    for(const y of [.582,.620]){
+      const x=-.154+(y-.474)*(.046/.295);
+      const badge=[[x+.006,y],[x+.034,y-.005],[x+.036,y+.008],[x+.008,y+.013]];
+      face(badge.map(([a,b])=>[a,b,.032]),jade);
+      face(badge.map(([a,b])=>[a,b,-.032]).reverse(),jade);
     }
 
     // The grip swells under the palm. Brass ferrules and shallow fluting catch side light.
@@ -99,49 +82,17 @@ export function createPulseStaff() {
       [.174+neckExtension,.035,.030,jade],[.184+neckExtension,.049,.039,paleGold],
       [.202+neckExtension,.054,.041,brass],[.212+neckExtension,.045,.035,ivory]);
     turn(grip);
-    // The brass crown connects the physical emitter to the lightning origin.
-    bothFaces([[.031,.655],[.094,.657],[.109,.670],[.042,.668]],.0425,brass);
-    bothFaces([[.049,.658],[.085,.659],[.092,.665],[.055,.665]],.0435,0x448db0);
   });
-  const vertices=[],charge=[],across=[];
-  let row=0;
-  const rows=windows.reduce((sum,w)=>sum+w.rows,0);
-  for(const {x,y,w,h,rows:count} of windows){
-    for(let i=0;i<count;i++,row++){
-      const offset=h*((i+.5)/count-.5);
-      const cx=x+offset*.23, cy=y+neckExtension+offset;
-      const dx=w*(i%2?.285:.34), dy=Math.min(.016,h/count*.28);
-      for(const sign of [-1,1]){
-        const z=sign*.0466, thickness=.0046;
-        for(const [end,edge] of [[-1,-1],[1,-1],[1,1],[-1,-1],[1,1],[-1,1]]){
-          vertices.push(cx+end*dx,cy+end*dy+edge*thickness,z);
-          across.push(edge);
-          charge.push((row+(end+1)/2)/rows);
-        }
-      }
-    }
-  }
-  const strips=new THREE.BufferGeometry();
-  strips.setAttribute('position',new THREE.Float32BufferAttribute(vertices,3));
-  strips.setAttribute('threshold',new THREE.Float32BufferAttribute(charge,1));
-  strips.setAttribute('across',new THREE.Float32BufferAttribute(across,1));
-  const light=new THREE.ShaderMaterial({
-    side:THREE.DoubleSide, uniforms:{fill:{value:1}},
-    vertexShader:'attribute float threshold,across; varying float level,edge; void main(){level=threshold;edge=across;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}',
-    fragmentShader:`uniform float fill; varying float level,edge;
-      void main(){
-        float on=smoothstep(-.01,.01,(fill*1.024-.012)-level);
-        float core=1.-smoothstep(.0,.065,abs(fill-level));
-        vec3 filament=mix(vec3(.06,.38,.94),vec3(.49,.85,1.),1.-smoothstep(.1,.88,abs(edge)));
-        gl_FragColor=vec4(mix(vec3(.019,.069,.15),filament+core*.18,on),1.);
-        #include <colorspace_fragment>
-      }`,
-  });
-  root.add(new THREE.Mesh(strips,light));
+  const crystal=createStaffCrystal();
+  root.add(crystal);
   const tip=new THREE.Object3D();
-  tip.name='pulse-tip';tip.position.set(.073,.675+neckExtension,0);root.add(tip);
-  return {root, tip, setFill(value){light.uniforms.fill.value=value},
-    dispose(){shell.geometry.dispose();ceramic.dispose();strips.dispose();light.dispose()}};
+  tip.name='pulse-tip';tip.position.copy(crystal.position);root.add(tip);
+  return {root,tip,setFill(value,time=0){
+    crystal.material.uniforms.fill.value=value;
+    crystal.material.uniforms.time.value=time;
+  },dispose(){
+    shell.geometry.dispose();ceramic.dispose();crystal.geometry.dispose();crystal.material.dispose();
+  }};
 }
 
 export function createStaffCycle(){

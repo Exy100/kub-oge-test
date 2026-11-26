@@ -14,7 +14,7 @@ import { buildIslandTerrain } from './world/island-terrain.js';
 import { createForgeState } from './forge-state.js?v=5';
 import { drawQuestDiagram } from './quest-diagram.js?v=2';
 import { createPlayerInventory } from './player-inventory.js?v=6';
-import { equipGatheringWand } from './gathering-wand.js?v=22';
+import { equipGatheringWand } from './gathering-wand.js?v=23';
 import { createPlayerPanel } from './player-panel.js?v=42';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';

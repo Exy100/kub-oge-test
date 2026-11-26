@@ -2,7 +2,7 @@ import * as THREE from './vendor/three.module.js';
 
 import {createWoodcuttingAxe} from './world/woodcutting-axe.js';
 
-import { createPulseStaff, createStaffCycle } from './world/pulse-staff.js?v=3';
+import { createPulseStaff, createStaffCycle } from './world/pulse-staff.js?v=4';
 import { createTwinVein } from './world/twin-vein.js';
 import { STAFF_ID, STAFF_ATTACK } from './catalog/pulse-staff.js?v=2';
 
@@ -215,7 +215,7 @@ export function equipGatheringWand({character,camera,scene,renderer}){
       poseArm(handMotion({dt,dx,dz,yaw,pitch,grounded,active,reducedMotion}),power,wind,cut,wristCut);
       if(staff){
         const fill=staffCycle.update(active?dt:0,ranged);
-        if(ranged)staff.setFill(fill);
+        if(ranged)staff.setFill(fill,reducedMotion?0:armClock);
         if(staffCycle.elapsed<STAFF_ATTACK.effectEnd){
           bolt.update(staffCycle.elapsed,camera,reducedMotion,ranged?muzzlePosition():null);
         }else bolt.clear();
