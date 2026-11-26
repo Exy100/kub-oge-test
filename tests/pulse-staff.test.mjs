@@ -3,7 +3,8 @@ import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.js';
 import {createPlayerInventory} from '../player-inventory.js';
 import {createPulseStaff,createStaffCycle} from '../world/pulse-staff.js';
-import {STAFF_ID,WEAPON_KIT} from '../catalog/pulse-staff.js';
+import {STAFF_ID,WEAPON_KIT,STAFF_ATTACK} from '../catalog/pulse-staff.js';
+import {createTwinVein} from '../world/twin-vein.js';
 
 test('the kit unlocks a battle-only staff without using another bag cell',()=>{
   let quantity=0;
@@ -60,4 +61,37 @@ test('the sapphire charges bottom to top, shares its glint across both rigs and 
   assert.equal(other.material.uniforms.fill.value,.4);
   assert.equal(other.material.uniforms.time.value,1.2);
   staff.dispose();
+});
+
+test('the local flash follows the resolved contact, fades once and respects reduced motion',()=>{
+  const scene=new THREE.Scene(), camera=new THREE.PerspectiveCamera();
+  const bolt=createTwinVein(scene),flash=scene.getObjectByName('staff-contact-flash');
+  const start=new THREE.Vector3(0,0,-1),aim=new THREE.Vector3(0,0,-8);
+  const cover=new THREE.Vector3(0,0,-3);
+  try{
+    bolt.launch(start,aim);
+    bolt.update(STAFF_ATTACK.impact-.01,camera,false);
+    assert.equal(flash.visible,false);
+    bolt.impact(cover);
+    const renderAt=(age,reduced=false)=>bolt.update(STAFF_ATTACK.impact+age,camera,reduced);
+    renderAt(0);
+    assert.ok(flash.visible && flash.position.equals(cover));
+    renderAt(.022);
+    const peak=flash.material.uniforms.strength.value;
+    const radius=flash.material.uniforms.radius.value;
+    renderAt(.10);
+    assert.ok(flash.material.uniforms.strength.value<peak);
+    assert.ok(flash.material.uniforms.radius.value>radius);
+    renderAt(.10,true);
+    assert.equal(flash.visible,false);
+    renderAt(.18);
+    assert.equal(flash.visible,false);
+    renderAt(.01);
+    bolt.clear();
+    assert.equal(flash.parent.visible,false);
+    bolt.launch(start,aim);
+    bolt.update(STAFF_ATTACK.windup,camera,false);
+    assert.equal(flash.visible,false);
+  }finally{bolt.dispose()}
+  assert.equal(scene.children.length,0);
 });

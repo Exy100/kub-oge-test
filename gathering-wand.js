@@ -3,7 +3,7 @@ import * as THREE from './vendor/three.module.js';
 import {createWoodcuttingAxe} from './world/woodcutting-axe.js';
 
 import { createPulseStaff, createStaffCycle } from './world/pulse-staff.js?v=4';
-import { createTwinVein } from './world/twin-vein.js';
+import { createTwinVein } from './world/twin-vein.js?v=2';
 import { STAFF_ID, STAFF_ATTACK } from './catalog/pulse-staff.js?v=2';
 
 // Original concept 8: ceramic tuning fork, sage grip, brass terminals.
