@@ -75,6 +75,14 @@ const {chromium}=require('playwright');
     await page.evaluate(()=>staffTest.obstruct());
     await page.keyboard.press('1');
     assert.equal((await sample(.43)).hp,8,'solid cover stops a shot');
+    for(let i=0;i<2;i++){
+      await sample(1.4);
+      await page.keyboard.press('1');
+      await sample(.43);
+    }
+    const impacts=await page.evaluate(()=>staffSounds.filter(name=>name.includes('discharge')));
+    assert.deepEqual(impacts,['twin-vein-discharge.wav','twin-vein-discharge-2.wav',
+      'twin-vein-discharge-3.wav','twin-vein-discharge.wav']);
     await page.evaluate(()=>staffTest.resetLab());
     await page.click('#reset');await page.click('#restart-confirm');
     assert.equal(await page.locator('.combat-slot').first().locator('span').textContent(),'Удар');

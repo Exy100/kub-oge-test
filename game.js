@@ -185,7 +185,8 @@ function buildSound(filename) {
 const playPickup = buildSound('pickup.wav');
 const playPlacement = buildSound('place.wav');
 const playStaffLaunch = buildSound('twin-vein-launch.wav');
-const playStaffDischarge = buildSound('twin-vein-discharge.wav');
+const staffDischarges = ['', '-2', '-3'].map(suffix => buildSound('twin-vein-discharge'+suffix+'.wav'));
+let nextStaffDischarge = 0;
 
 function onCollect(mesh){
   playPickup();
@@ -375,7 +376,8 @@ function releaseStaffPulse(){
   }
   playStaffLaunch();
   return {end:trace(false),hit(){
-    playStaffDischarge();
+    staffDischarges[nextStaffDischarge]();
+    nextStaffDischarge = (nextStaffDischarge + 1) % staffDischarges.length;
     return trace(true);
   }};
 }
