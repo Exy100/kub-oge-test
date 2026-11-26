@@ -25,46 +25,25 @@ function keycapGeometry() {
   return geometry;
 }
 
-function drawLegends() {
+// One high-contrast maker's mark: a brass byte cube above a dark anvil.
+function drawForgeMark() {
   const canvas = document.createElement('canvas');
-  canvas.width = 384;
-  canvas.height = 128;
+  canvas.width = canvas.height = 128;
   const ctx = canvas.getContext('2d');
-  ctx.lineJoin = ctx.lineCap = 'round';
-  const navy = '#204554', gold = '#dda437';
-  function shape(points, fill, stroke) {
+  function silhouette(points, color) {
+    ctx.fillStyle = color;
     ctx.beginPath();
     ctx.moveTo(...points[0]);
     for (const point of points.slice(1)) ctx.lineTo(...point);
     ctx.closePath();
-    ctx.fillStyle = fill;
     ctx.fill();
-    ctx.strokeStyle = stroke;
-    ctx.lineWidth = 4;
-    ctx.stroke();
   }
-  shape([[30,27],[64,18],[98,27],[95,69],[83,88],[64,105],[45,88],[33,69]],navy,navy);
-  shape([[43,38],[64,32],[85,38],[82,66],[74,79],[64,88],[54,79],[46,66]],'#93cec6',navy);
-  ctx.translate(128,0);
-  shape([[65,12],[94,12],[72,48],[94,48],[42,104],[54,66],[35,66]],gold,navy);
-  ctx.fillStyle = navy;
-  for (let i=0; i<3; i++) ctx.fillRect(61+i*9,94-i*7,6,7+i*7);
-  ctx.translate(128,0);
-  ctx.strokeStyle = navy;
-  ctx.lineWidth = 5;
-  ctx.setLineDash([4,9]);
-  ctx.beginPath();
-  ctx.moveTo(13,93);
-  ctx.quadraticCurveTo(35,16,70,32);
-  ctx.stroke();
-  ctx.setLineDash([]);
-  shape([[61,32],[82,21],[103,32],[82,44]],'#fae0a0',navy);
-  shape([[61,32],[82,44],[82,66],[61,54]],gold,navy);
-  shape([[82,44],[103,32],[103,54],[82,66]],'#70aeac',navy);
-  ctx.fillStyle = navy;
-  for (let row=0; row<3; row++) {
-    for (let col=0; col<3; col++) ctx.fillRect(58+col*15,76+row*10,12,7);
-  }
+  silhouette([[8,62],[119,62],[105,77],[87,80],[78,89],[79,96],
+    [96,102],[96,110],[40,110],[40,103],[56,96],[58,85],[51,80],[31,77]], '#234c52');
+  silhouette([[43,25],[64,14],[86,25],[86,46],[64,58],[43,46]], '#234c52');
+  silhouette([[48,26],[64,18],[81,26],[64,35]], '#f0c879');
+  silhouette([[47,30],[62,38],[62,52],[47,44]], '#b48139');
+  silhouette([[66,38],[82,30],[82,44],[66,52]], '#b099cc');
   const texture = new THREE.CanvasTexture(canvas);
   texture.colorSpace = THREE.SRGBColorSpace;
   return texture;
@@ -74,7 +53,7 @@ export function buildKeycapArch(box, {x,z}) {
   const geometry = keycapGeometry();
   const material = color => new THREE.MeshStandardMaterial({color,flatShading:true,roughness:.65});
   const jade = material(0x398e87), mint = material(0x66b1a5);
-  const skirt = material(0x245b59), ivory = material(0xffe9b6);
+  const skirt = material(0x245b59), ivory = material(0xfff6e4);
   // The structural spines and header carry the collisions inside the keycap shell.
   const beam = box(x,2.59,z,3.12,.56,.60,skirt,true);
   function addCap(cx,cy,cz,w,h,d,rotation,finish) {
@@ -93,20 +72,17 @@ export function buildKeycapArch(box, {x,z}) {
       addCap(cx,bottom,z,.87,.86,.54,-Math.PI/2,level%2 ? mint : jade);
     }
   }
-  const ink = new THREE.MeshBasicMaterial({map:drawLegends(),transparent:true,depthWrite:false});
-  for (let key=0; key<3; key++) {
-    const cx = x + (key-1)*1.03, cy = key===1 ? 2.91 : 2.75;
-    addCap(cx,cy,z-.32,1.09,1.04,.59,-.12,jade);
-    const cap = addCap(cx,cy+.02,z+.02,.99,.93,.43,-.12,ivory);
-    const face = new THREE.PlaneGeometry(.73,.70);
-    const uv = face.attributes.uv;
-    for (let i=0; i<uv.count; i++) uv.setX(i,(key+uv.getX(i))/3);
-    const legend = new THREE.Mesh(face,ink);
-    legend.position.copy(cap.position);
-    legend.rotation.copy(cap.rotation);
-    legend.translateZ(.432);
-    beam.parent.add(legend);
+  for (const dx of [-1.03, 0, 1.03]) {
+    addCap(x+dx,dx===0?2.91:2.75,z-.19,1.09,1.04,.59,-.12,jade);
   }
+  const cap = addCap(x,2.93,z+.02,1.03,.98,.43,-.12,ivory);
+  cap.name = 'forge-sign-keycap';
+  const ink = new THREE.MeshBasicMaterial({map:drawForgeMark(),transparent:true,depthWrite:false});
+  const legend = new THREE.Mesh(new THREE.PlaneGeometry(.75,.72),ink);
+  legend.position.copy(cap.position);
+  legend.rotation.copy(cap.rotation);
+  legend.translateZ(.432);
+  beam.parent.add(legend);
   const veil = document.createElement('canvas');
   veil.width = 128;
   veil.height = 192;

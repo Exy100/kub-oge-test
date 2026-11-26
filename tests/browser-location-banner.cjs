@@ -17,7 +17,7 @@ const {chromium} = require('playwright');
       contentType:'text/javascript',
       body:fs.readFileSync(path.join(repo,'game.js'),'utf8') + `
         window.atGate = forward => {
-          if(forward && stage.index===4){
+          if(forward && forge){
             forge.state.unlocked=true;
             player.position.set(86,0,-4);
           }else if(forward){
@@ -49,6 +49,11 @@ const {chromium} = require('playwright');
         if(message.hidden) window.messageHiddenAt=performance.now();
       }).observe(message,{attributes:true,attributeFilter:['hidden']});
       new MutationObserver(()=>{
+        if (!el.hidden && el.textContent==='Мастерская черепахи') {
+          const animation=el.getAnimations()[0];
+          animation.pause();
+          animation.currentTime=2500;
+        }
         window.arrivals.push({name:el.textContent, hidden:el.hidden, time:performance.now()});
       }).observe(el,{attributes:true,attributeFilter:['hidden']});
       document.querySelector('#play').addEventListener('click',()=>window.entered=performance.now(),{once:true,capture:true});
@@ -90,8 +95,6 @@ const {chromium} = require('playwright');
 
     await page.keyboard.press('l');
     assert(await helpHint.isVisible());
-    // Freeze only the banner animation while checking its geometry at different widths.
-    await banner.evaluate(el=>{const a=el.getAnimations()[0];a.pause();a.currentTime=2500});
     for(const width of [1440,1024,801,768,590,390,320]){
       await page.setViewportSize({width,height:640});
       const fits=await banner.evaluate(el=>{
@@ -107,11 +110,9 @@ const {chromium} = require('playwright');
     assert.equal(await banner.evaluate(el=>getComputedStyle(el).getPropertyValue('--arrival-shift').trim()),'0px');
     await page.evaluate(()=>window.atGate(true));
     await page.keyboard.press('e');
-    await page.evaluate(()=>window.atGate(true));
-    await page.keyboard.press('e');
     await banner.waitFor({state:'hidden'});
     await banner.waitFor({state:'visible'});
-    assert.equal(await banner.innerText(),'Кузница данных');
+    assert.equal(await banner.innerText(),'Кузница байтов');
     assert(await forgeHint.isVisible() && !await buildHint.isVisible() && await helpHint.isVisible());
     assert(await strip.evaluate(el=>{
       const r=el.getBoundingClientRect(),last=el.lastElementChild.getBoundingClientRect();
@@ -120,10 +121,12 @@ const {chromium} = require('playwright');
     await strip.waitFor({state:'hidden',timeout:16000});
     await page.evaluate(()=>window.atGate(false));
     await page.keyboard.press('e');
-    assert(await helpHint.isVisible() && await buildHint.isVisible(),'return restores full strip');
+    assert(await helpHint.isVisible() && !await forgeHint.isVisible(),'return restores laboratory controls');
     await page.evaluate(()=>window.atGate(true));
     await page.keyboard.press('e');
     assert(await forgeHint.isVisible(),'re-entering forge shows strip again');
+    await page.evaluate(()=>window.atGate(true));
+    await page.keyboard.press('e');
     await page.evaluate(()=>window.atGate(true));
     await page.keyboard.press('e');
     await page.waitForFunction(()=>document.querySelector('#location-banner:not([hidden])')?.textContent==='Сад открытий');
@@ -144,7 +147,7 @@ const {chromium} = require('playwright');
     const duration=await page.evaluate(()=>window.stripDuration);
     assert(duration>=14950 && duration<17000,'control strip duration '+duration);
     // Returning through the forge must cancel its pending hide on the second island.
-    for(let i=0;i<2;i++){
+    for(let i=0;i<4;i++){
       await page.evaluate(()=>window.atGate(false));
       await page.keyboard.press('e');
     }

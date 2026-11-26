@@ -22,6 +22,10 @@ const {chromium} = require('playwright');
       const canStoreItem=bag.canStore;
       window.blockStaffSlot=blocked=>{bag.canStore=id=>!(blocked && id===STAFF_ID) && canStoreItem(id)};
       window.workTest={
+        forgeArch(){return {
+          signs:island.children.filter(m=>m.name==='forge-sign-keycap').length,
+          open:exitGlow.visible, destination:nearbyRoute()?.label,
+        }},
         wallState(){return {
           cubes:island.children.filter(m=>m.name.startsWith('repair-bit-')).length,
           layout:stage.bitWall, holding:processorLab.wall.holding,
@@ -318,6 +322,8 @@ const {chromium} = require('playwright');
     assert.equal(await page.evaluate(()=>workTest.build(6)),7);
     await at(160,-6);await press('KeyE');assert.equal(await index(),2);
     await at(193,-7);await press('KeyE');assert.equal(await index(),2);
+    const arch=()=>page.evaluate(()=>workTest.forgeArch());
+    assert.deepEqual(await arch(),{signs:1,open:false,destination:'Перейти в Кузницу байтов'});
     const wallState=()=>page.evaluate(()=>workTest.wallState());
     const aim=slot=>page.evaluate(i=>workTest.aimWall(i),slot);
     const sample=page.locator('#wall-sample');
@@ -383,14 +389,11 @@ const {chromium} = require('playwright');
     await at(200.6,3.45);await press('KeyE');assert.match(await dialog.innerText(),/Процессор запущен/);
     await press('Escape');assert.deepEqual(await reward(),earned);
     await at(200,-6);await press('KeyE');assert.equal(await index(),2);
-    await at(193,-7);await press('KeyE');assert.equal(await index(),3);
-    await at(40,2);await press('KeyE');
-    const bits=dialog.locator('.signal-bits button');
-    await bits.nth(1).click();assert.match(await dialog.innerText(),/Песчаник/);
-    await bits.nth(1).click();await bits.nth(0).click();
-    assert.match(await dialog.locator('[role=status]').innerText(),/Дерево · сигнал принят/);
-    await press('Escape');await at(40,-2);await press('KeyE');assert.equal(await index(),3);
-    await at(46,6);await press('KeyE');assert.equal(await index(),2);
+    await at(193,-7);
+    assert.deepEqual(await arch(),{signs:1,open:true,destination:'Перейти в Кузницу байтов'});
+    await press('KeyE');assert.equal(await index(),3);
+    assert.equal(await objective(),'Собери биты и создай байты');
+    await at(86,6);await press('KeyE');assert.equal(await index(),2);
     assert.deepEqual(await reward(),earned);
     await click('#reset');await click('#restart-confirm');
     assert.deepEqual(await reward(),before);
@@ -429,6 +432,6 @@ const {chromium} = require('playwright');
     await page.evaluate(()=>workTest.tickReduced(.36));
     assert.equal(await dialog.getByText('Принять топор').isVisible(),true);
     assert.deepEqual(errors,[]);
-    console.log('PASS turtle, combat, repair retries, transformation, five drops, inventory, delivery nod, assembly, pannier gift reveal and axe reward, woodcutting, wooden arch, two-bit station, travel and reset');
+    console.log('PASS turtle, combat, repair retries, transformation, five drops, inventory, delivery nod, assembly, pannier gift reveal and axe reward, woodcutting, wooden arch, forge arch, travel and reset');
   } finally {await browser.close();server.kill()}
 })().catch(e=>{console.error(e);process.exitCode=1});

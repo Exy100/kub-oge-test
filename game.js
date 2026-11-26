@@ -1,14 +1,14 @@
 import { STAFF_ID, STAFF_ATTACK, STAFF_SOUNDS } from './catalog/pulse-staff.js?v=3';
 import { timberMaterial } from './world/timber.js';
 import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=19';
-import { createProcessorLab, LAB_REWARD_COINS } from './quests/processor-lab.js?v=11';
+import { createProcessorLab, LAB_REWARD_COINS } from './quests/processor-lab.js?v=12';
 import { createSignalStation } from './quests/signal.js';
 import { pcParts } from './catalog/pc-parts.js';
 import { createScanStore, resetDailyFindings } from './skills/explorer-scan.js';
 import { createScanInteraction } from './skills/scan-interaction.js';
 import { installCheatMenu } from './dev/cheat-menu.js';
 import { BUILD_MATERIALS } from './catalog/index.js';
-import { LOCATIONS } from './locations/index.js';
+import { LOCATIONS } from './locations/index.js?v=2';
 import { createSimpleArchEffect } from './world/simple-arch.js';
 import { buildIslandTerrain } from './world/island-terrain.js';
 import { createForgeState } from './forge-state.js?v=5';
@@ -23,7 +23,7 @@ import { createForge } from './forge.js?v=18';
 import { EXPLORER, loadAppearance } from './appearance.js?v=12';
 import { createCustomizer } from './customizer.js?v=20';
 import { createFollowState, followCamera } from './follow-camera.js?v=2';
-import { createStage, placeTarget, removeTarget, isLimited, MATERIAL_NAMES } from './progression.js?v=4';
+import { createStage, placeTarget, removeTarget, isLimited, MATERIAL_NAMES } from './progression.js?v=5';
 const $=s=>document.querySelector(s), scene=new THREE.Scene();scene.background=new THREE.Color('#c9dfda');scene.fog=new THREE.Fog('#c9dfda',35,85);
 const renderer=new THREE.WebGLRenderer({canvas:$('#world'),antialias:true});renderer.setPixelRatio(Math.min(devicePixelRatio,2));renderer.shadowMap.enabled=true;renderer.shadowMap.type=THREE.PCFSoftShadowMap;renderer.outputColorSpace=THREE.SRGBColorSpace;
 const camera=new THREE.PerspectiveCamera(55,innerWidth/innerHeight,.1,140);scene.add(new THREE.HemisphereLight(0xf6ffe6,0x788974,2.5));const sun=new THREE.DirectionalLight(0xffeed0,3);sun.position.set(-10,25,10);sun.castShadow=true;sun.shadow.mapSize.set(2048,2048);Object.assign(sun.shadow.camera,{left:-22,right:22,top:22,bottom:-22});sun.shadow.normalBias=.03;scene.add(sun);
@@ -450,7 +450,7 @@ function update(){
   drawQuestDiagram($('#quest-diagram'),stage,forgeState.cells);
   document.querySelectorAll('.slot b').forEach((el,i)=>el.textContent=isLimited(stage,i)?stage.inventory[i]:'∞');
   if (exitGlow) exitGlow.visible = stage.unlocked;
-  $('#arch-status').textContent=stage.locationId==='island.data-forge'?`Биты: ${forgeState.bits} · Байты: ${forgeState.bytes} · Создано: ${forgeState.crafted}/4`:stage.locationId==='island.three-arches'?stage.arches.map((arch,i)=>`${MATERIAL_NAMES[arch.material]}: ${Array.from(stage.built).filter(t=>Math.floor(t/7)===i).length}/7`).join(' · '):stage.index===0&&stage.unlocked?'Портал открыт · подойди к арке и нажми E':stage.locationId==='island.discovery-garden'&&forgeState.unlocked?'Путь к саду открыт · 32 бита · 4 байта':'';
+  $('#arch-status').textContent=stage.locationId==='island.data-forge'?`Биты: ${forgeState.bits} · Байты: ${forgeState.bytes} · Создано: ${forgeState.crafted}/4`:stage.locationId==='island.three-arches'?stage.arches.map((arch,i)=>`${MATERIAL_NAMES[arch.material]}: ${Array.from(stage.built).filter(t=>Math.floor(t/7)===i).length}/7`).join(' · '):stage.index===0&&stage.unlocked?'Портал открыт · подойди к арке и нажми E':stage.locationId==='island.discovery-garden' && stages[stage.index-1].unlocked?'Путь в сад открыт · три арки собраны':'';
 }
 function select(i){
   selected=i;
@@ -464,17 +464,17 @@ function nearbyRoute(){
   const routes=[];
   if(returnGlow)routes.push({x:returnGlow.position.x,z:returnGlow.position.z,to:stage.index-1,ready:true,label:'Вернуться в локацию «'+LOCATIONS[stage.index-1].name+'»'});
   if(stage.index===0)routes.push({x:0,z:-1,to:stage.index+1,ready:stage.unlocked,label:'Перейти в мастерскую черепахи',locked:'Дострой арку, чтобы открыть проход.'});
-  if(processorLab)routes.push({...processorLab.exitArch,to:stage.index+1,ready:stage.unlocked,label:'Перейти на остров трёх арок',locked:currentQuestBrief()});
+  if(processorLab)routes.push({...processorLab.exitArch,to:stage.index+1,ready:stage.unlocked,label:'Перейти в Кузницу байтов',locked:currentQuestBrief()});
   if(workshop)routes.push({x:stage.center,z:-6,to:stage.index+1,ready:stage.unlocked,label:'Перейти в лабораторию процессора',locked:stage.repair.axe?'Заверши деревянную арку.':'Помоги черепахе починить компьютер.'});
-  if(stage.locationId==='island.three-arches')routes.push({x:40,z:-2,to:stage.index+1,ready:stage.unlocked,label:'Отправиться в кузницу',locked:stage.sentWood?'Собери все три арки, чтобы открыть кузницу.':'Включи на пульте указатель к дереву.'});
-  if(stage.locationId==='island.data-forge')routes.push({x:86,z:-4,to:stage.index+1,ready:forgeState.unlocked,label:'Пройти сквозь врата',locked:'Выложи четыре байта на площадку у арки.'});
+  if(stage.locationId==='island.three-arches')routes.push({x:40,z:-2,to:stage.index+1,ready:stage.unlocked,label:'Перейти в Сад открытий',locked:stage.sentWood?'Собери все три арки, чтобы открыть путь в сад.':'Включи на пульте указатель к дереву.'});
+  if(stage.locationId==='island.data-forge')routes.push({x:86,z:-4,to:stage.index+1,ready:forgeState.unlocked,label:'Перейти на Остров трёх арок',locked:'Выложи четыре байта на площадку у арки.'});
   return routes.find(route=>Math.hypot(player.position.x-route.x,player.position.z-route.z)<1.8);
 }
 function travel(){
   const route=nearbyRoute();if(!route)return false;
   if(!route.ready)return true;
   const labReady=stages[route.to].locationId==='island.processor-lab' && stages[route.to].unlocked;
-  goToIsland(route.to, labReady?'Процессор работает. Северный портал открыт.':['Ты вернулся на первый остров.','Черепаха ждёт у разобранного компьютера.','Процессор остановлен. Поговори с Ремонтиком.','Станция кодирования и три арки ждут тебя.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][route.to]);
+  goToIsland(route.to, labReady?'Процессор работает. Северный портал открыт.':['Ты вернулся на первый остров.','Черепаха ждёт у разобранного компьютера.','Процессор остановлен. Поговори с Ремонтиком.','Кузница ждёт! Собери 8 сине-серых битов и подойди к верстаку.','Станция кодирования и три арки ждут тебя.','✦ Дверь открыта. Добро пожаловать в Сад открытий!'][route.to]);
   return true;
 }
 function goToIsland(index, message){
@@ -652,7 +652,7 @@ function act(button){
       const wasUnlocked=stage.unlocked;
       if(!placeTarget(stage,gi,selected))return;character.react();
       m.visible=false;addBlock(t.x,t.y,t.z,selected,gi);playPlacement();update();
-      if(stage.unlocked&&!wasUnlocked)notify(workshop?'Деревянная арка готова! Подойди к ней и нажми E.':stage.index===0?'✦ Портал открыт! Подойди к арке и нажми E.':'✦ Три арки готовы! Средняя арка открыла портал в кузницу — нажми E рядом с ней.');
+      if(stage.unlocked&&!wasUnlocked)notify(workshop?'Деревянная арка готова! Подойди к ней и нажми E.':stage.index===0?'✦ Портал открыт! Подойди к арке и нажми E.':'✦ Три арки готовы! Средняя арка открыла портал в сад — нажми E рядом с ней.');
       return;
     }
     if(button===2&&placed.includes(m)){
@@ -681,7 +681,7 @@ function restartWarning(){
   if(processorLab)return `Код вернётся в исходное состояние, портал закроется. Награда за ремонт (импульсный посох и ${LAB_REWARD_COINS} золотых монет) сбросится. Её можно будет получить снова.`;
   if(workshop)return 'Черепаха снова попросит о помощи. Ремонт компьютера, подарок черепахи и деревянная арка будут сброшены.';
   if(signalStation && stage.sentWood)return 'Сигнал, постройки и собранные на острове материалы будут сброшены.';
-  if(stage.locationId==='island.discovery-garden')return 'Вы вернётесь к началу сада. Врата кузницы останутся открыты.';
+  if(stage.locationId==='island.discovery-garden')return 'Вы вернётесь к началу сада. Прогресс других островов сохранится.';
   if(stage.locationId==='island.data-forge'){
     if(forgeState.crafted || forgeState.bits || forgeState.slots.some(Boolean))
       return 'Биты и байты в сумке, на верстаке и площадке будут сброшены. Врата придётся открыть заново.';

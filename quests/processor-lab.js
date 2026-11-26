@@ -1,5 +1,5 @@
 import { buildBitWall } from './processor-bit-wall.js?v=2';
-import { buildKeycapArch } from '../world/keycap-arch.js';
+import { buildKeycapArch } from '../world/keycap-arch.js?v=2';
 import { createRemontik } from '../world/remontik.js?v=3';
 import { buildProcessorSocket } from '../world/processor-socket.js';
 import { renderWorkOrder } from './work-order.js';
@@ -16,7 +16,7 @@ const repairOrder = {
   ],
   task: 'Подойди к стенду справа от процессора. Жезлом расставь кубы по образцу внизу экрана. Когда оба ряда совпадут, ядро запустится.',
   memo: 'В UTF-8 каждая буква русского алфавита, в том числе Б и ё, занимает два байта. В одном байте 8 бит. На стенде один ряд кубов — один байт.',
-  reward: `Импульсный посох, ${LAB_REWARD_COINS} золотых монет и проход через северный портал.`,
+  reward: `Импульсный посох, ${LAB_REWARD_COINS} золотых монет и проход в Кузницу байтов.`,
   action: 'К стенду',
 };
 
@@ -40,7 +40,7 @@ export function createProcessorLab({stage, box, player, dialog, pause, changed, 
   const body = dialog.querySelector('.field-body');
   function success() {
     dialog.querySelector('h2').textContent = 'Процессор запущен';
-    body.innerHTML = `<p>«Снова читаю команды! Спасибо, что восстановил мой код. За ремонт ты получил импульсный посох и ${LAB_REWARD_COINS} золотых монет».</p><p>В снаряжении выбери «Бой» → «Оружие» и надень импульсный посох.</p><p>Северный портал открыт. За ним — Остров трёх арок.</p><button type="button" class="field-primary">Продолжить</button>`;
+    body.innerHTML = `<p>«Снова читаю команды! Спасибо, что восстановил мой код. За ремонт ты получил импульсный посох и ${LAB_REWARD_COINS} золотых монет».</p><p>В снаряжении выбери «Бой» → «Оружие» и надень импульсный посох.</p><p>Северный портал открыт. За ним — Кузница байтов.</p><button type="button" class="field-primary">Продолжить</button>`;
     body.querySelector('button').onclick = ()=>dialog.close();
   }
   const wall = buildBitWall({stage,box,player,notify,launch(){

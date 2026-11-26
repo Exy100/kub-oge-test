@@ -33,9 +33,9 @@ const {chromium} = require('playwright');
         window.stepGame = () => frame(performance.now());
         window.atGate = forward => {
           if (forward) {
-            if (stage.index === 4) forge.state.unlocked = true;
+            if (forge) forge.state.unlocked = true;
             else stage.unlocked = true;
-            player.position.set([0,160,193,40,86][stage.index],0,[-1,-6,-7,-2,-4][stage.index]);
+            player.position.set([0,160,193,86,40][stage.index],0,[-1,-6,-7,-4,-2][stage.index]);
           } else player.position.set(returnGlow.position.x,0,returnGlow.position.z);
         };
       `}));
@@ -83,13 +83,13 @@ const {chromium} = require('playwright');
     await tick(100);
     await gate(true);
     await gate(true);
-    await gate(true);
     await button('#guide-button');
     await tick(3100);
     assert.deepEqual(await lines(),[first,second], 'an open window defers the brief');
     await button('.guide-close');
     await tick(16);
     assert.deepEqual(await lines(),[first,second,'Собери биты, создай четыре байта и выложи их у арки.']);
+    await gate(true);
     await gate(true);
     await tick(3000);
     assert.equal((await lines()).at(-1),'Исследуй Сад открытий.');
