@@ -28,6 +28,17 @@ export function buildInductionForge(scene, box, empty, byteModel) {
     box(x-side*.43,2.46,z,.15,.20,.21,ivory);
   }
   box(80,2.78,-3.76,2.22,.12,.17,slate);
+  box(80,2.78,-3.76,.46,.24,.34,brass);
+  cylinder(80,2.57,-3.76,.12,.19,ceramic);
+  // Feet, access panel and inset vents give the bench a readable front at eye level.
+  for(const dx of [-1.65,1.65]){
+    for(const dz of [-.91,.91])box(80+dx,.12,-3.24+dz,.49,.24,.50,slate);
+  }
+  box(79.74,.61,-2.058,2.42,.56,.06,slate);
+  box(79.74,.61,-2.012,2.22,.42,.04,0x749b90);
+  for(let i=0;i<6;i++)box(79.01+i*.29,.61,-1.984,.17,.19,.025,slate);
+  box(81.43,.58,-2.052,.43,.48,.07,brass);
+  box(81.43,.58,-2.005,.23,.28,.04,ivory);
   cylinder(80,1.18,-3.67,.48,.20,terminals);
   cylinder(80,1.31,-3.67,.36,.08,ceramic);
   const slots=[];
@@ -68,7 +79,7 @@ export function buildInductionForge(scene, box, empty, byteModel) {
   }
   const forming=byteModel.create();forming.visible=false;scene.add(forming);
   const sound=new Audio(new URL('../assets/audio/induction-forge.wav',import.meta.url).href);
-  sound.preload='none';sound.volume=.55;
+  sound.preload='auto';sound.volume=.55;
   let started=null;
   function stop(){
     started=null;sound.pause();forming.visible=false;
@@ -77,7 +88,7 @@ export function buildInductionForge(scene, box, empty, byteModel) {
   return {slots,button,targets:[...slots,button,arrows],busy:()=>started!==null,
     setReady(ready){indicator.color.setHex(ready?0x69bba3:0xb4784b);indicator.emissive.setHex(ready?0x225240:0)},
     start(){started=performance.now()/1000;sound.currentTime=0;sound.play().catch(()=>{})},
-    tick(time,reduced){
+    tick(time,reduced,waitingBytes){
       if(started===null)return false;
       const t=clamp((time-started)/duration);
       if(t>=1){stop();return true}
@@ -89,14 +100,16 @@ export function buildInductionForge(scene, box, empty, byteModel) {
         const pos=arc.geometry.attributes.position;
         for(let j=0;j<=9;j++){
           const bend=reduced?0:.052*Math.sin(Math.PI*j/9)*Math.sin(t*21+j*1.8+i);
-          for(const k of [2*j,2*j+1])pos.setY(k,rest[k*3+1]+bend);
+          const k=2*j;
+          pos.setY(k,rest[k*3+1]+bend);
+          pos.setY(k+1,rest[(k+1)*3+1]+bend);
         }
         pos.needsUpdate=true;
       });
       const grow=clamp((t-.37)/.36),travel=clamp((t-.74)/.26),ease=travel*travel*(3-2*travel);
       forming.visible=grow>0;
       forming.scale.setScalar(.12+.88*grow);
-      forming.position.set(80+2.5*ease,1.89-.46*ease+(reduced?0:.20*Math.sin(Math.PI*ease)),-3.67+1.27*ease);
+      forming.position.set(80+2.5*ease,1.89+(-.46+Math.floor(waitingBytes/2)*.72)*ease+(reduced?0:.20*Math.sin(Math.PI*ease)),-3.67+(1.27+(waitingBytes%2)*.8)*ease);
       forming.rotation.y=reduced?0:(1-ease)*grow*.8;
       return false;
     },stop};

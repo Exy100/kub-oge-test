@@ -23,7 +23,11 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
   const padMaterial=new THREE.MeshStandardMaterial({color:0xa99ab5,emissive:0x604970,emissiveIntensity:.15,roughness:.65});
   // The forge stays a workshop; the destination is now a separate ceremonial arch.
   box(76,2,-3,.6,4,6.5,0x819092,true);box(84,2,-3,.6,4,6.5,0x819092,true);
-  box(80,2,-6,8.6,4,.6,0x819092,true);box(80,4.1,-3,8.7,.45,6.8,0x526671,true);
+  box(80,2,-6,8.6,4,.6,0x819092,true);
+  // A roof opening lets the island's daylight reach the coils and their control deck.
+  box(80,4.1,-5.63,8.7,.45,1.54,0x526671,true);
+  box(80,4.1,.11,8.7,.32,.58,0x526671,true);
+  for(const x of [76.19,83.81])box(x,4.1,-2.51,1.08,.38,4.7,0x526671,true);
   const machine=buildInductionForge(scene,box,emptyMaterial,bytes);
   box(82.5,.45,-2,1.25,.9,1.6,0x7e6d82,true);box(82.5,.96,-2,1.35,.12,1.7,0xc9b88e,true);
   // Faceted pillars, warm inlays, a crown crystal and a translucent locked gate.
@@ -130,7 +134,7 @@ export function createForge({ scene, box, solids, state=createForgeState(), rema
         if(prompt.textContent!==hint)prompt.textContent=hint;
       }
       if(!active)return;
-      if(machine.tick(time,reduced) && craftByte(state)){
+      if(machine.tick(time,reduced,bytePickups.length) && craftByte(state)){
         spawnByte();spawnBits();refresh();notify('Байт готов! Забери куб с подставки справа.');
       }
       const second=Math.floor(time);
