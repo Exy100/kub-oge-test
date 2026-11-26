@@ -4,6 +4,37 @@ import { STAFF_ATTACK } from '../catalog/pulse-staff.js?v=2';
 const steps=32, sparks=8;
 const {windup,impact,effectEnd}=STAFF_ATTACK;
 
+// One local, depth-tested quad. The soft fringe expands as the contact spark falls away.
+function createContactFlash(){
+  const material=new THREE.ShaderMaterial({
+    transparent:true,depthWrite:false,
+    uniforms:{strength:{value:0},radius:{value:0}},
+    vertexShader:`uniform float radius; varying vec2 local;
+      void main(){
+        local=2.*uv-1.;
+        vec4 centre=modelViewMatrix*vec4(0.,0.,0.,1.);
+        float depth=max(0.,-centre.z);
+        centre.z+=min(.035,depth*.01);
+        centre.xy+=local*min(radius,depth*.042);
+        gl_Position=projectionMatrix*centre;
+      }`,
+    fragmentShader:`uniform float strength; varying vec2 local;
+      void main(){
+        float r=length(local);
+        float halo=1.-smoothstep(.10,1.,r);
+        float core=1.-smoothstep(.04,.28,r);
+        float ray=(1.-smoothstep(.015,.10,min(abs(local.x),abs(local.y))))*
+                  (1.-smoothstep(.12,.65,r));
+        vec3 color=mix(vec3(.32,.69,1.),vec3(.96,1.,1.),max(core,ray*.7));
+        gl_FragColor=vec4(color,strength*(.36*halo*halo+.47*core+.17*ray));
+        #include <colorspace_fragment>
+      }`,
+  });
+  const flash=new THREE.Mesh(new THREE.PlaneGeometry(1,1),material);
+  flash.name='staff-contact-flash';flash.visible=false;flash.frustumCulled=false;
+  return flash;
+}
+
 // Camera-facing ribbons keep their width on WebGL implementations limited to one-pixel lines.
 export function createTwinVein(scene){
   const positions=[],edges=[],indices=[],bands=[];
@@ -34,9 +65,9 @@ export function createTwinVein(scene){
       void main(){vEdge=edge;vBand=band;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.);}`,
     fragmentShader:`varying float vEdge,vBand; uniform float arcLight,sparkLight;
       void main(){
-        float r=abs(vEdge),core=1.-smoothstep(.09,.38,r);
-        vec3 blue=mix(vec3(.11,.28,.9),vec3(.35,.22,.94),step(.5,vBand));
-        vec3 col=mix(blue,vec3(.82,.94,1.),core);
+        float r=abs(vEdge),core=1.-smoothstep(.16,.52,r);
+        vec3 blue=mix(vec3(.22,.55,1.),vec3(.46,.38,1.),step(.5,vBand));
+        vec3 col=mix(blue,vec3(.94,.985,1.),core);
         float alpha=(1.-smoothstep(.35,1.,r))*mix(arcLight,sparkLight,step(1.5,vBand));
         gl_FragColor=vec4(col,alpha);
         #include <colorspace_fragment>
@@ -44,6 +75,7 @@ export function createTwinVein(scene){
   });
   const mesh=new THREE.Mesh(geometry,material);
   mesh.name='staff-double-vein';mesh.visible=false;mesh.frustumCulled=false;scene.add(mesh);
+  const flash=createContactFlash();mesh.add(flash);
   const origin=new THREE.Vector3(),end=new THREE.Vector3(),axis=new THREE.Vector3();
   const side=new THREE.Vector3(),across=new THREE.Vector3(),p=new THREE.Vector3();
   const eye=new THREE.Vector3(),view=new THREE.Vector3(),tangent=new THREE.Vector3(),width=new THREE.Vector3();
@@ -74,6 +106,13 @@ export function createTwinVein(scene){
     const arc=1-THREE.MathUtils.smoothstep(time,impact,.97);
     const age=Math.max(0,time-impact);
     const tail=(time>=impact?1:0)*(1-THREE.MathUtils.smoothstep(time,impact,effectEnd));
+    flash.visible=!reduced && time>=impact && age<.17;
+    if(flash.visible){
+      flash.position.copy(end);
+      const fade=THREE.MathUtils.smoothstep(age,.022,.17);
+      flash.material.uniforms.strength.value=(.54+.34*THREE.MathUtils.smoothstep(age,0,.022))*(1-fade);
+      flash.material.uniforms.radius.value=.12+.16*THREE.MathUtils.smoothstep(age,0,.17);
+    }
     material.uniforms.arcLight.value=arc;
     material.uniforms.sparkLight.value=tail*(reduced?.55:1);
     const amplitude=Math.min(.24,length*.059)*(reduced?.55:1);
@@ -109,6 +148,9 @@ export function createTwinVein(scene){
     launch(start,target){origin.copy(start);end.copy(target);phase=(phase+1.81)%(Math.PI*2)},
     impact(target){end.copy(target)},
     update,clear(){mesh.visible=false},
-    dispose(){mesh.removeFromParent();geometry.dispose();material.dispose()},
+    dispose(){
+      mesh.removeFromParent();geometry.dispose();material.dispose();
+      flash.geometry.dispose();flash.material.dispose();
+    },
   };
 }
