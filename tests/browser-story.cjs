@@ -175,8 +175,10 @@ for(let batch=0;batch<4;batch++){
    ]);
    assert(rest.cubes.length===8 && rest.cubes.every(n=>n===4),'32 floating cubes repeat the eight bits');
    assert(rest.target===false,'the core is only an invisible pickup target');
-   assert(rest.lift.every(v=>v>.7) && peak.lift.every(v=>v<.12),'loose cubes gather into a lattice');
-   assert(back.lift.every((v,i)=>Math.abs(v-rest.lift[i])<1e-6) && back.digits.every((v,i)=>v!==rest.digits[i]),'cubes drift apart again and change digits');
+   assert(rest.lift.every(v=>v===0) && peak.lift.every(v=>v>.32 && v<=.42),'a compact resting cube opens slightly at the peak');
+   const settled=await page.evaluate(()=>Array.from({length:96},(_,i)=>storyTest.byteDetails(i/10).lift).filter(bits=>bits.every(v=>v===0)).length);
+   assert(settled>=69,'all eight groups stay at home together for at least 6.9 seconds per cycle');
+   assert(back.lift.every((v,i)=>Math.abs(v-rest.lift[i])<1e-6) && back.digits.every((v,i)=>v!==rest.digits[i]),'cubes return to the lattice and change digits');
    assert(peak.height!==rest.height && peak.angle!==rest.angle,'crafted byte hovers and turns');
    assert(JSON.stringify(still)===JSON.stringify(stillLater),'byte remains still with reduced motion');
  }
