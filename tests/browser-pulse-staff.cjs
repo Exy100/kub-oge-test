@@ -37,14 +37,17 @@ const {chromium}=require('playwright');
           camera.position.copy(player.position);camera.position.y+=1.5;
           camera.lookAt(bug.position.x,.8,bug.position.z);
         },
-        sample(dt,third){
+        sample(dt,third,active=true,reducedMotion=false){
           character.animate(dt,{time:1});
           player.visible=third;
-          gathering.update(dt,1,{active:true,third,tool:bag.loadouts.battle.weapon});
+          gathering.update(dt,1,{active,third,reducedMotion,tool:bag.loadouts.battle.weapon});
           renderer.render(scene,camera);gathering.render();
           const model=(third?player:gathering.viewScene).getObjectByName(STAFF_ID);
           return {hp:stage.repair.bugs[1].hp,visible:model.visible,
-            fill:model.children.find(o=>o.material?.isShaderMaterial).material.uniforms.fill.value};
+            fill:model.getObjectByName('staff-sapphire').material.uniforms.fill.value};
+        },
+        glint(third){
+          return (third?player:gathering.viewScene).getObjectByName('staff-sapphire').material.uniforms.time.value;
         },
         visibleBolt(){return scene.getObjectByName('staff-double-vein').visible},
         obstruct(){box(stage.center,1,7,1,2,.5,0x666666,true);scene.updateMatrixWorld(true)},
@@ -61,6 +64,13 @@ const {chromium}=require('playwright');
     await page.keyboard.press('Escape');
     const sample=(dt,third=false)=>page.evaluate(([dt,third])=>staffTest.sample(dt,third),[dt,third]);
     assert.deepEqual(await sample(0),{hp:10,visible:true,fill:1});
+    await page.evaluate(()=>staffTest.sample(.25,false));
+    const glint=await page.evaluate(()=>staffTest.glint(false));
+    assert.ok(glint>0);
+    await page.evaluate(()=>staffTest.sample(.5,true,false));
+    assert.equal(await page.evaluate(()=>staffTest.glint(true)),glint,'opening a menu freezes the shimmer');
+    await page.evaluate(()=>staffTest.sample(.5,true,true,true));
+    assert.equal(await page.evaluate(()=>staffTest.glint(true)),0,'reduced motion stills the glint');
     await page.keyboard.press('1');
     assert.equal((await sample(.12)).hp,10);
     const fired=await sample(.07);
