@@ -1,6 +1,6 @@
 import { buildBitWall } from './processor-bit-wall.js?v=2';
 import { buildKeycapArch } from '../world/keycap-arch.js?v=2';
-import { createRemontik } from '../world/remontik.js?v=3';
+import { createRemontik } from '../world/remontik.js?v=4';
 import { buildProcessorSocket } from '../world/processor-socket.js';
 import { renderWorkOrder } from './work-order.js';
 
