@@ -152,6 +152,7 @@ export function buildInductionForge(scene, box, empty, byteModel) {
       discharge.update(t,reduced);
       const grow=clamp((t-.41)/.27),travel=clamp((t-.74)/.26),ease=travel*travel*(3-2*travel);
       forming.visible=grow>0;
+      if(forming.visible)byteModel.animate(forming,time,reduced);
       forming.scale.setScalar(.10+.90*grow+(reduced?0:.13*Math.sin(Math.PI*clamp((t-.67)/.13))));
       forming.position.set(80+2.5*ease,1.89+(-.46+Math.floor(waitingBytes/2)*.72)*ease+(reduced?0:.20*Math.sin(Math.PI*ease)),-3.67+(1.27+(waitingBytes%2)*.8)*ease);
       forming.rotation.y=reduced?0:Math.PI*.72*(1-grow)+(1-ease)*grow*.23;
