@@ -35,7 +35,7 @@ function bitGeometries() {
   let index=0;
   for(let y=0;y<4;y++) for(let z=0;z<4;z++) for(let x=0;x<4;x++) {
     if((x+y+z)%2)continue;
-    const bit=(index*5+Math.floor(index/8)*3)%8;
+    const bit=(x>>1)+2*(z>>1)+4*(y>>1);
     const group=groups[bit];
     const home=new THREE.Vector3(x-1.5,y-1.5,z-1.5).multiplyScalar(.123);
     const phase=++index*2.39996;
@@ -66,21 +66,44 @@ function bitGeometries() {
   });
 }
 
+// Four neighbouring cubes form a corner piece. Keep the poses at the start of
+// each turn so every byte can be sampled at any time, including after travel.
+function sliceTurns() {
+  const axes=[new THREE.Vector3(0,1,0),new THREE.Vector3(1,0,0),new THREE.Vector3(0,0,1)];
+  const corners=Array.from({length:8},(_,i)=>new THREE.Vector3(i&1?1:-1,i&4?1:-1,i&2?1:-1));
+  const poses=corners.map(()=>new THREE.Quaternion());
+  const direction=new THREE.Vector3();
+  return [1,-2,3,-3,2,-1].map(move=>{
+    const axis=axes[Math.abs(move)-1], angle=Math.sign(move)*Math.PI/2;
+    const turn=new THREE.Quaternion().setFromAxisAngle(axis,angle);
+    const start=poses.map(q=>q.clone());
+    const moving=corners.map((corner,i)=>direction.copy(corner).applyQuaternion(start[i]).dot(axis)>0);
+    for(let i=0;i<poses.length;i++)if(moving[i])poses[i].premultiply(turn);
+    return {axis,angle,start,moving};
+  });
+}
+
 export function createByteFactory() {
   const geometry=bitGeometries();
   const digits=[bitFinish(0),bitFinish(1)];
   // Catch a click through the gaps at the centre of the floating cubes.
   const target=new THREE.BoxGeometry(.43,.43,.43);
   const invisible=new THREE.MeshBasicMaterial({visible:false});
+  const turns=sliceTurns(), rotation=new THREE.Quaternion();
   function animate(root,time,reduced=false) {
     const t=reduced?0:time, cluster=root.children[0];
     cluster.rotation.y=.32+.20*Math.sin(t*.39);
     cluster.position.y=.025+.014*Math.sin(t*1.15);
+    const beat=t/1.6;
+    const turn=turns[Math.floor(beat)%turns.length];
+    const progress=beat-Math.floor(beat);
+    rotation.setFromAxisAngle(turn.axis,turn.angle*progress*progress*(3-2*progress));
     cluster.children.forEach((bit,i)=>{
-      // A short, staggered excursion leaves the cubic silhouette settled for most of the cycle.
-      const cycleTime=(t-i*.04)%9.6;
-      const pulse=Math.max(0,1-Math.abs(cycleTime-4.8)/1.2);
-      bit.morphTargetInfluences[0]=.42*pulse*pulse*(3-2*pulse);
+      bit.quaternion.copy(turn.start[i]);
+      if(turn.moving[i])bit.quaternion.premultiply(rotation);
+      // Small ripples pass from corner to corner while the layer turns.
+      const ripple=.5+.5*Math.sin(t*Math.PI/1.2+i*2.4);
+      bit.morphTargetInfluences[0]=reduced?0:.035+.19*ripple*ripple;
       const flips=Math.floor((t+i*1.2)/9.6);
       bit.material=digits[((0x59>>i)+flips)&1];
     });

@@ -52,6 +52,7 @@ window.storyTest={
    return {
      cubes:shell.children.map(bit=>bit.geometry.attributes.position.count/36),
      target:forge.bytePickups[0].children[1].material.visible,
+     turns:shell.children.map(bit=>bit.quaternion.toArray()),
      lift:shell.children.map(bit=>bit.morphTargetInfluences[0]),
      digits:shell.children.map(bit=>bit.material.uuid),
      height:shell.position.y, angle:shell.rotation.y,
@@ -170,15 +171,15 @@ for(let batch=0;batch<4;batch++){
  f=await page.evaluate(()=>storyTest.forgeSnapshot());assert(f.bytes===0&&f.pending===1&&f.crafted===batch+1,'one crafted byte waits on tray');
  if(batch===0){
    const [rest,peak,back,still,stillLater]=await page.evaluate(()=>[
-     storyTest.byteDetails(0),storyTest.byteDetails(4.8),storyTest.byteDetails(9.6),
+     storyTest.byteDetails(0),storyTest.byteDetails(.8),storyTest.byteDetails(9.6),
      storyTest.byteDetails(22,true),storyTest.byteDetails(48,true),
    ]);
    assert(rest.cubes.length===8 && rest.cubes.every(n=>n===4),'32 floating cubes repeat the eight bits');
    assert(rest.target===false,'the core is only an invisible pickup target');
-   assert(rest.lift.every(v=>v===0) && peak.lift.every(v=>v>.32 && v<=.42),'a compact resting cube opens slightly at the peak');
-   const settled=await page.evaluate(()=>Array.from({length:96},(_,i)=>storyTest.byteDetails(i/10).lift).filter(bits=>bits.every(v=>v===0)).length);
-   assert(settled>=69,'all eight groups stay at home together for at least 6.9 seconds per cycle');
-   assert(back.lift.every((v,i)=>Math.abs(v-rest.lift[i])<1e-6) && back.digits.every((v,i)=>v!==rest.digits[i]),'cubes return to the lattice and change digits');
+   const quarterSlice=peak.turns.filter(q=>Math.abs(q[1]-Math.sin(Math.PI/8))<1e-6);
+   assert(quarterSlice.length===4 && peak.turns.filter(q=>q[3]===1).length===4,'one complete layer turns together');
+   assert(peak.lift.every(v=>v<.23) && peak.lift.some((v,i)=>Math.abs(v-rest.lift[i])>.05),'bits ripple locally without scattering');
+   assert(back.turns.every(q=>Math.abs(q[3]-1)<1e-6) && back.digits.every((v,i)=>v!==rest.digits[i]),'inverse turns restore the lattice as digits change');
    assert(peak.height!==rest.height && peak.angle!==rest.angle,'crafted byte hovers and turns');
    assert(JSON.stringify(still)===JSON.stringify(stillLater),'byte remains still with reduced motion');
  }
