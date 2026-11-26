@@ -15,9 +15,14 @@ const {chromium}=require('playwright');
     page.on('console',m=>{if(/shader error|validate_status false/i.test(m.text()))errors.push(m.text())});
     await page.addInitScript(()=>{
       window.staffSounds=[];
+      window.finishedStaffSounds=new Set();
       const play=HTMLMediaElement.prototype.play;
       HTMLMediaElement.prototype.play=function(){
-        if(this.src.includes('twin-vein-'))staffSounds.push(this.src.split('/').pop());
+        if(this.src.includes('twin-vein-')){
+          const name=this.src.split('/').pop();
+          staffSounds.push(name);
+          this.addEventListener('ended',()=>finishedStaffSounds.add(name),{once:true});
+        }
         return play.call(this);
       };
       requestAnimationFrame=()=>0;localStorage.setItem('kub.navigator.v1','27')});
@@ -80,9 +85,10 @@ const {chromium}=require('playwright');
       await page.keyboard.press('1');
       await sample(.43);
     }
-    const impacts=await page.evaluate(()=>staffSounds.filter(name=>name.includes('discharge')));
-    assert.deepEqual(impacts,['twin-vein-discharge.wav','twin-vein-discharge-2.wav',
-      'twin-vein-discharge-3.wav','twin-vein-discharge.wav']);
+    const impacts=['twin-vein-discharge.wav','twin-vein-discharge-2.wav',
+      'twin-vein-discharge-3.wav','twin-vein-discharge.wav'];
+    assert.deepEqual(await page.evaluate(()=>staffSounds),impacts.flatMap(name=>['twin-vein-launch.wav',name]));
+    await page.waitForFunction(()=>finishedStaffSounds.size===4,null,{polling:50,timeout:8000});
     await page.evaluate(()=>staffTest.resetLab());
     await page.click('#reset');await page.click('#restart-confirm');
     assert.equal(await page.locator('.combat-slot').first().locator('span').textContent(),'Удар');

@@ -1,4 +1,4 @@
-import { STAFF_ID, STAFF_ATTACK } from './catalog/pulse-staff.js?v=2';
+import { STAFF_ID, STAFF_ATTACK, STAFF_SOUNDS } from './catalog/pulse-staff.js?v=3';
 import { timberMaterial } from './world/timber.js';
 import { newRepair, repairBrief, hasArchWood, createWorkshop } from './quests/workshop.js?v=19';
 import { createProcessorLab, WEAPON_KIT } from './quests/processor-lab.js?v=10';
@@ -184,8 +184,8 @@ function buildSound(filename) {
 }
 const playPickup = buildSound('pickup.wav');
 const playPlacement = buildSound('place.wav');
-const playStaffLaunch = buildSound('twin-vein-launch.wav');
-const staffDischarges = ['', '-2', '-3'].map(suffix => buildSound('twin-vein-discharge'+suffix+'.wav'));
+const playStaffLaunch = buildSound(STAFF_SOUNDS.launch);
+const staffDischarges = STAFF_SOUNDS.impacts.map(buildSound);
 let nextStaffDischarge = 0;
 
 function onCollect(mesh){
