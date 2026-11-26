@@ -1,4 +1,4 @@
-import { equipmentSlots, fitsEquipment } from './player-inventory.js?v=6';
+import { equipmentSlots, fitsEquipment } from './player-inventory.js?v=7';
 
 function element(tag, className, value) {
   const node = document.createElement(tag);

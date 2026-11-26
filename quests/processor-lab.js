@@ -4,6 +4,9 @@ import { createRemontik } from '../world/remontik.js?v=3';
 import { buildProcessorSocket } from '../world/processor-socket.js';
 import { renderWorkOrder } from './work-order.js';
 
+import { STAFF_ID } from '../catalog/pulse-staff.js';
+
+export const LAB_REWARD_COINS = 15;
 const repairOrder = {
   heading: 'Наряд на ремонт',
   title: 'Перезапуск ядра',
@@ -13,12 +16,9 @@ const repairOrder = {
   ],
   task: 'Подойди к стенду справа от процессора. Жезлом расставь кубы по образцу внизу экрана. Когда оба ряда совпадут, ядро запустится.',
   memo: 'В UTF-8 каждая буква русского алфавита, в том числе Б и ё, занимает два байта. В одном байте 8 бит. На стенде один ряд кубов — один байт.',
-  reward: 'Оружейный набор и проход через северный портал.',
+  reward: `Импульсный посох, ${LAB_REWARD_COINS} золотых монет и проход через северный портал.`,
   action: 'К стенду',
 };
-
-import { WEAPON_KIT } from '../catalog/pulse-staff.js';
-export { WEAPON_KIT };
 
 export function createProcessorLab({stage, box, player, dialog, pause, changed, canStore, notify}) {
   const x = stage.center;
@@ -40,11 +40,11 @@ export function createProcessorLab({stage, box, player, dialog, pause, changed, 
   const body = dialog.querySelector('.field-body');
   function success() {
     dialog.querySelector('h2').textContent = 'Процессор запущен';
-    body.innerHTML = '<p>«Снова читаю команды! Спасибо, что восстановил мой код. Оружейный набор теперь у тебя в рюкзаке».</p><p>В снаряжении выбери «Бой» → «Оружие» и надень импульсный посох.</p><p>Северный портал открыт. За ним — Остров трёх арок.</p><button type="button" class="field-primary">Продолжить</button>';
+    body.innerHTML = `<p>«Снова читаю команды! Спасибо, что восстановил мой код. За ремонт ты получил импульсный посох и ${LAB_REWARD_COINS} золотых монет».</p><p>В снаряжении выбери «Бой» → «Оружие» и надень импульсный посох.</p><p>Северный портал открыт. За ним — Остров трёх арок.</p><button type="button" class="field-primary">Продолжить</button>`;
     body.querySelector('button').onclick = ()=>dialog.close();
   }
   const wall = buildBitWall({stage,box,player,notify,launch(){
-    if(!canStore(WEAPON_KIT)){
+    if(!canStore(STAFF_ID)){
       notify('Освободи место в рюкзаке и нажми E у доски.');
       return;
     }

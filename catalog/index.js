@@ -6,12 +6,9 @@ import { tools } from './tools.js?v=3';
 import { trees } from './trees.js';
 import { createCatalog } from './registry.js?v=3';
 
-import { pulseStaff, WEAPON_KIT } from './pulse-staff.js';
+import { pulseStaff } from './pulse-staff.js';
 
-export const catalog = createCatalog([...resources, ...pcParts, ...tools, ...keys, ...trees, orangeBug, greenBug, pulseStaff, {
-  id:WEAPON_KIT, type:'reward', kind:'reward', category:'Награда', glyph:'▣',
-  name:'Оружейный набор', description:'Набор из лаборатории процессора. Импульсный посох доступен в боевом снаряжении.',
-}]);
+export const catalog = createCatalog([...resources, ...pcParts, ...tools, ...keys, ...trees, orangeBug, greenBug, pulseStaff]);
 export const BUILD_MATERIALS = Object.freeze(catalog.list('resource')
   .filter(item => item.materialSlot !== undefined).sort((a,b) => a.materialSlot - b.materialSlot));
 

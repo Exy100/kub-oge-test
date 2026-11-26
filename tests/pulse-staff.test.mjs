@@ -3,14 +3,16 @@ import assert from 'node:assert/strict';
 import * as THREE from '../vendor/three.module.js';
 import {createPlayerInventory} from '../player-inventory.js';
 import {createPulseStaff,createStaffCycle} from '../world/pulse-staff.js';
-import {STAFF_ID,WEAPON_KIT,STAFF_ATTACK} from '../catalog/pulse-staff.js';
+import {STAFF_ID,STAFF_ATTACK} from '../catalog/pulse-staff.js';
 import {createTwinVein} from '../world/twin-vein.js';
 
-test('the kit unlocks a battle-only staff without using another bag cell',()=>{
+test('the lab reward is one real staff in the bag and equips only in battle',()=>{
   let quantity=0;
-  const bag=createPlayerInventory(()=>[{id:WEAPON_KIT,quantity}]);
+  const bag=createPlayerInventory(()=>[{id:STAFF_ID,quantity}]);
   assert.equal(bag.equip('battle','weapon',STAFF_ID),false);
   quantity=1;
+  assert.deepEqual(bag.items().filter(item=>item.kind==='weapon').map(item=>[item.id,item.quantity]),[[STAFF_ID,1]]);
+  assert.deepEqual(bag.equipmentItems(),bag.items());
   assert.equal(bag.cells().filter(Boolean).length,2);
   assert.equal(bag.equip('build','tool',STAFF_ID),false);
   assert.equal(bag.equip('battle','weapon',STAFF_ID),true);
