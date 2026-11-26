@@ -19,13 +19,28 @@ function grain(ctx,w,h,count,alpha){
   }
 }
 
-export function brushedFinish(color,metalness=.32){
+// The open roof, shadowed beams and pale worktop reflected in the machine's bare metals.
+export function forgeReflection(){
+  const texture=surface(256,128,(ctx,w,h)=>{
+    const sky=ctx.createLinearGradient(0,0,0,h);
+    for(const [at,color] of [[0,'#c5dfed'],[.27,'#e0efed'],[.44,'#50656b'],[.53,'#273638'],[.77,'#a49b7e'],[1,'#686958']]){
+      sky.addColorStop(at,color);
+    }
+    ctx.fillStyle=sky;ctx.fillRect(0,0,w,h);
+    ctx.fillStyle='#fcfaf0';ctx.fillRect(18,13,59,49);ctx.fillRect(151,16,33,40);
+    ctx.fillStyle='#33454b';ctx.fillRect(44,13,5,49);ctx.fillRect(0,39,w,4);
+  });
+  texture.mapping=THREE.EquirectangularReflectionMapping;
+  return texture;
+}
+
+export function brushedFinish(color,metalness=.32,roughness=.48,envMap=null){
   const map=surface(256,128,(ctx,w,h)=>{
     const g=ctx.createLinearGradient(0,0,w*.3,h);
     g.addColorStop(0,'#efede4');g.addColorStop(.28,'#fffef7');g.addColorStop(.63,'#e1e3dc');g.addColorStop(1,'#f6f2e6');
     ctx.fillStyle=g;ctx.fillRect(0,0,w,h);grain(ctx,w,h,1300,.12);
   });
-  return new THREE.MeshStandardMaterial({color,map,metalness,roughness:.48});
+  return new THREE.MeshStandardMaterial({color,map,metalness,roughness,envMap});
 }
 
 export function ventCover(){
