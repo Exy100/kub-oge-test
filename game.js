@@ -19,7 +19,7 @@ import { createPlayerPanel } from './player-panel.js?v=43';
 import * as THREE from './vendor/three.module.js';
 import { createCharacter } from './character.js?v=20';
 import { createPhysicsState, movePlayer } from './physics.js?v=5';
-import { createForge } from './forge.js?v=18';
+import { createForge } from './forge.js?v=19';
 import { EXPLORER, loadAppearance } from './appearance.js?v=12';
 import { createCustomizer } from './customizer.js?v=20';
 import { createFollowState, followCamera } from './follow-camera.js?v=2';
@@ -203,7 +203,7 @@ const fieldDialog=$('#workshop-dialog');
 fieldDialog.querySelector('.paths-heading button').onclick=()=>fieldDialog.close();
 const restartDialog=$('#restart-dialog');
 let restartStage=null, extraDialog=null;
-function modalOpen(){return fieldDialog.open||skillList.open||scanDialog.open||extraDialog?.open||restartDialog.open||forge?.isOpen()||customizer.isOpen()||panel.isOpen()}
+function modalOpen(){return fieldDialog.open||skillList.open||scanDialog.open||extraDialog?.open||restartDialog.open||customizer.isOpen()||panel.isOpen()}
 
 const messageBox=$('#message');
 let messageTimer;
@@ -334,8 +334,7 @@ function enterIsland(next) {
   }
   if (stage.locationId === 'island.data-forge') {
     forge = createForge({scene:island, box, solids, state:forgeState, remainingBits:stage.remainingBits,
-      canStore:hasBagRoom, onCollect, onPlace:playPlacement, notify, onChange:update,
-      onOpen(){document.exitPointerLock?.();Object.keys(keys).forEach(k=>keys[k]=false);jumpRequested=false;dragging=false;}});
+      canStore:hasBagRoom, onCollect, onPlace:playPlacement, notify, onChange:update});
     cameraObstacles.push(...forge.cameraObstacles);
   }
   refreshStrike();
@@ -425,7 +424,7 @@ function refreshMission(){
   controlStrip.querySelector('.forge-hint').hidden=stage.locationId!=='island.data-forge';
   const interact=controlStrip.querySelector('.interact-hint');
   interact.hidden=stage.arches.length>0 && !workshop;
-  interact.lastElementChild.textContent=workshop?'Черепаха / детали / портал':processorLab?'Ремонтик / портал':stage.locationId==='island.data-forge'?'Верстак / портал':'Вернуться через портал';
+  interact.lastElementChild.textContent=workshop?'Черепаха / детали / портал':processorLab?'Ремонтик / портал':stage.locationId==='island.data-forge'?'Портал':'Вернуться через портал';
   select(selected);update();
 }
 function update(){
@@ -594,7 +593,7 @@ addEventListener('keydown',e=>{
     }
     if (workshop?.interact() || signalStation?.interact() || processorLab?.interact()){e.preventDefault();return}
     if (!panel.isBattle() && scanner?.interact('open')) return;
-    if(!travel()&&stage.locationId==='island.data-forge')forge.open(player.position);
+    travel();
     return;
   }
   if(['Space','KeyW','KeyA','KeyS','KeyD'].includes(e.code))e.preventDefault();
@@ -637,7 +636,7 @@ function act(button){
     }
   }
   if(workshop && !stage.repair.axe)return;
-  if(!stage.arches.length){if(stage.locationId==='island.data-forge'&&button===0&&forge.collect(ray,player.position))character.react();return}
+  if(!stage.arches.length){if(forge && (button===0 || button===2) && forge.collect(ray,player.position,button===2))character.react();return}
   const {pickups,ghosts,placed,targets}=stage;
   const objects=[...pickups,...ghosts.filter(m=>m.visible),...placed];
   const hits=ray.intersectObjects(objects,false).filter(h=>h.object.position.distanceTo(player.position)<6);
@@ -769,7 +768,7 @@ scanner?.update(now,active && !document.hidden && !third && !panel.isBattle(),re
 panel.updatePortal(nearbyRoute(),active&&!document.hidden,now);
 simpleArchEffect?.update(now, reducedHandMotion.matches);
 if (returnGlow) returnGlow.material.opacity=.4+Math.sin(now*.002)*.12;
-forge?.update(player.position,now/1000,$('#welcome').classList.contains('hidden')&&!skillList.open&&!scanDialog.open&&!extraDialog?.open&&!restartDialog.open&&!customizer.isOpen()&&!panel.isOpen());
+forge?.update(player.position,now/1000,active && !document.hidden,!panel.isBattle(),reducedHandMotion.matches);
 panel.update(dt,now/1000,active);
 const combatWand=panel.isBattle() && bag.loadouts.battle.weapon==='wand';
 const nearbyWall=worldWall();
